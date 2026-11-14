@@ -53,6 +53,7 @@ enum class BottomNavTab(val label: String) {
 enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
     CATEGORIES_CONTRACTS("Kategorien, Sparziele & Verträge"),
+    TEST_LAB("Beispieldaten & Test-Labor"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen & Demo-Daten"),
     HELP_CHANGELOG("Hilfe, Features & Was ist neu?"),
