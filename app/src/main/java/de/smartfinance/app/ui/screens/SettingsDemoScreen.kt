@@ -11,11 +11,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -63,18 +70,30 @@ fun SettingsDemoScreen(
         // 1. Abrechnungs-Starttag (1., 15. oder 28.)
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "📅 Abrechnungs-Starttag im Monat",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarMonth,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Abrechnungs-Starttag im Monat",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Text(
                         text = "Lege fest, an welchem Kalendertag dein Finanzmonat startet (z. B. Gehaltseingang am 1., 15. oder 28.).",
                         style = MaterialTheme.typography.bodySmall,
@@ -101,20 +120,32 @@ fun SettingsDemoScreen(
         // 2. Netto-Stundenlohn für den Arbeitsstunden-Umrechner (Standard: 15,75 €)
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Netto-Stundenlohn (Arbeitsstunden-Umrechner)",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Text(
-                        text = "⏱️ Netto-Stundenlohn (Arbeitsstunden-Umrechner)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Wird im KI-Chat beim 'Was-wäre-wenn'-Simulator (z. B. 'Check: 85 €') genutzt, um Preise direkt in deine Netto-Arbeitszeit umzurechnen (Standardwert: 15,75 €/Std.).",
+                        text = "Wird im KI-Coach beim 'Was-wäre-wenn'-Simulator (z. B. 'Check: 85 €') genutzt, um Preise direkt in deine Netto-Arbeitszeit umzurechnen (Standardwert: 15,75 €/Std.).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -153,18 +184,30 @@ fun SettingsDemoScreen(
         // 3. Historischer Vergleichs-Zeitraum (3 / 6 / 12 Monate)
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "📊 Historischer Monatsdurchschnitt im Header",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Analytics,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Historischer Monatsdurchschnitt im Analysen-Tab",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -185,18 +228,30 @@ fun SettingsDemoScreen(
         // 4. 1-Tap Demo-Daten-Generator & Reset
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "🧪 1-Tap Demo-Daten-Generator & Reset",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Science,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "1-Tap Demo-Daten-Generator & Reset",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Text(
                         text = "Erzeugt mit 1 Tap 6 Monate realistische Test-Buchungen mit verteilten Abbuchungstagen am 1., 5., 15., 20. und 28. des Monats (inkl. 1/12-Kfz-Versicherungsglättung, 30-Tage-Vertragswecker und Schleichende-Kosten-Anomalie) zum sofortigen Testen der Belastungswelle und der KI-Durchschnitte.",
                         style = MaterialTheme.typography.bodySmall,
@@ -207,7 +262,7 @@ fun SettingsDemoScreen(
                         onClick = onGenerateSixMonthsDemo,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🚀 6 Monate Demo-Daten generieren")
+                        Text("6 Monate Demo-Daten generieren")
                     }
 
                     OutlinedButton(
@@ -217,7 +272,7 @@ fun SettingsDemoScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🧹 Alle Daten zurücksetzen (Reset)")
+                        Text("Alle Daten zurücksetzen (Reset)")
                     }
                 }
             }

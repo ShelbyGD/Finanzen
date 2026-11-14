@@ -47,12 +47,6 @@ import de.smartfinance.app.domain.SmartFinanceEngine
 import kotlin.math.ln
 import kotlin.math.max
 
-/**
- * Grafische Monats-Belastungswelle (Jetpack Compose Canvas Bar/Wave-Chart).
- * Visualisiert die Tage 1 bis 31 des Monats, hebt hohe Abbuchungsspitzen (Peaks)
- * farblich hervor und trennt per vertikaler "Heute"-Markierungslinie bereits
- * erledigte Abbuchungen (links) von noch kommenden Lastschriften (rechts).
- */
 @Composable
 fun CashflowWaveChart(
     dayPoints: List<DayLoadPoint>,
@@ -71,15 +65,14 @@ fun CashflowWaveChart(
     }
 
     val textMeasurer = rememberTextMeasurer()
-    val settledColor = Color(0xFF10B981) // Smaragdgrün (erledigt)
-    val upcomingColor = Color(0xFF38BDF8) // Cyanblau (offen)
-    val peakColor = Color(0xFFF59E0B) // Bernstein/Orange (Belastungs-Peak)
-    val todayLineColor = Color(0xFFEF4444) // Korallenrot (Heute-Trennlinie)
+    val settledColor = Color(0xFF10B981)
+    val upcomingColor = Color(0xFF00ACC1)
+    val peakColor = Color(0xFFF59E0B)
+    val todayLineColor = Color(0xFFEF4444)
     val waveStrokeColor = MaterialTheme.colorScheme.primary
     val labelTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Legende (Erledigt | Offen | Peak | Heute-Linie)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -93,19 +86,18 @@ fun CashflowWaveChart(
             LegendDot(color = todayLineColor, label = "Heute-Linie")
         }
 
-        // Canvas Bar + Smooth Wave Chart (Tag 1 bis 31)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(175.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .height(185.dp)
+                .clip(RoundedCornerShape(14.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f))
                 .padding(horizontal = 8.dp, vertical = 10.dp)
         ) {
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(155.dp)
+                    .height(165.dp)
                     .pointerInput(dayPoints) {
                         detectTapGestures { tapOffset ->
                             val count = dayPoints.size
@@ -123,10 +115,8 @@ fun CashflowWaveChart(
                 val chartHeight = (chartBottom - chartTop).coerceAtLeast(10f)
                 val slotWidth = size.width / count.toFloat()
 
-                // Logarithmisch gedämpfte Skalierung, damit sowohl 30-€-Peaks (Handy) als auch 1.100-€-Peaks (Miete) klar sichtbar sind
                 val maxScaledLoad = dayPoints.maxOfOrNull { scaledValue(it.totalLoad) }?.coerceAtLeast(1f) ?: 1f
 
-                // 1. Drittel-Trennlinien (Tag 10 & Tag 20)
                 listOf(10, 20).forEach { dividerDay ->
                     if (dividerDay < count) {
                         val x = dividerDay * slotWidth
@@ -140,7 +130,6 @@ fun CashflowWaveChart(
                     }
                 }
 
-                // 2. Wellen-Pfad (Smooth Bézier Curve) über alle 31 Tage berechnen
                 val wavePath = Path()
                 val fillPath = Path()
                 val pointCoords = dayPoints.mapIndexed { idx, pt ->
@@ -185,7 +174,6 @@ fun CashflowWaveChart(
                     )
                 }
 
-                // 3. Tages-Balken & Peak-Marker zeichnen
                 dayPoints.forEachIndexed { idx, pt ->
                     val cx = idx * slotWidth + slotWidth / 2f
                     val ratio = (scaledValue(pt.totalLoad) / maxScaledLoad).coerceIn(0f, 1f)
@@ -212,7 +200,6 @@ fun CashflowWaveChart(
                         cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
                     )
 
-                    // Hervorhebung für den angetippten Tag
                     if (selectedDayPoint?.dayOfMonth == pt.dayOfMonth) {
                         drawCircle(
                             color = barColor,
@@ -221,7 +208,6 @@ fun CashflowWaveChart(
                         )
                     }
 
-                    // X-Achsen-Tageslabels (1., 5., 10., 15., 20., 25., 28., Monatsende)
                     if (pt.dayOfMonth in listOf(1, 5, 10, 15, 20, 25, 28, count)) {
                         val textLayout = textMeasurer.measure(
                             text = "${pt.dayOfMonth}.",
@@ -241,7 +227,6 @@ fun CashflowWaveChart(
                     }
                 }
 
-                // 4. Vertikale "HEUTE"-Markierungslinie
                 val todayIdx = dayPoints.indexOfFirst { it.isToday }
                 if (todayIdx >= 0) {
                     val todayX = todayIdx * slotWidth + slotWidth / 2f
@@ -272,7 +257,6 @@ fun CashflowWaveChart(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Monatsdrittel-Auswertung (Anfang 1–10 | Mitte 11–20 | Ende 21–31)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -297,19 +281,18 @@ fun CashflowWaveChart(
             )
         }
 
-        // Detail-Anzeige für den ausgewählten Tag beim Antippen im Diagramm
         selectedDayPoint?.let { pt ->
             Spacer(modifier = Modifier.height(8.dp))
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     val statusTag = when {
-                        pt.isToday -> "📍 Heute (Tag ${pt.dayOfMonth})"
-                        pt.isPastOrToday -> "✅ Tag ${pt.dayOfMonth} (Bereits gebucht)"
-                        else -> "⏳ Tag ${pt.dayOfMonth} (Geplante Abbuchung)"
+                        pt.isToday -> "Heute (Tag ${pt.dayOfMonth})"
+                        pt.isPastOrToday -> "Tag ${pt.dayOfMonth} (Bereits gebucht)"
+                        else -> "Tag ${pt.dayOfMonth} (Geplante Abbuchung)"
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -393,7 +376,7 @@ private fun MonthThirdChip(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = if (isHighest && amount > 0.0) "🔥 $title" else title,
+                text = title,
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

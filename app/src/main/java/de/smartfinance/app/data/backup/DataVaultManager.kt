@@ -216,7 +216,7 @@ class DataVaultManager(
                     QuickTemplateEntity(
                         id = obj.optLong("id", 0L),
                         label = obj.getString("label"),
-                        emoji = obj.optString("emoji", "💳"),
+                        emoji = obj.optString("emoji", "cart"),
                         amount = obj.getDouble("amount"),
                         categoryId = obj.optLong("categoryId", 1L),
                         categoryName = obj.optString("categoryName", "Lebensmittel"),

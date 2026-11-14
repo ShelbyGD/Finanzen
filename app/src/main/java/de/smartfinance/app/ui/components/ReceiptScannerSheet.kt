@@ -14,14 +14,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -44,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import de.smartfinance.app.data.local.CategoryTabEntity
-import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.domain.OcrReceiptResult
 import de.smartfinance.app.domain.SmartFinanceEngine
 import kotlinx.coroutines.launch
@@ -52,10 +58,6 @@ import java.io.File
 import java.time.LocalDate
 import java.util.Locale
 
-/**
- * Offline Beleg-Scanner (Google ML Kit OCR On-Device) im daumenfreundlichen ModalBottomSheet.
- * Unterstützt Kamera-Foto, Galerie-Auswahl sowie einen integrierten Kassenbon-Simulator.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReceiptScannerSheet(
@@ -150,12 +152,12 @@ fun ReceiptScannerSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "📷 Offline Beleg-Scanner (Google ML Kit OCR)",
+                text = "Offline Beleg-Scanner (Google ML Kit OCR)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "100 % lokale Texterkennung: Extrahiert per Regex automatisch den höchsten Euro-Gesamtbetrag (\\d+[,.]\\d{2}), das Belegdatum und den passenden Kategorie-Tab.",
+                text = "100 % lokale Texterkennung: Extrahiert per Regex automatisch den höchsten Euro-Gesamtbetrag (\\d+[,.]\\d{2}), das Belegdatum und die passende Kategorie.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -182,7 +184,9 @@ fun ReceiptScannerSheet(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("📸 Kamera")
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Kamera")
                 }
 
                 FilledTonalButton(
@@ -193,7 +197,9 @@ fun ReceiptScannerSheet(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("🖼️ Galerie")
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Galerie")
                 }
             }
 
@@ -205,7 +211,9 @@ fun ReceiptScannerSheet(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("🧾 Beispiel-Kassenbon testen (REWE / ARAL / Telekom OCR-Demo)")
+                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Beispiel-Kassenbon testen (REWE / ARAL / Telekom)")
             }
 
             if (isScanning) {
@@ -228,7 +236,7 @@ fun ReceiptScannerSheet(
 
             scannedResult?.let { result ->
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -237,7 +245,7 @@ fun ReceiptScannerSheet(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "✅ Erkannte Beleg-Daten (vor dem Speichern anpassbar):",
+                            text = "Erkannte Beleg-Daten (vor dem Speichern anpassbar):",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary

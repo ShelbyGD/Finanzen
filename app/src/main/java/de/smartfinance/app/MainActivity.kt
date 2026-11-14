@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,18 +16,37 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Savings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
@@ -48,21 +68,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.data.local.TransactionType
+import de.smartfinance.app.ui.BottomNavTab
 import de.smartfinance.app.ui.DrawerDestination
 import de.smartfinance.app.ui.SmartFinanceViewModel
 import de.smartfinance.app.ui.components.AiChatBottomSheet
+import de.smartfinance.app.ui.components.AiCoachTabScreen
 import de.smartfinance.app.ui.components.CalculatorNumpadSheet
 import de.smartfinance.app.ui.components.HelpDetailDialog
+import de.smartfinance.app.ui.components.NotificationsBottomSheet
 import de.smartfinance.app.ui.components.ProFeatureLockedDialog
 import de.smartfinance.app.ui.components.ReceiptScannerSheet
+import de.smartfinance.app.ui.components.TransactionActionBottomSheet
+import de.smartfinance.app.ui.screens.AnalyticsTabScreen
 import de.smartfinance.app.ui.screens.CategoriesContractsScreen
 import de.smartfinance.app.ui.screens.CockpitScreen
 import de.smartfinance.app.ui.screens.DataVaultScreen
 import de.smartfinance.app.ui.screens.HelpChangelogScreen
 import de.smartfinance.app.ui.screens.LiteProOverviewScreen
+import de.smartfinance.app.ui.screens.SavingsBoosterTabScreen
 import de.smartfinance.app.ui.screens.SettingsDemoScreen
 import de.smartfinance.app.ui.theme.SmartFinanceTheme
 import kotlinx.coroutines.launch
@@ -84,7 +111,8 @@ class MainActivity : ComponentActivity() {
         viewModel.handleShortcutIntentAction(intent?.action)
 
         setContent {
-            SmartFinanceTheme {
+            val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
+            SmartFinanceTheme(darkTheme = settingsState.isDarkMode) {
                 SmartFinanceRootApp(viewModel = viewModel)
             }
         }
@@ -105,6 +133,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     val currentDestination by viewModel.currentDestination.collectAsStateWithLifecycle()
+    val selectedBottomTab by viewModel.selectedBottomTab.collectAsStateWithLifecycle()
     val selectedMonthPage by viewModel.selectedMonthPage.collectAsStateWithLifecycle()
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -118,6 +147,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val showCalculatorSheet by viewModel.showCalculatorSheet.collectAsStateWithLifecycle()
     val showAiChatSheet by viewModel.showAiChatSheet.collectAsStateWithLifecycle()
     val showReceiptScannerSheet by viewModel.showReceiptScannerSheet.collectAsStateWithLifecycle()
+    val showNotificationsSheet by viewModel.showNotificationsSheet.collectAsStateWithLifecycle()
+    val selectedTransactionForAction by viewModel.selectedTransactionForAction.collectAsStateWithLifecycle()
     val activeHelpEntryModal by viewModel.activeHelpEntryModal.collectAsStateWithLifecycle()
     val proLockedFeatureDialog by viewModel.proLockedFeatureDialog.collectAsStateWithLifecycle()
     val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
@@ -131,6 +162,9 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             viewModel.clearSnackbar()
         }
     }
+
+    val totalAlertsCount = currentSnapshot.contractAlerts.size + currentSnapshot.radarAlerts.size
+    val isCurrentMonth = selectedMonthPage == viewModel.baseMonthIndex
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -233,45 +267,187 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         }
                     },
                     title = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val topBarHeading = if (currentDestination == DrawerDestination.COCKPIT) {
+                                    selectedBottomTab.label
+                                } else {
+                                    currentDestination.title
+                                }
                                 Text(
-                                    text = "SmartFinance 2026",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = topBarHeading,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Text(
-                                    text = currentDestination.title,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = "v${BuildConfig.VERSION_NAME} (#${BuildConfig.BUILD_NUMBER})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
+
+                            // Darunter klein der wischbare/wählbare Monat, z. B. `< November 2026 >`
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
+                                Icon(
+                                    imageVector = Icons.Default.ChevronLeft,
+                                    contentDescription = "Vorheriger Monat",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clickable {
+                                            viewModel.setSelectedMonthPage((selectedMonthPage - 1).coerceAtLeast(0))
+                                        }
+                                )
                                 Text(
-                                    text = "v${BuildConfig.VERSION_NAME} (Build #${BuildConfig.BUILD_NUMBER})",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    text = currentSnapshot.monthTitleFormatted,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.clickable { viewModel.jumpToCurrentMonth() }
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = "Nächster Monat",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clickable {
+                                            viewModel.setSelectedMonthPage(
+                                                (selectedMonthPage + 1).coerceAtMost(viewModel.totalMonthPages - 1)
+                                            )
+                                        }
+                                )
+                                if (!isCurrentMonth) {
+                                    Text(
+                                        text = "• Heute",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.clickable { viewModel.jumpToCurrentMonth() }
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    actions = {
+                        // 1. Beleg-Scanner-Kamera (Icons.Outlined.CameraAlt)
+                        IconButton(onClick = viewModel::openReceiptScannerSheet) {
+                            Icon(
+                                imageVector = Icons.Outlined.CameraAlt,
+                                contentDescription = "Beleg-Scanner öffnen"
+                            )
+                        }
+
+                        // 2. Benachrichtigungs-Glocke (Icons.Outlined.Notifications mit Badge-Zähler)
+                        IconButton(onClick = viewModel::openNotificationsSheet) {
+                            BadgedBox(
+                                badge = {
+                                    if (totalAlertsCount > 0) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        ) {
+                                            Text(text = totalAlertsCount.toString())
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Notifications,
+                                    contentDescription = "Vertrags-Wecker & Budget-Warnungen"
                                 )
                             }
+                        }
+
+                        // 3. Light/Dark-Mode-Umschalter
+                        IconButton(onClick = viewModel::toggleThemeMode) {
+                            Icon(
+                                imageVector = if (settingsState.isDarkMode) {
+                                    Icons.Outlined.LightMode
+                                } else {
+                                    Icons.Outlined.DarkMode
+                                },
+                                contentDescription = "Light/Dark-Mode umschalten"
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
                 )
+            },
+            bottomBar = {
+                // 5. SCHLANKE 5er BOTTOM-NAVIGATION-BAR (Unten)
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 4.dp
+                ) {
+                    BottomNavTab.entries.forEach { tab ->
+                        val isSelected = currentDestination == DrawerDestination.COCKPIT && selectedBottomTab == tab
+                        val icon = when (tab) {
+                            BottomNavTab.OVERVIEW -> Icons.Outlined.Home
+                            BottomNavTab.CONTRACTS -> Icons.Outlined.Description
+                            BottomNavTab.ANALYTICS -> Icons.Outlined.BarChart
+                            BottomNavTab.AI_COACH -> Icons.Outlined.AutoAwesome
+                            BottomNavTab.SAVINGS_BOOSTER -> Icons.Outlined.Savings
+                        }
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = { viewModel.selectBottomTab(tab) },
+                            icon = {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = tab.label
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = tab.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+                        )
+                    }
+                }
+            },
+            floatingActionButton = {
+                // Rechts unten ein sauberer FloatingActionButton (+), der das CalculatorNumpadSheet öffnet
+                val showFab = currentDestination == DrawerDestination.COCKPIT &&
+                    (selectedBottomTab == BottomNavTab.OVERVIEW ||
+                        selectedBottomTab == BottomNavTab.CONTRACTS ||
+                        selectedBottomTab == BottomNavTab.ANALYTICS)
+                if (showFab) {
+                    FloatingActionButton(
+                        onClick = viewModel::openCalculatorSheet,
+                        shape = CircleShape,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Neue Buchung oder 1-Tap-Vorlage"
+                        )
+                    }
+                }
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
         ) { innerPadding ->
@@ -282,44 +458,95 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             ) {
                 when (currentDestination) {
                     DrawerDestination.COCKPIT -> {
-                        CockpitScreen(
-                            selectedMonthPage = selectedMonthPage,
-                            totalMonthPages = viewModel.totalMonthPages,
-                            baseMonthIndex = viewModel.baseMonthIndex,
-                            snapshotForPage = { page ->
-                                viewModel.analyzeForPage(
-                                    page = page,
-                                    cats = categories,
-                                    txs = allTransactions,
-                                    goals = savingsGoals,
-                                    settings = settingsState
+                        when (selectedBottomTab) {
+                            BottomNavTab.OVERVIEW -> {
+                                CockpitScreen(
+                                    selectedMonthPage = selectedMonthPage,
+                                    totalMonthPages = viewModel.totalMonthPages,
+                                    snapshotForPage = { page ->
+                                        viewModel.analyzeForPage(
+                                            page = page,
+                                            cats = categories,
+                                            txs = allTransactions,
+                                            goals = savingsGoals,
+                                            settings = settingsState
+                                        )
+                                    },
+                                    categories = categories,
+                                    allTransactions = allTransactions,
+                                    selectedCategoryId = selectedCategoryId,
+                                    settingsState = settingsState,
+                                    onSelectMonthPage = viewModel::setSelectedMonthPage,
+                                    onSelectCategoryFilter = viewModel::selectCategoryFilter,
+                                    onSelectTransaction = viewModel::selectTransactionForAction,
+                                    onNavigateToAnalytics = {
+                                        viewModel.selectBottomTab(BottomNavTab.ANALYTICS)
+                                    },
+                                    onNavigateToContracts = {
+                                        viewModel.selectBottomTab(BottomNavTab.CONTRACTS)
+                                    },
+                                    onDismissUpdateBanner = viewModel::dismissUpdateBanner,
+                                    onClickUpdateBanner = viewModel::openUpdateChangelogFromBanner
                                 )
-                            },
-                            categories = categories,
-                            allTransactions = allTransactions,
-                            quickTemplates = quickTemplates,
-                            selectedCategoryId = selectedCategoryId,
-                            settingsState = settingsState,
-                            activeTier = activeTier,
-                            onSelectMonthPage = viewModel::setSelectedMonthPage,
-                            onJumpToCurrentMonth = viewModel::jumpToCurrentMonth,
-                            onSelectCategoryFilter = viewModel::selectCategoryFilter,
-                            onChangeAvgWindow = viewModel::updateAverageWindow,
-                            onExecuteQuickTemplate = viewModel::executeQuickTemplate,
-                            onDeleteTransaction = viewModel::deleteTransaction,
-                            onOpenCalculatorSheet = viewModel::openCalculatorSheet,
-                            onOpenReceiptScannerSheet = viewModel::openReceiptScannerSheet,
-                            onOpenAiChatSheet = viewModel::openAiChatSheet,
-                            onOpenHelpId = viewModel::openHelpCardById,
-                            onNavigateToCategories = {
-                                viewModel.navigateTo(DrawerDestination.CATEGORIES_CONTRACTS)
-                            },
-                            onDismissUpdateBanner = viewModel::dismissUpdateBanner,
-                            onClickUpdateBanner = viewModel::openUpdateChangelogFromBanner,
-                            onRequestProFeature = { title ->
-                                viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
                             }
-                        )
+
+                            BottomNavTab.CONTRACTS -> {
+                                CategoriesContractsScreen(
+                                    categories = categories,
+                                    savingsProgress = currentSnapshot.savingsProgress,
+                                    activeTier = activeTier,
+                                    onSaveCategory = viewModel::saveCategoryTab,
+                                    onDeleteCategory = viewModel::deleteCategoryTab,
+                                    onUpdateSavingsGoal = viewModel::updateSavingsGoal,
+                                    onRequestProFeature = { title ->
+                                        viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
+                                    }
+                                )
+                            }
+
+                            BottomNavTab.ANALYTICS -> {
+                                AnalyticsTabScreen(
+                                    snapshot = currentSnapshot,
+                                    settingsState = settingsState,
+                                    activeTier = activeTier,
+                                    onChangeAvgWindow = viewModel::updateAverageWindow,
+                                    onOpenHelpId = viewModel::openHelpCardById,
+                                    onRequestProFeature = { title ->
+                                        viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
+                                    }
+                                )
+                            }
+
+                            BottomNavTab.AI_COACH -> {
+                                AiCoachTabScreen(
+                                    messages = chatMessages,
+                                    hourlyWage = settingsState.hourlyWage,
+                                    onSendMessage = viewModel::sendChatMessage,
+                                    onOpenHelpId = viewModel::openHelpCardById
+                                )
+                            }
+
+                            BottomNavTab.SAVINGS_BOOSTER -> {
+                                val savingsCategory = remember(categories) {
+                                    categories.firstOrNull { it.name.contains("Sparen", ignoreCase = true) }
+                                }
+                                SavingsBoosterTabScreen(
+                                    savingsProgress = currentSnapshot.savingsProgress,
+                                    allTransactions = allTransactions,
+                                    onUpdateSavingsGoal = viewModel::updateSavingsGoal,
+                                    onAddExtraSavingsBoost = { amount ->
+                                        viewModel.addBooking(
+                                            title = "Extra-Sparbooster Einzahlung",
+                                            amount = amount,
+                                            transactionType = TransactionType.SAVINGS,
+                                            category = savingsCategory,
+                                            dueDayOfMonth = java.time.LocalDate.now().dayOfMonth
+                                        )
+                                    },
+                                    onOpenHelpId = viewModel::openHelpCardById
+                                )
+                            }
+                        }
                     }
 
                     DrawerDestination.CATEGORIES_CONTRACTS -> {
@@ -382,8 +609,10 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     if (showCalculatorSheet) {
         CalculatorNumpadSheet(
             categories = categories,
+            quickTemplates = quickTemplates,
             activeTier = activeTier,
             onDismiss = viewModel::closeCalculatorSheet,
+            onExecuteQuickTemplate = viewModel::executeQuickTemplate,
             onRequestProFeature = { title ->
                 viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
             },
@@ -429,6 +658,37 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 )
             },
             onDismiss = viewModel::closeReceiptScannerSheet
+        )
+    }
+
+    if (showNotificationsSheet) {
+        NotificationsBottomSheet(
+            contractAlerts = currentSnapshot.contractAlerts,
+            radarAlerts = currentSnapshot.radarAlerts,
+            onDismiss = viewModel::closeNotificationsSheet,
+            onNavigateToContracts = {
+                viewModel.closeNotificationsSheet()
+                viewModel.selectBottomTab(BottomNavTab.CONTRACTS)
+            }
+        )
+    }
+
+    selectedTransactionForAction?.let { selectedTx ->
+        TransactionActionBottomSheet(
+            transaction = selectedTx,
+            onUpdateTransaction = { newTitle, newAmount, newDueDay ->
+                viewModel.updateExistingTransaction(
+                    existing = selectedTx,
+                    newTitle = newTitle,
+                    newAmount = newAmount,
+                    newDueDay = newDueDay
+                )
+            },
+            onDeleteTransaction = {
+                viewModel.deleteTransaction(selectedTx)
+                viewModel.selectTransactionForAction(null)
+            },
+            onDismiss = { viewModel.selectTransactionForAction(null) }
         )
     }
 

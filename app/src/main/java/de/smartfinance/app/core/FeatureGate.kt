@@ -10,11 +10,11 @@ import kotlinx.coroutines.flow.asStateFlow
 enum class AppTier(val displayName: String, val badgeLabel: String) {
     LITE_FREE(
         displayName = "SmartFinance Lite (Basisversion)",
-        badgeLabel = "🔓 LITE-Testmodus aktiv"
+        badgeLabel = "LITE-Testmodus aktiv"
     ),
     PRO_FULL(
         displayName = "SmartFinance PRO (Vollversion)",
-        badgeLabel = "💎 PRO-Vollversion aktiv"
+        badgeLabel = "PRO-Vollversion aktiv"
     )
 }
 
@@ -22,9 +22,6 @@ enum class AppTier(val displayName: String, val badgeLabel: String) {
  * Zentrale Lizenz- & Feature-Schnittstelle für SmartFinance 2026.
  *
  * Standardwert ist fest auf [AppTier.PRO_FULL] gesetzt (Entwickler-Vollversion ab Tag 1 aktiv).
- * Über den Live-Testschalter im Screen "Lite vs. Pro Übersicht" kann jederzeit zwischen
- * [AppTier.PRO_FULL] und [AppTier.LITE_FREE] umgeschaltet werden, um das Verhalten der
- * 🔒 PRO-Badges und Freischalt-Dialoge live zu testen.
  */
 object FeatureGate {
 
@@ -38,9 +35,6 @@ object FeatureGate {
     private val _currentTier = MutableStateFlow(AppTier.PRO_FULL)
     val currentTier: StateFlow<AppTier> = _currentTier.asStateFlow()
 
-    /**
-     * Prüft, ob ein Feature mit der angeforderten Lizenzstufe aktuell freigeschaltet ist.
-     */
     fun isUnlocked(requiredTier: AppTier, activeTier: AppTier = _currentTier.value): Boolean {
         return when (requiredTier) {
             AppTier.LITE_FREE -> true
@@ -48,16 +42,10 @@ object FeatureGate {
         }
     }
 
-    /**
-     * Setzt die aktive Lizenzstufe (für Entwickler-Simulator oder zukünftigen Billing-Callback).
-     */
     fun setTier(tier: AppTier) {
         _currentTier.value = tier
     }
 
-    /**
-     * Schaltet live zwischen PRO_FULL und LITE_FREE um (Entwickler-Testschalter).
-     */
     fun toggleSimulatedTier() {
         _currentTier.value = if (_currentTier.value == AppTier.PRO_FULL) {
             AppTier.LITE_FREE

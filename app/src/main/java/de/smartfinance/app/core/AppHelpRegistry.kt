@@ -29,7 +29,7 @@ data class ChangelogEntry(
 )
 
 /**
- * Single Source of Truth für alle 13 Kernmodule, kontextsensitive `?`-Hilfe-Karten,
+ * Single Source of Truth für alle 13 Kernmodule, kontextsensitive Hilfe-Karten,
  * den Lite-vs.-Pro-Vergleich und das automatische In-App-Update-Changelog.
  *
  * PFLICHT-REGEL:
@@ -56,17 +56,17 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_TIMELINE_HEADER,
             moduleNumber = 1,
-            title = "1. Monats-Zeitstrahl & Hero-Budget-Header (Progressive Disclosure)",
-            category = "Cockpit & Übersicht",
-            shortSummary = "Aufgeräumte Hero-Budget-Karte mit Fokus auf 'Heute frei', linearem Restmonat-Balken, klaren Einnahmen/Ausgaben-Pillen und aufklappbarer Experten-Detailansicht (3/6/12M-Ø, Prognose & 1/12-Glätter).",
+            title = "1. Monats-Zeitstrahl & Violette Hero-Budget-Karte",
+            category = "Übersicht & Analysen",
+            shortSummary = "Wischbarer Monats-Zeitstrahl in der Top-Bar, violette Hero-Karte mit verfügbarem Monatsbudget und türkisfarbenem Fortschrittsbalken sowie detaillierter Soll/Ist- & 3/6/12M-Durchschnitt im Analysen-Tab.",
             stepByStepGuide = listOf(
-                "Wische im Cockpit horizontal nach links (vergangene Monate) oder rechts (aktueller Monat & Prognose-Monate) oder nutze oben zentriert den Monats-Umschalter '< Monat >'.",
-                "In der Kompakt-Ansicht siehst du sofort 'Heute frei: XX,XX €', den Fortschrittsbalken ('Restmonat: X.XXX € frei') sowie die zwei klaren Pillen '🟢 Einnahmen' und '🟠 Ausgaben'.",
-                "Tippe auf 'Details, Ø-Schnitt & Glätter anzeigen ⌄', um den Experten-Bereich mit den Auswahl-Chips ('3M-Ø', '6M-Ø', '12M-Ø'), der Monatsend-Prognose, der Rollover-Formel und dem 1/12-Jahreskosten-Glätter aufzuklappen."
+                "Wische in der Übersicht horizontal nach links (vergangene Monate) oder rechts (aktueller Monat & Prognose-Monate) oder nutze oben unter 'Übersicht' den Monats-Umschalter '< November 2026 >'.",
+                "Die violette Hero-Karte zeigt sofort das noch verfügbare Budget, die verbleibenden Tage bis Monatsende und deinen aktuellen Tagessatz ('Heute frei: XX,XX € / Tag').",
+                "Tippe auf die violette Hero-Karte oder unten in der 5er-Navigationsleiste auf 'Analysen', um Soll/Ist-Vergleiche und den historischen 3-, 6- oder 12-Monats-Durchschnitt einzusehen."
             ),
             exampleTips = listOf(
                 "Tipp: Kommt dein Gehalt am 28. des Vormonats, stelle den Abrechnungstag unter 'Einstellungen' auf den 28. ein.",
-                "Über den kleinen 'Heute'-Button neben dem Monatsnamen springst du aus jedem Monat sofort zurück in den aktuellen Monat."
+                "Über den Link 'Heute' neben dem Monatsnamen springst du aus jedem Monat sofort zurück in den aktuellen Monat."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
@@ -75,16 +75,16 @@ object AppHelpRegistry {
             id = ID_DAILY_BUDGET_ROLLOVER,
             moduleNumber = 2,
             title = "2. Dynamisches Tagesbudget & Rollover-Formel",
-            category = "Cockpit & Budgetlogik",
+            category = "Budgetlogik",
             shortSummary = "Berechnet jeden Tag neu, wie viel Geld du heute bedenkenlos ausgeben kannst – inklusive automatischem Rollover nicht verbrauchter Beträge auf den Restmonat.",
             stepByStepGuide = listOf(
                 "Vom monatlichen Gesamteinkommen werden zuerst alle Fixkosten (inkl. noch kommender Abbuchungen), deine Dauer-Sparrate sowie 1/12-Jahresrücklagen abgezogen.",
                 "Das verbleibende freie Monatsbudget wird nach Abzug deiner bisherigen variablen Ausgaben durch die verbleibenden Kalendertage des Monats (inkl. heute) geteilt.",
-                "Gibst du heute weniger aus als dein Tagesbudget, steigt dein Tagessatz für alle restlichen Tage des Monats automatisch an (positiver Rollover – einsehbar im aufklappbaren Detail-Bereich der Hero-Karte)."
+                "Gibst du heute weniger aus als dein Tagesbudget, steigt dein Tagessatz für alle restlichen Tage des Monats automatisch an (positiver Rollover – im Tab 'Analysen' aufgeschlüsselt)."
             ),
             exampleTips = listOf(
-                "Formel: Freies Tagesbudget = (Einnahmen - Fixkosten gesamt - 1/12-Rücklagen - Sparrate - Variable Ausgaben bisher) ÷ Resttage im Monat.",
-                "Beispiel: Bei 600 € freiem Monatsbudget und 20 Resttagen hast du 30,00 €/Tag. Gibst du heute 0 € aus, stehen dir ab morgen 600 € ÷ 19 Tage = 31,58 €/Tag zur Verfügung!"
+                "Formel: Freies Tagesbudget = (Einnahmen - Fixkosten gesamt - 1/12-Rücklagen - Sparrate - Variable Ausgaben bisher) / Resttage im Monat.",
+                "Beispiel: Bei 600 € freiem Monatsbudget und 20 Resttagen hast du 30,00 €/Tag. Gibst du heute 0 € aus, stehen dir ab morgen 600 € / 19 Tage = 31,58 €/Tag zur Verfügung."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
@@ -92,17 +92,17 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_DEBIT_GUARDIAN_WAVE,
             moduleNumber = 3,
-            title = "3. Abbuchungs-Wächter & Aufklappbare Monats-Belastungswelle",
-            category = "Cashflow & Schutz",
-            shortSummary = "Kompakte Wächter-Zeile für die nächste anstehende Zahlung + per Tap auf '📈 Grafik ⌄' aufklappbares Canvas-Wellendiagramm (Tag 1–31) mit Peaks und 'Heute'-Linie.",
+            title = "3. Abbuchungs-Wächter & Grafische Monats-Belastungswelle",
+            category = "Cashflow & Analysen",
+            shortSummary = "Gruppierte Karte 'Nächste Abbuchungen (Wächter)' auf der Startseite plus große interaktive 31-Tage-Belastungswelle im Tab 'Analysen'.",
             stepByStepGuide = listOf(
-                "Standardmäßig zeigt der Abbuchungs-Wächter platzsparend nur die wichtigste Info: '🛡️ Nächste Zahlung: In X Tagen (Datum) – Name (Betrag)' sowie 'Noch offen: X.XXX € (Y Posten)'.",
-                "Tippe rechts auf den Chip '📈 Grafik ⌄', um die grafische Monats-Belastungswelle (Tag 1–31) sanft per AnimatedVisibility aufzuklappen.",
-                "Im ausgeklappten Diagramm siehst du die Legende, die 3 Phasen-Kacheln ('Anfang 1.–10.', 'Mitte 11.–20.', 'Ende 21.–31.'), die vertikale 'Heute'-Trennlinie und kannst jeden Tag im Diagramm antippen."
+                "Auf der Startseite ('Übersicht') zeigt die Sektion 'Nächste Abbuchungen (Wächter)' die nächsten anstehenden Fixkosten-Lastschriften mit Countdown und Betrag.",
+                "Tippe auf 'Belastungswelle öffnen >' oder wechsle unten in den Tab 'Analysen', um das große Canvas-Wellendiagramm (Tag 1 bis 31) zu öffnen.",
+                "Im Diagramm trennt die vertikale 'Heute'-Linie bereits abgebuchte Posten (links) von noch offenen Abbuchungsspitzen (rechts)."
             ),
             exampleTips = listOf(
-                "Beispiel: '🛡️ Nächste Zahlung: In 1 Tag (15.11.) – Handyvertrag (29,99 €) | Noch offen: 119,89 € (2 Posten)'.",
-                "Durch das standardmäßig eingeklappte Diagramm hast du deine 1-Tap-Schnellvorlagen und Kategorien-Tabs sofort ohne Scrollen im Blick!"
+                "Beispiel: 'Handyvertrag – In 1 Tag (15.11.) – 29,99 € | Noch offen: 119,89 €'.",
+                "Tippe im Analysen-Tab direkt auf einen Balken im Diagramm, um alle Buchungen dieses Kalendertages zu inspizieren."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -110,17 +110,17 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_DYNAMIC_TABS_CONTRACTS,
             moduleNumber = 4,
-            title = "4. Dynamische Kategorien-Tabs & Vertrags-Wecker",
-            category = "Kategorien & Verträge",
-            shortSummary = "Vorinstallierte Tabs (Versicherung, Handy, Kfz, Lebensmittel, Fixkosten, Sparen), frei erweiterbar um eigene Tabs inkl. wegklickbarer 30-Tage-Vorwarnung vor Vertragsende.",
+            title = "4. Runde Kreis-Budgets & Vertrags-Wecker",
+            category = "Budgets & Verträge",
+            shortSummary = "Runde Fortschrittsringe (Circular Progress Rings) für alle Kategorien in der Budgets-Karte sowie eigene Vertrags-Verwaltung mit 30-Tage-Vorwarnung im Tab 'Verträge'.",
             stepByStepGuide = listOf(
-                "Tippe im Cockpit auf die horizontal scrollbaren Filter-Chips, um die Buchungsliste darunter sofort nach einem Tab zu filtern.",
-                "Tippe ganz rechts auf '+ Tab hinzufügen' oder öffne im Menü 'Kategorien, Sparziele & Verträge', um eigene Tabs mit Icon, Monatslimit und Fälligkeitstag (1–31) anzulegen.",
-                "Hinterlege bei Verträgen das Vertragsende-Stichtagsdatum – der Vertrags-Wecker warnt dich ab 30 Tage vorher (gelesene Warnungen lassen sich über das '✕'-Icon für die aktuelle Sitzung ausblenden)."
+                "In der Karte 'Budgets' siehst du für jede Kategorie (Lebensmittel, Kfz, Handy, Versicherung, Freizeit) einen runden Fortschrittsring: Grün (<75 %), Orange (>75 %) oder Rot (Limit überschritten).",
+                "Tippe auf einen Budget-Kreis zum Filtern der Buchungen oder ganz rechts auf den runden '+'-Kreis-Button, um eine neue Kategorie anzulegen.",
+                "Im unteren Tab 'Verträge' verwaltest du alle Fixkosten, Fälligkeitstage (1–31) und Kündigungs-Stichtage (inkl. 30-Tage-Vorwarnung über die Benachrichtigungs-Glocke oben rechts)."
             ),
             exampleTips = listOf(
-                "Beispiel: Läuft deine Kfz-Versicherung oder dein Handyvertrag in 16 Tagen aus, erscheint oben ein kompaktes Warn-Banner mit direktem Absprung und '✕'-Schließen-Button.",
-                "Du kannst jeden Tab jederzeit bearbeiten oder eigene Kategorien wie 'Haustier', 'Fitnessstudio' oder 'Kinder' ergänzen."
+                "Ein Tap auf 'Alle anzeigen >' in der Budgets-Karte hebt aktive Kategorien-Filter sofort wieder auf.",
+                "Alle aktiven Vertrags-Wecker werden gebündelt über das Glocken-Symbol oben rechts in der Top-Bar angezeigt."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -128,17 +128,17 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_CREEPING_COST_RADAR,
             moduleNumber = 5,
-            title = "5. Schleichende-Kosten-Radar & Budget-Überschreitungs-Warner",
+            title = "5. Schleichende-Kosten-Radar & Benachrichtigungs-Glocke",
             category = "KI-Anomalie-Erkennung",
-            shortSummary = "Automatische, wegklickbare Frühwarnung im Dashboard, sobald eine Kategorie ihr Monatslimit überschreitet oder mehr als 20 % über dem historischen 3-Monats-Schnitt liegt.",
+            shortSummary = "Automatische Erkennung bei >20 % Abweichung vom 3-Monats-Schnitt oder überschrittenem Budgetlimit – dezent gebündelt im Benachrichtigungs-Center der Top-Bar.",
             stepByStepGuide = listOf(
-                "Die lokale Finanz-Engine vergleicht bei jeder Buchung die aktuellen Monatsausgaben jeder Kategorie mit dem Durchschnitt der letzten 3 Monate.",
-                "Steigt eine Kategorie um mehr als 20 % über ihren 3-Monats-Schnitt (oder über ihr festgesetztes Tab-Budgetlimit), blendet das Cockpit ein Warn-Banner ein.",
-                "Tippe auf das Banner zum direkten Filtern der Kategorie oder blende es nach dem Lesen über das '✕'-Icon rechts aus."
+                "Die lokale Finanz-Engine vergleicht laufend die aktuellen Monatsausgaben jeder Kategorie mit dem Durchschnitt der letzten 3 Monate.",
+                "Liegt eine Kategorie mehr als 20 % über dem 3-Monats-Schnitt oder über ihrem Limit, zeigt die Benachrichtigungs-Glocke oben rechts in der Top-Bar einen Badge-Zähler an.",
+                "Tippe auf die Glocke, um alle Warnungen im Benachrichtigungs-Sheet zu prüfen und direkt in die betroffene Kategorie zu springen."
             ),
             exampleTips = listOf(
-                "Beispiel: '⚠️ Schleichende Kosten erkannt: Lebensmittel liegt aktuell +28 % über deinem 3-Monats-Schnitt.'",
-                "Auch schleichende Preiserhöhungen bei Versicherungen oder Streaming-Abos fallen sofort auf."
+                "Beispiel: 'Schleichende Kosten erkannt: Lebensmittel liegt aktuell +28 % über deinem 3-Monats-Schnitt.'",
+                "Durch die Bündelung in der Top-Bar-Glocke bleibt deine Startseite frei von störenden Warn-Bannern."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -147,16 +147,15 @@ object AppHelpRegistry {
             id = ID_ANNUAL_COST_SMOOTHER,
             moduleNumber = 6,
             title = "6. 1/12-Jahreskosten-Glätter",
-            category = "Budget-Glättung",
-            shortSummary = "Legt jährliche oder vierteljährliche Großrechnungen (z. B. Kfz-Versicherung, GEZ, Jahresbeiträge) virtuell auf 12 Monate um – integriert im Detail-Bereich der Hero-Budget-Karte.",
+            category = "Verträge & Analysen",
+            shortSummary = "Legt jährliche oder vierteljährliche Großrechnungen (z. B. Kfz-Versicherung) virtuell auf 12 Monate um – einsehbar in den Tabs 'Verträge' und 'Analysen'.",
             stepByStepGuide = listOf(
-                "Aktiviere beim Anlegen oder Bearbeiten einer Buchung bzw. eines Dauerauftrags mit jährlichem/vierteljährlichem Turnus den Schalter 'Auf 12 Monate glätten (1/12-Rücklage)'.",
+                "Aktiviere beim Anlegen einer Buchung oder eines Vertrags den Schalter 'Auf 12 Monate glätten (1/12-Rücklage)'.",
                 "SmartFinance zieht jeden Monat automatisch exakt 1/12 (bei Jahreszahlung) bzw. 1/3 (bei Quartalszahlung) als virtuelle Rücklage von deinem freien Budget ab.",
-                "Klappe oben in der Hero-Budget-Karte den Bereich 'Details, Ø-Schnitt & Glätter anzeigen ⌄' auf, um jederzeit die reservierte 1/12-Monatsrücklage und das '?'-Hilfe-Icon einzusehen."
+                "In den Tabs 'Verträge' und 'Analysen' siehst du jederzeit transparent die monatlich reservierte 1/12-Rücklage."
             ),
             exampleTips = listOf(
-                "Beispiel: Deine Kfz-Versicherung kostet 660,00 € einmal im Jahr. Mit aktivem 1/12-Glätter werden jeden Monat sanfte 55,00 € vom freien Budget reserviert statt eines 660-€-Schocks im November!",
-                "Tippe im aufgeklappten Hero-Detailbereich auf das '?'-Icon neben dem 1/12-Glätter, um diese Erklärung jederzeit nachzulesen."
+                "Beispiel: Deine Kfz-Versicherung kostet 660,00 € im Jahr. Mit aktivem 1/12-Glätter werden jeden Monat sanfte 55,00 € vom freien Budget reserviert."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -164,17 +163,16 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_SAVINGS_GOAL_TRACKER,
             moduleNumber = 7,
-            title = "7. Etappen-Sparziel-Tracker & Dauer-Sparraten",
+            title = "7. Sparbooster: Etappen-Sparziel-Tracker & Dauer-Sparraten",
             category = "Sparen & Vermögensaufbau",
-            shortSummary = "Visueller Fortschrittsbalken für dein Etappen-Sparziel (z. B. 3.000-€-Notgroschen) inklusive KI-Berechnung des exakten Zieldatums.",
+            shortSummary = " Eigener 'Sparbooster'-Tab in der unteren Navigationsleiste für dein 3.000-€-Etappen-Sparziel inklusive KI-Berechnung des Zieldatums.",
             stepByStepGuide = listOf(
-                "Wähle im Cockpit den Tab 'Sparen' oder öffne im Menü 'Kategorien, Sparziele & Verträge'.",
+                "Wechsle über die untere 5er-Navigationsleiste in den Tab 'Sparbooster'.",
                 "Lege deinen Zielbetrag (z. B. 3.000 €), deinen aktuellen Startbestand und deine monatliche Dauer-Sparrate (z. B. 250 €/Monat) fest.",
-                "Jede Buchung in der Kategorie 'Sparen' erhöht deinen Fortschrittsbalken automatisch, und die Engine berechnet auf den Monat genau, wann du dein Ziel erreichst."
+                "Nutze die 1-Tap-Sparbooster-Buttons (+25 €, +50 €, +100 €), um spontan zusätzliches Geld auf dein Etappen-Ziel einzuzahlen."
             ),
             exampleTips = listOf(
-                "Beispiel: 'Etappen-Sparziel Notgroschen: 1.750 € von 3.000 € erreicht (58 %) – Bei 250 €/Monat erreichst du dein Ziel in 5 Monaten (April 2027)!'",
-                "Tipp: Arbeite mit motivierenden Etappen (1.000 € → 3.000 € → 10.000 €) statt eines einzigen riesigen Ziels."
+                "Beispiel: '1.850 € von 3.000 € erreicht (62 %) – Zieldatum: April 2027 (in 5 Monaten).'"
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
@@ -182,22 +180,22 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_HYBRID_AI_CHAT,
             moduleNumber = 8,
-            title = "8. Lokale Smart Finance Hybrid-KI & Q&A-Chat",
+            title = "8. KI-Coach: Lokale Smart Finance Hybrid-KI & Q&A-Chat",
             category = "Lokale KI & Prognose",
-            shortSummary = "100 % lokaler, datenschutzsicherer deutscher Finanz-Assistent mit Werktags-/Wochenend-Burn-Rate, Monatsend-Prognose und Echtzeit-Q&A-Chat.",
+            shortSummary = "Eigener 'KI-Coach'-Tab mit 100 % lokalem deutschen Finanz-Assistenten, Werktags-/Wochenend-Burn-Rate und Echtzeit-Q&A-Chat.",
             stepByStepGuide = listOf(
-                "Tippe unten im Cockpit auf den Button '🤖 KI-Finanzcheck & Chat' (öffnet sich daumenfreundlich als Bottom-Sheet in der unteren Bildschirmhälfte).",
-                "Tippe auf einen der Schnell-Frage-Chips oder tippe deine Frage auf Deutsch ein.",
-                "Die Engine analysiert in Millisekunden deine lokale Room-Datenbank ohne Internetverbindung und liefert exakte Zahlen."
+                "Tippe unten in der Navigationsleiste auf den Tab 'KI-Coach'.",
+                "Tippe auf einen der Schnell-Frage-Chips oder gib deine Frage auf Deutsch ein.",
+                "Die Engine analysiert in Millisekunden deine lokale Room-Datenbank ohne Internetverbindung und liefert präzise Antworten in klarem Text."
             ),
             exampleTips = listOf(
-                "Unterstützte deutsche Beispiel-Fragen im Chat:",
-                "• 'Wie viel habe ich heute/diesen Monat noch frei?'",
-                "• 'Wann geht die nächste Zahlung ab?' / 'Was wird diese Woche noch abgebucht?'",
-                "• 'Wann geht im Monat am meisten ab?'",
-                "• 'Was gebe ich im Schnitt für Versicherungen / Handyvertrag aus?'",
-                "• 'Reicht mein Geld bis Monatsende?' / 'Wann erreiche ich mein Sparziel?'",
-                "• 'Was kannst du alles?' oder 'Hilfe'"
+                "Unterstützte deutsche Beispiel-Fragen im KI-Coach:",
+                "- 'Wie viel habe ich heute/diesen Monat noch frei?'",
+                "- 'Wann geht die nächste Zahlung ab?' / 'Was wird diese Woche noch abgebucht?'",
+                "- 'Wann geht im Monat am meisten ab?'",
+                "- 'Was gebe ich im Schnitt für Versicherungen / Handyvertrag aus?'",
+                "- 'Reicht mein Geld bis Monatsende?' / 'Wann erreiche ich mein Sparziel?'",
+                "- 'Was kannst du alles?' oder 'Hilfe'"
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -207,15 +205,14 @@ object AppHelpRegistry {
             moduleNumber = 9,
             title = "9. \"Was-wäre-wenn\"-Simulator & Arbeitsstunden-Umrechner",
             category = "Lokale KI & Kaufcheck",
-            shortSummary = "Gib im Chat einfach 'Check: 85 €' ein: Die KI prüft dein Restbudget + offene Fixkosten mit Grün/Gelb/Rot-Ampel und rechnet den Preis in deine Arbeitszeit um.",
+            shortSummary = "Gib im KI-Coach einfach 'Check: 85 €' ein: Die KI prüft dein Restbudget + offene Fixkosten mit Grün/Gelb/Rot-Ampel und rechnet den Preis in deine Arbeitszeit um.",
             stepByStepGuide = listOf(
-                "Öffne den KI-Chat und tippe z. B. 'Check: 85 €' oder 'Kann ich mir 120 € leisten?' ein.",
+                "Öffne den Tab 'KI-Coach' und tippe z. B. 'Check: 85 €' oder 'Kann ich mir 120 € leisten?' ein.",
                 "Der Simulator prüft, ob nach Abzug dieses Spontankaufs UND aller noch offenen Fixkosten-Abbuchungen des Monats genug Tagesbudget übrig bleibt.",
-                "Du erhältst sofort eine Ampel-Bewertung (🟢 Grün / 🟡 Gelb / 🔴 Rot), dein neues Tagesbudget nach dem Kauf sowie die Umrechnung in Netto-Arbeitsstunden anhand deines Stundenlohns (Standard: 15,75 €/h)."
+                "Du erhältst sofort eine Ampel-Bewertung (Grün / Gelb / Rot), dein neues Tagesbudget nach dem Kauf sowie die Umrechnung in Netto-Arbeitsstunden (Standard: 15,75 €/h)."
             ),
             exampleTips = listOf(
-                "Beispiel für 'Check: 85 €' bei 15,75 €/Std.: '🟢 GRÜN – Kauf problemlos möglich! Entspricht 5 Std. 24 Min. deiner Arbeitszeit. Dein Tagesbudget sinkt für die restlichen 16 Tage um 5,31 €/Tag.'",
-                "Deinen persönlichen Netto-Stundenlohn kannst du jederzeit unter 'Einstellungen & Demo-Daten' anpassen."
+                "Beispiel für 'Check: 85 €' bei 15,75 €/Std.: 'GRÜN – Kauf problemlos möglich. Entspricht 5 Std. 24 Min. deiner Arbeitszeit.'"
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -223,17 +220,16 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_ONE_TAP_RECURRING,
             moduleNumber = 10,
-            title = "10. 1-Tap-Schnelleingabe & Automatische Daueraufträge",
+            title = "10. FloatingActionButton (+), 1-Tap-Schnelleingabe & Daueraufträge",
             category = "Alltag & Automatisierung",
-            shortSummary = "Daumenfreundliches Taschenrechner-Numpad, 1-Tap-Schnellvorlagen für Alltagsausgaben und vollautomatische Buchung von Daueraufträgen am Fälligkeitstag.",
+            shortSummary = "Runder '+'-FloatingActionButton rechts unten öffnet das Einhand-BottomSheet mit 1-Tap-Schnellvorlagen und dem großen Taschenrechner-Numpad.",
             stepByStepGuide = listOf(
-                "Tippe im Cockpit auf eine der 1-Tap-Schnellvorlagen (z. B. '☕ Bäcker 4,50 €', '🛒 Einkauf 35,00 €', '⛽ Tanken 65,00 €'), um eine Ausgabe mit einem einzigen Fingertipp sofort zu buchen.",
-                "Für individuelle Beträge tippe auf '+ Buchung' – es öffnet sich in der unteren Bildschirmhälfte das große Custom-Numpad mit integrierter Plus/Minus-Rechenfunktion.",
-                "Wiederkehrende Fixkosten, Gehalt und Dauer-Sparraten werden im laufenden Monat bis zum heutigen Kalendertag automatisch am jeweiligen Fälligkeitstag (1–31) gebucht."
+                "Tippe in der Übersicht rechts unten auf den runden '+'-Button (FloatingActionButton).",
+                "Oben im sich öffnenden BottomSheet findest du deine 1-Tap-Schnellvorlagen (z. B. Bäcker 4,80 €, Supermarkt 36,50 €, Tanken 64,00 €) für die Sofort-Buchung.",
+                "Darunter kannst du über den Taschenrechner-Zahlenblock individuelle Beträge (inkl. + und - Rechnung) eingeben. Ein Tap auf eine bestehende Buchung in der Liste öffnet das Detail- & Löschen-Sheet."
             ),
             exampleTips = listOf(
-                "Tipp: Im großen Taschenrechner-Numpad kannst du mehrere Posten direkt addieren (z. B. '12,50 + 4,80 =') und sofort speichern!",
-                "Du kannst beliebige eigene 1-Tap-Vorlagen anlegen."
+                "Wiederkehrende Fixkosten, Gehalt und Dauer-Sparraten werden im laufenden Monat bis zum heutigen Kalendertag automatisch am jeweiligen Fälligkeitstag (1–31) gebucht."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
@@ -243,15 +239,14 @@ object AppHelpRegistry {
             moduleNumber = 11,
             title = "11. Offline Beleg-Scanner (Google ML Kit OCR)",
             category = "Kamera & Belegerkennung",
-            shortSummary = "Scanne Kassenbons komplett offline per Kamera oder Galerie: Automatische Erkennung von Gesamtbetrag, Datum und passender Kategorie anhand des Händlers.",
+            shortSummary = "Direkt über das Kamera-Icon oben rechts in der Top-Bar erreichbar: Scanne Kassenbons offline per Kamera/Galerie mit automatischer Betrags- und Händlererkennung.",
             stepByStepGuide = listOf(
-                "Tippe im Cockpit auf das Kamera-Symbol ('📷 Beleg scannen') oder nutze den Homescreen-Shortcut.",
+                "Tippe oben rechts in der Top-Bar auf das Kamera-Icon oder nutze den Homescreen-Shortcut.",
                 "Fotografiere den Kassenbon, wähle ein Bild aus der Galerie oder teste den integrierten 'Beispiel-Kassenbon (OCR-Demo)'.",
-                "Die On-Device-Texterkennung (Google ML Kit) extrahiert per Regex den höchsten plausiblen Euro-Gesamtbetrag (z. B. neben 'SUMME' / 'ZU ZAHLEN'), das Belegdatum und ordnet Händler wie REWE, ALDI, ARAL oder TELEKOM automatisch dem passenden Tab zu."
+                "Die On-Device-Texterkennung (Google ML Kit) extrahiert per Regex den höchsten plausiblen Euro-Gesamtbetrag, das Belegdatum und ordnet Händler automatisch der passenden Kategorie zu."
             ),
             exampleTips = listOf(
-                "100 % Datenschutz: Das Foto verlässt niemals dein Smartphone, die OCR-Erkennung läuft komplett lokal auf dem Gerät.",
-                "Vor dem Speichern kannst du Betrag, Titel und Kategorie noch mit einem Tipp anpassen."
+                "100 % Datenschutz: Das Foto verlässt niemals dein Smartphone, die OCR-Erkennung läuft komplett lokal auf dem Gerät."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -263,13 +258,12 @@ object AppHelpRegistry {
             category = "Datensicherung & Import",
             shortSummary = "Volle Datenhoheit ohne Cloud-Zwang: 1-Tap Komplett-Backup & Wiederherstellung als JSON-Datei sowie intelligenter Bank-CSV-Kontoauszug-Import.",
             stepByStepGuide = listOf(
-                "Öffne über das linke Hamburger-Menü den Bereich '🔐 Daten-Tresor (Backup & Import)'.",
-                "Mit '1-Tap JSON-Komplett-Backup exportieren' sicherst du alle Buchungen, Kategorien, Verträge, Sparziele und Einstellungen über das Android-Dateisystem.",
-                "Mit 'JSON-Backup wiederherstellen' spielst du eine Sicherung jederzeit verlustfrei wieder ein, oder importierst über 'Bank-CSV importieren' Umsätze deiner Hausbank (inkl. automatischer Kategorisierung)."
+                "Öffne über das linke Hamburger-Menü den Bereich 'Daten-Tresor (Backup & Import)'.",
+                "Mit 'Backup speichern' sicherst du alle Buchungen, Kategorien, Verträge, Sparziele und Einstellungen als JSON-Datei.",
+                "Über 'Bank-CSV-Datei auswählen & importieren' liest du Kontoauszüge deiner Hausbank inkl. automatischer Kategorisierung ein."
             ),
             exampleTips = listOf(
-                "Unterstützt deutsche Bank-CSV-Formate (Semikolon-getrennt, deutsche Kommazahlen wie '-45,90' und Datumsformate TT.MM.JJJJ).",
-                "Im Daten-Tresor findest du außerdem einen 1-Tap-Testbutton 'Beispiel-Bank-CSV testen', um den CSV-Parser sofort auszuprobieren."
+                "Im Daten-Tresor findest du außerdem einen 1-Tap-Testbutton 'Beispiel-Bank-CSV sofort testen'."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -277,16 +271,16 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_DEMO_SHORTCUTS_SIMULATOR,
             moduleNumber = 13,
-            title = "13. Demo-Daten-Generator, App-Shortcuts & Lite/Pro-Simulator",
+            title = "13. Demo-Daten-Generator, Light/Dark-Theme & Lite/Pro-Simulator",
             category = "System, Test & Komfort",
-            shortSummary = "6 Monate realistische Testdaten mit 1 Tap erzeugen/zurücksetzen, Homescreen-Shortcuts durch langes Drücken aufs App-Icon und Live-Umschalter zwischen Lite & Pro.",
+            shortSummary = "6 Monate realistische Testdaten mit 1 Tap erzeugen, Light/Dark-Mode-Umschalter in der Top-Bar, Homescreen-Shortcuts und Live-Umschalter zwischen Lite & Pro.",
             stepByStepGuide = listOf(
-                "Öffne '⚙️ Einstellungen & Demo-Daten' und tippe auf '6 Monate Demo-Daten generieren', um sofort realistische Einnahmen, Ausgaben und verteilte Abbuchungstage (1., 5., 15., 20. und 28.) für alle Diagramme und KI-Prognosen zu erzeugen.",
-                "Über 'Alle Daten zurücksetzen (Reset)' löschst du die Demo-Daten jederzeit mit einem Klick, um mit deinen echten Finanzen zu starten.",
-                "Halte das SmartFinance-Icon auf deinem Android-Homescreen gedrückt, um direkt in 'Schnell-Ausgabe', 'Beleg scannen' oder 'KI-Finanzcheck' zu springen. Unter '💎 Lite vs. Pro Übersicht' kannst du zudem live den Lite-Modus simulieren."
+                "Wechsle über das Sonnen-/Mond-Symbol oben rechts in der Top-Bar jederzeit live zwischen dem hellen Clean-Banking-Look und dem Dark Mode.",
+                "Öffne im linken Menü 'Einstellungen & Demo-Daten' und tippe auf '6 Monate Demo-Daten generieren', um realistische Buchungen mit verteilten Abbuchungstagen (1., 5., 15., 20. und 28.) zu erzeugen.",
+                "Halte das App-Icon auf dem Homescreen gedrückt für Direkt-Shortcuts ('Schnell-Ausgabe', 'Beleg scannen', 'KI-Finanzcheck')."
             ),
             exampleTips = listOf(
-                "Die 6-Monate-Demo-Daten erzeugen bewusst verteilte Abbuchungsspitzen am 1., 5., 15., 20. und 28. sowie eine Kosten-Anomalie und einen bald auslaufenden Handyvertrag, damit du jedes einzelne Feature sofort live erleben kannst!"
+                "Unter 'Lite vs. Pro Übersicht' im Hamburger-Menü kannst du jederzeit live den Lite-Modus simulieren."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
@@ -299,11 +293,19 @@ object AppHelpRegistry {
             buildNumber = BuildConfig.BUILD_NUMBER,
             date = "14.11.2026",
             newFeatures = listOf(
-                "UI/UX-Update (Build #${BuildConfig.BUILD_NUMBER}): Aufgeräumtes 3-Zonen-Cockpit nach dem 'Progressive Disclosure'-Prinzip (Material 3 AnimatedVisibility) ohne Funktionsverlust.",
-                "Hero-Budget-Karte entschlackt: Fokus auf 'Heute frei: XX,XX €', linearen Fortschrittsbalken ('Restmonat: X.XXX € frei') sowie zwei klare Pillen ('🟢 Einnahmen' & '🟠 Ausgaben').",
-                "Aufklappbare Experten-Detailansicht ('Details, Ø-Schnitt & Glätter anzeigen ⌄'): Enthält die 3M/6M/12M-Ø-Chips, Monatsend-Prognose, Rollover-Formel und den integrierten 1/12-Jahreskosten-Glätter.",
-                "Abbuchungs-Wächter standardmäßig eingeklappt: Kompakte Wächter-Zeile mit '📈 Grafik ⌄'-Button zum bedarfsweisen Aufklappen der 31-Tage-Belastungswelle.",
-                "Wegklickbare Warn-Banner ('✕') für Vertrags-Wecker & Schleichende-Kosten-Radar sowie direkter Alltags-Fokus auf 1-Tap-Schnelleingabe und Kategorien-Tabs ohne Scrollen."
+                "UI/UX-Komplett-Redesign (Build #${BuildConfig.BUILD_NUMBER}): Moderner 5-Tab Clean-Banking-Look ('Übersicht', 'Verträge', 'Analysen', 'KI-Coach', 'Sparbooster') mit Material-Vektor-Icons.",
+                "Top-Bar mit großem 'Übersicht'-Header, wischbarem Monat sowie 3 Direkt-Icons für Beleg-Scanner-Kamera, Benachrichtigungs-Glocke (mit Badge-Zähler) und Light/Dark-Mode-Umschalter.",
+                "Violette Hero-Budget-Karte (Farbverlauf #4A25AA bis #311B92) mit PRO-Statistik-Badge, Resttagen, großem verfügbaren Budget, türkisfarbenem Fortschrittsbalken (#00E5FF) und Tagessatz.",
+                "Budgets-Karte mit runden 52dp Kreis-Fortschrittsringen (Grün / Orange >75 % / Rot >100 %) und rundem '+'-Button zum Hinzufügen neuer Kategorien.",
+                "Gruppierte Listen-Container ('Nächste Abbuchungen' & 'Letzte Buchungen') mit 0.5dp Trennlinien, Detail-/Löschen-BottomSheet bei Zeilen-Tap und '+'-FloatingActionButton für 1-Tap-Vorlagen & Zahlenblock."
+            )
+        ),
+        ChangelogEntry(
+            versionName = "1.0.2",
+            buildNumber = 2,
+            date = "14.11.2026",
+            newFeatures = listOf(
+                "UI/UX-Update (Build #2): Aufgeräumtes Cockpit mit Progressive Disclosure und aufklappbaren Detailbereichen."
             )
         ),
         ChangelogEntry(
@@ -311,14 +313,7 @@ object AppHelpRegistry {
             buildNumber = 1,
             date = "14.11.2026",
             newFeatures = listOf(
-                "Initiales Voll-Release von SmartFinance 2026 (v1.0.1, Build #1) mit deterministischer In-Place-Update-Signatur und striktem Room-Datenschutz.",
-                "Monats-Zeitstrahl (HorizontalPager) mit Soll/Ist-Header, 3/6/12-Monats-Durchschnitt und dynamischem Tagesbudget-Rollover.",
-                "Abbuchungs-Wächter mit Countdown und grafischer Monats-Belastungswelle (Canvas Tag 1–31 inkl. Peaks und 'Heute'-Markierungslinie).",
-                "Dynamische Kategorien-Tabs inkl. Vertrags-Wecker (30-Tage-Vorwarnung), Schleichende-Kosten-Radar (>20 % Abweichung) und 1/12-Jahreskosten-Glätter.",
-                "Etappen-Sparziel-Tracker (3.000-€-Etappe) mit automatischer KI-Zieldatum-Prognose.",
-                "Lokale Smart Finance Hybrid-KI mit deutschem Q&A-Chat, 'Was-wäre-wenn'-Simulator (Check: 85 € mit Grün/Gelb/Rot-Ampel) und Arbeitsstunden-Umrechner (15,75 €/h Standard).",
-                "Einhand-Daumen-Ergonomie mit Taschenrechner-Numpad, 1-Tap-Schnellvorlagen, Offline Beleg-Scanner (Google ML Kit OCR) und Daten-Tresor (JSON-Backup & Bank-CSV-Import).",
-                "6-Monate-Demo-Daten-Generator (Abbuchungstage 1., 5., 15., 20., 28.), Android Homescreen-Shortcuts und Lite-vs.-Pro-Live-Simulator."
+                "Initiales Voll-Release von SmartFinance 2026 (v1.0.1, Build #1) mit deterministischer In-Place-Update-Signatur, Room-Datenschutz, lokaler Hybrid-KI und ML Kit OCR."
             )
         )
     )

@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -55,7 +57,6 @@ fun HelpChangelogScreen(
     val filteredEntries = remember(searchQuery) { AppHelpRegistry.search(searchQuery) }
     val expandedState = remember {
         mutableStateMapOf<String, Boolean>().apply {
-            // Erste Karte initial aufgeklappt als Vorschau
             AppHelpRegistry.helpEntries.firstOrNull()?.let { put(it.id, true) }
         }
     }
@@ -68,7 +69,7 @@ fun HelpChangelogScreen(
         // 1. App-Info & Versions-Header (`v1.0.X (Build #Y)`)
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -81,12 +82,22 @@ fun HelpChangelogScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "📖 SmartFinance 2026 Hilfe-Zentrale",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.MenuBook,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "SmartFinance 2026 Hilfe-Zentrale",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.primary
@@ -132,7 +143,7 @@ fun HelpChangelogScreen(
         // 4. Alle 13 aufklappbaren Erklär-Karten aus AppHelpRegistry.kt
         item {
             Text(
-                text = "📚 Alle ${filteredEntries.size} Funktions-Module (Antippen zum Aufklappen):",
+                text = "Alle ${filteredEntries.size} Funktions-Module (Antippen zum Aufklappen):",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -170,7 +181,9 @@ private fun ExpandableHelpCard(
     onToggle: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle() }
@@ -205,8 +218,9 @@ private fun ExpandableHelpCard(
                             }
                         ) {
                             Text(
-                                text = if (entry.requiredTier == AppTier.PRO_FULL) "💎 PRO" else "✅ LITE & PRO",
+                                text = if (entry.requiredTier == AppTier.PRO_FULL) "PRO" else "LITE & PRO",
                                 style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -260,7 +274,7 @@ private fun ExpandableHelpCard(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = "💡 Praxis-Beispiele & Tipps:",
+                                    text = "Praxis-Beispiele & Tipps:",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -282,7 +296,7 @@ private fun ExpandableHelpCard(
 @Composable
 private fun ChangelogSectionCard() {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -290,15 +304,25 @@ private fun ChangelogSectionCard() {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                text = "🎉 Was ist neu? (Update-Changelog)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Was ist neu? (Update-Changelog)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             AppHelpRegistry.changelogEntries.forEach { log ->
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier.fillMaxWidth()
                 ) {

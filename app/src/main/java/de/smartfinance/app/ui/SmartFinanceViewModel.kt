@@ -39,13 +39,24 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
+/**
+ * 5er Bottom-Navigation-Bar Tabs im Clean-Banking-Design.
+ */
+enum class BottomNavTab(val label: String) {
+    OVERVIEW("Übersicht"),
+    CONTRACTS("Verträge"),
+    ANALYTICS("Analysen"),
+    AI_COACH("KI-Coach"),
+    SAVINGS_BOOSTER("Sparbooster")
+}
+
 enum class DrawerDestination(val title: String) {
-    COCKPIT("📊 Cockpit & Zeitstrahl"),
-    CATEGORIES_CONTRACTS("🗂️ Kategorien, Sparziele & Verträge"),
-    DATA_VAULT("🔐 Daten-Tresor (Backup & Import)"),
-    SETTINGS_DEMO("⚙️ Einstellungen & Demo-Daten"),
-    HELP_CHANGELOG("📖 Hilfe, Features & Was ist neu?"),
-    LITE_PRO_OVERVIEW("💎 Lite vs. Pro Übersicht")
+    COCKPIT("Übersicht & Cockpit"),
+    CATEGORIES_CONTRACTS("Kategorien, Sparziele & Verträge"),
+    DATA_VAULT("Daten-Tresor (Backup & Import)"),
+    SETTINGS_DEMO("Einstellungen & Demo-Daten"),
+    HELP_CHANGELOG("Hilfe, Features & Was ist neu?"),
+    LITE_PRO_OVERVIEW("Lite vs. Pro Übersicht")
 }
 
 data class ChatMessage(
@@ -63,21 +74,20 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     val repository = FinanceRepository(dao, preferences)
     val vaultManager = DataVaultManager(dao, preferences)
 
-    // Navigation & UI-Zustände
     private val _currentDestination = MutableStateFlow(DrawerDestination.COCKPIT)
     val currentDestination: StateFlow<DrawerDestination> = _currentDestination.asStateFlow()
 
-    // HorizontalPager Monats-Index (Mitte = Index 24 entspricht dem aktuellen Monat, 24 Monate zurück & 12 Monate voraus)
+    private val _selectedBottomTab = MutableStateFlow(BottomNavTab.OVERVIEW)
+    val selectedBottomTab: StateFlow<BottomNavTab> = _selectedBottomTab.asStateFlow()
+
     val baseMonthIndex = 24
     val totalMonthPages = 37
     private val _selectedMonthPage = MutableStateFlow(baseMonthIndex)
     val selectedMonthPage: StateFlow<Int> = _selectedMonthPage.asStateFlow()
 
-    // Ausgewählter Kategorien-Tab im Cockpit (null = "Alle")
     private val _selectedCategoryId = MutableStateFlow<Long?>(null)
     val selectedCategoryId: StateFlow<Long?> = _selectedCategoryId.asStateFlow()
 
-    // BottomSheets & Dialoge
     private val _showCalculatorSheet = MutableStateFlow(false)
     val showCalculatorSheet: StateFlow<Boolean> = _showCalculatorSheet.asStateFlow()
 
@@ -86,6 +96,12 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     private val _showReceiptScannerSheet = MutableStateFlow(false)
     val showReceiptScannerSheet: StateFlow<Boolean> = _showReceiptScannerSheet.asStateFlow()
+
+    private val _showNotificationsSheet = MutableStateFlow(false)
+    val showNotificationsSheet: StateFlow<Boolean> = _showNotificationsSheet.asStateFlow()
+
+    private val _selectedTransactionForAction = MutableStateFlow<TransactionEntity?>(null)
+    val selectedTransactionForAction: StateFlow<TransactionEntity?> = _selectedTransactionForAction.asStateFlow()
 
     private val _activeHelpEntryModal = MutableStateFlow<HelpEntry?>(null)
     val activeHelpEntryModal: StateFlow<HelpEntry?> = _activeHelpEntryModal.asStateFlow()
@@ -99,17 +115,16 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     private val _highlightChangelogOnHelpScreen = MutableStateFlow(false)
     val highlightChangelogOnHelpScreen: StateFlow<Boolean> = _highlightChangelogOnHelpScreen.asStateFlow()
 
-    // Lokaler KI-Chat Verlauf
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
         listOf(
             ChatMessage(
                 senderIsUser = false,
-                text = "Hallo! 👋 Ich bin deine 100 % lokale Smart Finance Hybrid-KI.\n\n" +
-                    "Frag mich z. B.:\n" +
-                    "• \"Wie viel habe ich heute noch frei?\"\n" +
-                    "• \"Wann geht die nächste Zahlung ab?\"\n" +
-                    "• \"Reicht mein Geld bis Monatsende?\"\n" +
-                    "• Oder tippe **Check: 85 €** für den Was-wäre-wenn-Kaufsimulator inkl. Arbeitsstunden-Rechner!"
+                text = "Willkommen im lokalen Smart Finance KI-Coach.\n\n" +
+                    "Frag mich zum Beispiel:\n" +
+                    "• Wie viel habe ich heute noch frei?\n" +
+                    "• Wann geht die nächste Zahlung ab?\n" +
+                    "• Reicht mein Geld bis Monatsende?\n" +
+                    "• Oder gib Check: 85 € für den Was-wäre-wenn-Kaufsimulator inkl. Arbeitsstunden-Rechner ein."
             )
         )
     )
@@ -180,10 +195,24 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         )
     )
 
-    // --- Navigation & Feature-Gate Actions ---
     fun navigateTo(destination: DrawerDestination, highlightChangelog: Boolean = false) {
         _highlightChangelogOnHelpScreen.value = highlightChangelog
         _currentDestination.value = destination
+        if (destination == DrawerDestination.COCKPIT) {
+            _selectedBottomTab.value = BottomNavTab.OVERVIEW
+        } else if (destination == DrawerDestination.CATEGORIES_CONTRACTS) {
+            _currentDestination.value = DrawerDestination.COCKPIT
+            _selectedBottomTab.value = BottomNavTab.CONTRACTS
+        }
+    }
+
+    fun selectBottomTab(tab: BottomNavTab) {
+        _currentDestination.value = DrawerDestination.COCKPIT
+        _selectedBottomTab.value = tab
+    }
+
+    fun toggleThemeMode() {
+        preferences.toggleDarkMode()
     }
 
     fun setSelectedMonthPage(page: Int) {
@@ -198,10 +227,22 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         _selectedCategoryId.value = categoryId
     }
 
-    /**
-     * Prüft, ob ein PRO-Feature in der aktuellen Lizenzstufe genutzt werden darf.
-     * Falls der Entwickler im "LITE_FREE"-Testmodus ist, öffnet sich der Info-/Freischalt-Dialog.
-     */
+    fun openNotificationsSheet() {
+        _showNotificationsSheet.value = true
+    }
+
+    fun closeNotificationsSheet() {
+        _showNotificationsSheet.value = false
+    }
+
+    fun openTransactionActionSheet(transaction: TransactionEntity) {
+        _selectedTransactionForAction.value = transaction
+    }
+
+    fun closeTransactionActionSheet() {
+        _selectedTransactionForAction.value = null
+    }
+
     fun runIfUnlockedOrShowProDialog(
         requiredTier: AppTier,
         featureTitle: String,
@@ -264,10 +305,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         _snackbarMessage.value = null
     }
 
-    fun showMessage(msg: String) {
-        _snackbarMessage.value = msg
-    }
-
     fun dismissUpdateBanner() {
         preferences.dismissUpdateBanner()
     }
@@ -277,7 +314,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         navigateTo(DrawerDestination.HELP_CHANGELOG, highlightChangelog = true)
     }
 
-    // --- Buchungen, 1-Tap-Vorlagen & Kategorien ---
     fun addBooking(
         title: String,
         amount: Double,
@@ -318,7 +354,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             val today = LocalDate.now()
             repository.addTransaction(
                 TransactionEntity(
-                    title = "${template.emoji} ${template.label}",
+                    title = template.label,
                     amount = template.amount,
                     transactionType = template.transactionType,
                     categoryId = template.categoryId,
@@ -332,7 +368,17 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                 )
             )
             withContext(Dispatchers.Main) {
-                _snackbarMessage.value = "⚡ 1-Tap gebucht: ${template.label} (${SmartFinanceEngine.formatEuro(template.amount)})"
+                _snackbarMessage.value = "1-Tap gebucht: ${template.label} (${SmartFinanceEngine.formatEuro(template.amount)})"
+            }
+        }
+    }
+
+    fun updateExistingTransaction(updated: TransactionEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            dao.updateTransaction(updated)
+            withContext(Dispatchers.Main) {
+                _selectedTransactionForAction.value = null
+                _snackbarMessage.value = "Buchung '${updated.title}' aktualisiert."
             }
         }
     }
@@ -341,6 +387,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTransaction(transaction)
             withContext(Dispatchers.Main) {
+                _selectedTransactionForAction.value = null
                 _snackbarMessage.value = "Buchung '${transaction.title}' gelöscht."
             }
         }
@@ -350,7 +397,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch(Dispatchers.IO) {
             repository.saveCategoryTab(tab)
             withContext(Dispatchers.Main) {
-                _snackbarMessage.value = "Kategorie-Tab '${tab.name}' gespeichert."
+                _snackbarMessage.value = "Kategorie '${tab.name}' gespeichert."
             }
         }
     }
@@ -362,7 +409,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                 _selectedCategoryId.value = null
             }
             withContext(Dispatchers.Main) {
-                _snackbarMessage.value = "Kategorie-Tab '${tab.name}' entfernt."
+                _snackbarMessage.value = "Kategorie '${tab.name}' entfernt."
             }
         }
     }
@@ -395,12 +442,11 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             }
             repository.updateSavingsGoal(updated)
             withContext(Dispatchers.Main) {
-                _snackbarMessage.value = "Etappen-Sparziel aktualisiert!"
+                _snackbarMessage.value = "Etappen-Sparziel aktualisiert."
             }
         }
     }
 
-    // --- KI-Chat Interaktion ---
     fun sendChatMessage(userText: String) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty()) return
@@ -420,7 +466,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         _chatMessages.value = _chatMessages.value + userMsg + aiMsg
     }
 
-    // --- OCR Beleg-Scanner ---
     suspend fun scanReceiptFromUri(context: Context, uri: Uri): Result<OcrReceiptResult> {
         return withContext(Dispatchers.IO) {
             ReceiptOcrParser.recognizeFromImageUri(context, uri, categories.value)
@@ -432,7 +477,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         return ReceiptOcrParser.parseRawReceiptText(sampleText, categories.value)
     }
 
-    // --- Einstellungen & 6-Monate-Demo-Generator ---
     fun updateBillingStartDay(day: Int) {
         preferences.setBillingStartDay(day)
         _snackbarMessage.value = "Abrechnungstag auf den $day. des Monats eingestellt."
@@ -452,7 +496,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             repository.generateSixMonthsDemoData()
             withContext(Dispatchers.Main) {
                 _selectedMonthPage.value = baseMonthIndex
-                _snackbarMessage.value = "✅ 6 Monate Demo-Daten (Abbuchungstage 1., 5., 15., 20., 28.) erfolgreich generiert!"
+                _snackbarMessage.value = "6 Monate Demo-Daten (Abbuchungstage 1., 5., 15., 20., 28.) erfolgreich generiert."
             }
         }
     }
@@ -462,12 +506,11 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             repository.resetAllData()
             withContext(Dispatchers.Main) {
                 _selectedMonthPage.value = baseMonthIndex
-                _snackbarMessage.value = "🧹 Alle Buchungen wurden zurückgesetzt (Reset abgeschlossen)."
+                _snackbarMessage.value = "Alle Buchungen wurden zurückgesetzt."
             }
         }
     }
 
-    // --- Daten-Tresor (JSON Backup/Restore & Bank-CSV) ---
     fun exportBackupToUri(context: Context, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
@@ -477,7 +520,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                 }
             }.onSuccess {
                 withContext(Dispatchers.Main) {
-                    _snackbarMessage.value = "🔐 1-Tap JSON-Komplett-Backup erfolgreich gespeichert!"
+                    _snackbarMessage.value = "1-Tap JSON-Komplett-Backup erfolgreich gespeichert."
                 }
             }.onFailure { err ->
                 withContext(Dispatchers.Main) {
@@ -534,20 +577,21 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // --- App-Shortcuts Handler (Langes Drücken auf das App-Icon) ---
     fun handleShortcutIntentAction(action: String?) {
         when (action) {
             ACTION_QUICK_EXPENSE -> {
                 _currentDestination.value = DrawerDestination.COCKPIT
+                _selectedBottomTab.value = BottomNavTab.OVERVIEW
                 _showCalculatorSheet.value = true
             }
             ACTION_SCAN_RECEIPT -> {
                 _currentDestination.value = DrawerDestination.COCKPIT
+                _selectedBottomTab.value = BottomNavTab.OVERVIEW
                 _showReceiptScannerSheet.value = true
             }
             ACTION_AI_CHAT -> {
                 _currentDestination.value = DrawerDestination.COCKPIT
-                _showAiChatSheet.value = true
+                _selectedBottomTab.value = BottomNavTab.AI_COACH
             }
         }
     }

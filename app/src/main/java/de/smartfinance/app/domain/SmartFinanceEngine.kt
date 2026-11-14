@@ -33,6 +33,7 @@ data class DayLoadPoint(
 data class UpcomingDebitItem(
     val title: String,
     val categoryName: String,
+    val iconKey: String,
     val dueDayOfMonth: Int,
     val dueDateFormatted: String,
     val daysUntilDue: Int,
@@ -79,10 +80,10 @@ data class SavingsGoalProgress(
     val estimatedCompletionText: String
 )
 
-enum class TrafficLightStatus(val label: String, val emoji: String) {
-    GREEN("GRÜN – Unbedenklich machbar", "🟢"),
-    YELLOW("GELB – Machbar mit Tagesbudget-Kürzung", "🟡"),
-    RED("ROT – Kritisch für Fixkosten / Monatsende", "🔴")
+enum class TrafficLightStatus(val label: String) {
+    GREEN("GRÜN – Unbedenklich machbar"),
+    YELLOW("GELB – Machbar mit Tagesbudget-Kürzung"),
+    RED("ROT – Kritisch für Fixkosten / Monatsende")
 }
 
 data class WhatIfSimulationResult(
@@ -143,9 +144,8 @@ data class DashboardAnalysisSnapshot(
 
 /**
  * 100 % lokale, rechensichere Smart Finance Hybrid-KI & Analyse-Engine.
- * Berechnet Soll/Ist-Werte, Dynamischen Tagesbudget-Rollover, 1/12-Jahreskosten-Glättung,
- * Abbuchungs-Wächter, Belastungswelle (Tag 1..31), Schleichende-Kosten-Radar,
- * Etappen-Sparziel-Prognose sowie den deutschen Q&A-Chat und "Was-wäre-wenn"-Simulator.
+ * Alle Ausgabetexte sind frei von rohen Markdown-Sternchen (**), damit sie in Compose
+ * sauber und direkt lesbar dargestellt werden.
  */
 object SmartFinanceEngine {
 
@@ -172,11 +172,9 @@ object SmartFinanceEngine {
 
         val monthTransactions = allTransactions.filter { it.dateEpochDay in startEpoch..endEpoch }
 
-        // 1. 1/12-Jahreskosten-Glätter (aus Kategorien-Verträgen + geglätteten Jahres-/Quartalsbuchungen)
         val smoothedItems = computeSmoothedAnnualItems(categories, allTransactions, today)
         val smoothedMonthlyReserveTotal = smoothedItems.sumOf { it.monthlyShare }
 
-        // 2. Einnahmen (Ist vs. Soll)
         val actualIncome = monthTransactions
             .filter { it.transactionType == TransactionType.INCOME }
             .sumOf { it.amount }
@@ -186,13 +184,11 @@ object SmartFinanceEngine {
         val targetIncome = max(actualIncome, if (plannedMonthlyIncome > 0.0) plannedMonthlyIncome else 2850.0)
         val effectiveIncome = if (isFutureMonth || actualIncome == 0.0) targetIncome else actualIncome
 
-        // 3. Ausgaben & Sparen im gewählten Monat
         val expenseTransactions = monthTransactions.filter { it.transactionType == TransactionType.EXPENSE }
         val savingsTransactions = monthTransactions.filter { it.transactionType == TransactionType.SAVINGS }
 
         val actualExpensesRaw = expenseTransactions.sumOf { it.amount }
 
-        // Bei 1/12-geglätteten Jahresbuchungen zählt im Buchungsmonat nur der geglättete Anteil ins operative Budget
         val nonSmoothedExpenses = expenseTransactions
             .filter { !it.smoothOver12Months }
             .sumOf { it.amount }
@@ -211,7 +207,6 @@ object SmartFinanceEngine {
             .sumOf { it.defaultAmount ?: 0.0 }
         val savingsThisMonth = if (isFutureMonth) max(bookedSavings, plannedSavings) else bookedSavings
 
-        // 4. Offene Fixkosten-Abbuchungen im laufenden / zukünftigen Monat (Abbuchungs-Wächter)
         val referenceDay = when {
             isCurrentMonth -> today.dayOfMonth
             isFutureMonth -> 0
@@ -230,7 +225,6 @@ object SmartFinanceEngine {
         val effectiveOperatingExpenses =
             nonSmoothedExpenses + smoothedMonthlyReserveTotal + openUpcomingFixedTotal
 
-        // 5. Historischer Durchschnitt (3 / 6 / 12 Monate)
         val window = if (avgWindowMonths in listOf(3, 6, 12)) avgWindowMonths else 3
         val (histAvgIncome, histAvgExpense) = computeHistoricalAverages(
             referenceYm = currentYm,
@@ -245,7 +239,6 @@ object SmartFinanceEngine {
             if (histAvgExpense > 0.0) histAvgExpense else effectiveOperatingExpenses
         )
 
-        // 6. Dynamisches Tagesbudget & Rollover-Formel
         val totalDaysInMonth = selectedYearMonth.lengthOfMonth()
         val remainingDaysInMonth = when {
             isCurrentMonth -> (totalDaysInMonth - today.dayOfMonth + 1).coerceAtLeast(1)
@@ -260,7 +253,7 @@ object SmartFinanceEngine {
         val baseDailyBudget = totalDisposableMonthBudget / totalDaysInMonth.toDouble()
 
         val remainingFreeBudgetMonth = if (isFutureMonth) {
-            totalDisposableMonthBudget - histAvgVariableSpend(currentYm, allTransactions) * 0.0
+            totalDisposableMonthBudget
         } else {
             effectiveIncome - bookedFixedExpenses - openUpcomingFixedTotal - smoothedMonthlyReserveTotal - bookedSavings - variableExpensesSoFar
         }
@@ -268,11 +261,9 @@ object SmartFinanceEngine {
         val dynamicDailyBudgetToday = remainingFreeBudgetMonth / remainingDaysInMonth.toDouble()
         val rolloverDeltaPerDay = dynamicDailyBudgetToday - baseDailyBudget
 
-        // 7. Werktags- vs. Wochenend-Burn-Rate & Monatsend-Prognose
         val (weekdayBurn, weekendBurn) = computeWeekdayWeekendBurnRate(currentYm, allTransactions)
         val projectedRemainingVariableSpend = if (isCurrentMonth) {
             var projected = 0.0
-            // Für die restlichen Tage nach heute Prognose anhand Werktag/Wochenend-Muster
             for (d in (today.dayOfMonth + 1)..totalDaysInMonth) {
                 val date = selectedYearMonth.atDay(d)
                 val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
@@ -293,7 +284,6 @@ object SmartFinanceEngine {
 
         val projectedEndOfMonthBalance = remainingFreeBudgetMonth - projectedRemainingVariableSpend
 
-        // 8. Grafische Monats-Belastungswelle (Tag 1..31)
         val dayLoadPoints = buildDayLoadWave(
             selectedYearMonth = selectedYearMonth,
             today = today,
@@ -317,7 +307,6 @@ object SmartFinanceEngine {
                 "Monatsende (Tag 21–${totalDaysInMonth}: ${formatEuro(loadEndThird)})"
         }
 
-        // 9. Abbuchungs-Wächter Countdown-Text
         val nextDebit = upcomingDebits.minByOrNull { it.daysUntilDue }
         val nextDebitHeadline: String
         val nextDebitSubline: String
@@ -327,16 +316,15 @@ object SmartFinanceEngine {
                 1 -> "In 1 Tag (${nextDebit.dueDateFormatted})"
                 else -> "In ${nextDebit.daysUntilDue} Tagen (${nextDebit.dueDateFormatted})"
             }
-            nextDebitHeadline = "🛡️ Nächste Zahlung: $dayLabel – ${nextDebit.title} (${formatEuro(nextDebit.amount)})"
+            nextDebitHeadline = "Nächste Zahlung: $dayLabel – ${nextDebit.title} (${formatEuro(nextDebit.amount)})"
             nextDebitSubline = "Noch offen: ${formatEuro(openUpcomingFixedTotal)} (${upcomingDebits.size} Posten)"
         } else {
             val nextMonthFirst = selectedYearMonth.plusMonths(1).atDay(1)
             val daysToNextFirst = ChronoUnit.DAYS.between(today, nextMonthFirst).toInt().coerceAtLeast(1)
-            nextDebitHeadline = "🛡️ Nächste Zahlung: In $daysToNextFirst Tagen (${nextMonthFirst.format(dayMonthFormatter)}) – Monatsstart"
-            nextDebitSubline = "Noch offen: 0,00 € (0 Posten – alles für diesen Monat erledigt ✅)"
+            nextDebitHeadline = "Nächste Zahlung: In $daysToNextFirst Tagen (${nextMonthFirst.format(dayMonthFormatter)}) – Monatsstart"
+            nextDebitSubline = "Noch offen: 0,00 € (alle Fixkosten dieses Monats gebucht)"
         }
 
-        // 10. Kategorien-Summen & 3-Monats-Schnitt pro Kategorie + Schleichende-Kosten-Radar
         val categoryTotalsThisMonth = mutableMapOf<Long, Double>()
         for (cat in categories) {
             val sum = monthTransactions
@@ -353,7 +341,6 @@ object SmartFinanceEngine {
         val radarAlerts = computeRadarAnomalies(categories, categoryTotalsThisMonth, categoryHistoricalAvg3M)
         val contractAlerts = computeContractExpiryAlerts(categories, today)
 
-        // 11. Etappen-Sparziel-Fortschritt
         val savingsProgress = savingsGoals.firstOrNull()?.let { goal ->
             val allSavingsTxSum = allTransactions
                 .filter { it.transactionType == TransactionType.SAVINGS }
@@ -369,7 +356,7 @@ object SmartFinanceEngine {
             val monthsLeft = if (remaining <= 0.0) 0 else ceil(remaining / effectiveRate).toInt()
             val targetYm = currentYm.plusMonths(monthsLeft.toLong())
             val completionText = if (monthsLeft == 0) {
-                "🎉 Etappen-Sparziel vollständig erreicht!"
+                "Etappen-Sparziel vollständig erreicht!"
             } else {
                 "Zieldatum: ${targetYm.format(germanMonthFormatter).replaceFirstChar { it.uppercase() }} (in $monthsLeft ${if (monthsLeft == 1) "Monat" else "Monaten"})"
             }
@@ -435,9 +422,6 @@ object SmartFinanceEngine {
         )
     }
 
-    /**
-     * Berechnet den Abrechnungszeitraum passend zum eingestellten Abrechnungstag (z. B. 1., 15. oder 28.).
-     */
     fun computeBillingPeriod(yearMonth: YearMonth, billingStartDay: Int): Pair<LocalDate, LocalDate> {
         if (billingStartDay <= 1) {
             return yearMonth.atDay(1) to yearMonth.atEndOfMonth()
@@ -456,7 +440,6 @@ object SmartFinanceEngine {
         val result = mutableListOf<SmoothedAnnualItem>()
         val oneYearAgoEpoch = today.minusMonths(12).toEpochDay()
 
-        // 1. Geglättete Kategorien-Verträge (z. B. Kfz-Versicherung 660 €/Jahr)
         for (cat in categories) {
             if (cat.smoothOver12Months && (cat.defaultAmount ?: 0.0) > 0.0) {
                 val orig = cat.defaultAmount ?: 0.0
@@ -476,7 +459,6 @@ object SmartFinanceEngine {
             }
         }
 
-        // 2. Einzelne geglättete Buchungen der letzten 12 Monate, falls deren Kategorie noch nicht oben enthalten ist
         val coveredCategoryIds = categories.filter { it.smoothOver12Months && (it.defaultAmount ?: 0.0) > 0.0 }
             .map { it.id }
             .toSet()
@@ -516,7 +498,6 @@ object SmartFinanceEngine {
         val list = mutableListOf<UpcomingDebitItem>()
         val maxDay = selectedYearMonth.lengthOfMonth()
 
-        // Prüfe alle Fixkosten-Kategorien mit Fälligkeitstag > referenceDay
         for (cat in categories) {
             if (cat.categoryType == CategoryType.INCOME) continue
             if (cat.smoothOver12Months && cat.billingInterval == BillingInterval.YEARLY) continue
@@ -536,6 +517,7 @@ object SmartFinanceEngine {
                         UpcomingDebitItem(
                             title = cat.name,
                             categoryName = cat.name,
+                            iconKey = cat.iconKey,
                             dueDayOfMonth = effectiveDueDay,
                             dueDateFormatted = dueDate.format(dayMonthFormatter),
                             daysUntilDue = daysUntil,
@@ -546,7 +528,6 @@ object SmartFinanceEngine {
             }
         }
 
-        // Standardmäßiger Tag-28-Posten (Stadtwerke Strom, Glasfaser & Streaming 89,90 €), falls noch offen
         val day28 = min(28, maxDay)
         if (day28 > referenceDay) {
             val alreadyBooked28 = monthTransactions.any {
@@ -559,6 +540,7 @@ object SmartFinanceEngine {
                     UpcomingDebitItem(
                         title = "Stadtwerke Strom, Glasfaser & Streaming",
                         categoryName = "Fixkosten",
+                        iconKey = "bolt",
                         dueDayOfMonth = day28,
                         dueDateFormatted = dueDate.format(dayMonthFormatter),
                         daysUntilDue = daysUntil,
@@ -654,30 +636,6 @@ object SmartFinanceEngine {
         return (totalInc / countedMonths) to (totalExp / countedMonths)
     }
 
-    private fun histAvgVariableSpend(
-        referenceYm: YearMonth,
-        allTransactions: List<TransactionEntity>
-    ): Double {
-        var sum = 0.0
-        var count = 0
-        for (i in 1..3) {
-            val ym = referenceYm.minusMonths(i.toLong())
-            val start = ym.atDay(1).toEpochDay()
-            val end = ym.atEndOfMonth().toEpochDay()
-            val varTx = allTransactions.filter {
-                it.dateEpochDay in start..end &&
-                    it.transactionType == TransactionType.EXPENSE &&
-                    !it.isFixedRecurring &&
-                    !it.smoothOver12Months
-            }
-            if (varTx.isNotEmpty()) {
-                sum += varTx.sumOf { it.amount }
-                count++
-            }
-        }
-        return if (count > 0) sum / count else 350.0
-    }
-
     private fun computeWeekdayWeekendBurnRate(
         referenceYm: YearMonth,
         allTransactions: List<TransactionEntity>
@@ -769,7 +727,6 @@ object SmartFinanceEngine {
             val avg3M = avg3MonthMap[cat.id] ?: 0.0
             val limit = cat.monthlyBudgetLimit
 
-            // 1. Prüfung auf Überschreitung des gesetzten Tab-Budget-Limits
             if (limit != null && limit > 0.0 && current > limit) {
                 val pct = (((current - limit) / limit) * 100.0).roundToInt()
                 alerts.add(
@@ -779,13 +736,12 @@ object SmartFinanceEngine {
                         currentSpent = current,
                         referenceAmount = limit,
                         percentageExceeded = pct,
-                        title = "🚨 Tab-Limit überschritten: ${cat.name} (+$pct %)",
-                        detail = "Aktuell ${formatEuro(current)} ausgegeben (Tab-Limit: ${formatEuro(limit)}, 3M-Schnitt: ${formatEuro(avg3M)}).",
+                        title = "Budget-Limit überschritten: ${cat.name} (+$pct %)",
+                        detail = "Aktuell ${formatEuro(current)} ausgegeben (Budget-Limit: ${formatEuro(limit)}, 3M-Schnitt: ${formatEuro(avg3M)}).",
                         severity = AlertSeverity.CRITICAL
                     )
                 )
             } else if (avg3M >= 20.0 && current > avg3M * 1.20 && (current - avg3M) >= 15.0) {
-                // 2. Prüfung auf >20 % Abweichung über dem historischen 3-Monats-Durchschnitt
                 val pct = (((current - avg3M) / avg3M) * 100.0).roundToInt()
                 alerts.add(
                     RadarAnomalyAlert(
@@ -794,7 +750,7 @@ object SmartFinanceEngine {
                         currentSpent = current,
                         referenceAmount = avg3M,
                         percentageExceeded = pct,
-                        title = "⚠️ Schleichende Kosten erkannt: ${cat.name} (+$pct % über 3M-Ø)",
+                        title = "Schleichende Kosten erkannt: ${cat.name} (+$pct % über 3M-Ø)",
                         detail = "Aktuell ${formatEuro(current)} statt Ø ${formatEuro(avg3M)} in den letzten 3 Monaten.",
                         severity = AlertSeverity.WARNING
                     )
@@ -831,6 +787,7 @@ object SmartFinanceEngine {
     /**
      * Simuliert einen Spontankauf ("Check: 85 €") inkl. Grün/Gelb/Rot-Ampel,
      * Berücksichtigung aller kommenden Fixkosten-Abbuchungen und Arbeitsstunden-Umrechnung.
+     * Komplett ohne rohe Markdown-Sternchen (**).
      */
     fun simulateWhatIfPurchase(
         amount: Double,
@@ -858,18 +815,18 @@ object SmartFinanceEngine {
         }
 
         val explanation = buildString {
-            appendLine("${status.emoji} **Ampel-Bewertung: ${status.label}**")
+            appendLine("Ampel-Bewertung: ${status.label}")
             appendLine()
-            appendLine("• **Kaufbetrag:** ${formatEuro(amount)}")
-            appendLine("• **Arbeitszeit-Äquivalent:** ⏱️ **$workHoursText**")
-            appendLine("• **Geschützte offene Fixkosten diesen Monat:** ${formatEuro(snapshot.openUpcomingFixedTotal)} (${snapshot.upcomingDebits.size} anstehende Abbuchungen sind bereits sicher reserviert!)")
-            appendLine("• **Freies Restbudget nach Kauf:** ${formatEuro(remainingAfter)} (vorher: ${formatEuro(snapshot.remainingFreeBudgetMonth)})")
-            appendLine("• **Neues Tagesbudget (${snapshot.remainingDaysInMonth} Resttage):** **${formatEuro(newDailyBudget)}/Tag** (vorher: ${formatEuro(snapshot.dynamicDailyBudgetToday)}/Tag, also -${formatEuro(dailyReduction)}/Tag)")
+            appendLine("• Kaufbetrag: ${formatEuro(amount)}")
+            appendLine("• Arbeitszeit-Äquivalent: $workHoursText")
+            appendLine("• Geschützte offene Fixkosten diesen Monat: ${formatEuro(snapshot.openUpcomingFixedTotal)} (${snapshot.upcomingDebits.size} anstehende Abbuchungen sind bereits sicher reserviert)")
+            appendLine("• Freies Restbudget nach Kauf: ${formatEuro(remainingAfter)} (vorher: ${formatEuro(snapshot.remainingFreeBudgetMonth)})")
+            appendLine("• Neues Tagesbudget (${snapshot.remainingDaysInMonth} Resttage): ${formatEuro(newDailyBudget)}/Tag (vorher: ${formatEuro(snapshot.dynamicDailyBudgetToday)}/Tag, also -${formatEuro(dailyReduction)}/Tag)")
             appendLine()
             when (status) {
                 TrafficLightStatus.GREEN -> append("Fazit: Du kannst dir diese Ausgabe problemlos leisten, ohne deine kommenden Fixkosten oder dein Sparziel zu gefährden.")
                 TrafficLightStatus.YELLOW -> append("Fazit: Der Kauf ist machbar und deine Fixkosten bleiben gedeckt, aber dein tägliches Alltagsbudget sinkt für den Rest des Monats spürbar auf ${formatEuro(newDailyBudget)}/Tag.")
-                TrafficLightStatus.RED -> append("Fazit: Achtung! Dieser Kauf übersteigt dein freies Monatsbudget um ${formatEuro(abs(remainingAfter))} und würde deine Rücklagen für kommende Fixkosten (${formatEuro(snapshot.openUpcomingFixedTotal)}) oder deine Sparrate angreifen!")
+                TrafficLightStatus.RED -> append("Fazit: Achtung! Dieser Kauf übersteigt dein freies Monatsbudget um ${formatEuro(abs(remainingAfter))} und würde deine Rücklagen für kommende Fixkosten (${formatEuro(snapshot.openUpcomingFixedTotal)}) oder deine Sparrate angreifen.")
             }
         }
 
@@ -888,6 +845,7 @@ object SmartFinanceEngine {
 
     /**
      * Lokaler Rule- & Intent-Based Natural Language Parser für den deutschen Q&A-Finanz-Chat.
+     * Komplett ohne rohe Markdown-Sternchen (**).
      */
     fun answerUserQuery(
         rawQuery: String,
@@ -898,8 +856,6 @@ object SmartFinanceEngine {
         val query = rawQuery.trim()
         val lower = query.lowercase(Locale.GERMAN)
 
-        // 1. Prüfe zuerst auf "Was-wäre-wenn"-Simulator ("Check: 85 €", "Kann ich mir 85 € leisten?", oder Zahl mit €)
-        val checkNumberRegex = Regex("""(?:check\s*:?\s*|leisten\s*|kaufen\s*|simulator\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:€|euro|eur)?""", RegexOption.IGNORE_CASE)
         val hasCheckIntent = lower.startsWith("check") ||
             lower.contains("leisten") ||
             lower.contains("was wäre wenn") ||
@@ -915,30 +871,28 @@ object SmartFinanceEngine {
             }
         }
 
-        // 2. Hilfe / "Was kannst du alles?" -> Liste aller Befehle & 13 Module aus AppHelpRegistry
         if (lower.contains("hilfe") || lower.contains("was kannst du") || lower.contains("befehl") || lower.contains("beispiel")) {
             return buildString {
-                appendLine("🤖 **Lokale Smart Finance Hybrid-KI – Übersicht & Beispiel-Fragen:**")
+                appendLine("Lokale Smart Finance Hybrid-KI – Übersicht & Beispiel-Fragen:")
                 appendLine("Ich arbeite zu 100 % lokal auf deinem Gerät und kenne alle Zahlen deiner Datenbank in Echtzeit.")
                 appendLine()
-                appendLine("**Frag mich zum Beispiel:**")
-                appendLine("1. *\"Wie viel habe ich heute/diesen Monat noch frei?\"*")
-                appendLine("2. *\"Wann geht die nächste Zahlung ab?\"*")
-                appendLine("3. *\"Was wird diese Woche noch abgebucht?\"*")
-                appendLine("4. *\"Wann geht im Monat am meisten ab?\"*")
-                appendLine("5. *\"Was gebe ich im Schnitt für Versicherungen / Handyvertrag aus?\"*")
-                appendLine("6. *\"Reicht mein Geld bis Monatsende?\"*")
-                appendLine("7. *\"Wann erreiche ich mein Sparziel?\"*")
-                appendLine("8. *\"Check: 85 €\"* (Was-wäre-wenn-Simulator mit Grün/Gelb/Rot-Ampel + Arbeitsstunden-Rechner)")
+                appendLine("Frag mich zum Beispiel:")
+                appendLine("1. \"Wie viel habe ich heute/diesen Monat noch frei?\"")
+                appendLine("2. \"Wann geht die nächste Zahlung ab?\"")
+                appendLine("3. \"Was wird diese Woche noch abgebucht?\"")
+                appendLine("4. \"Wann geht im Monat am meisten ab?\"")
+                appendLine("5. \"Was gebe ich im Schnitt für Versicherungen / Handyvertrag aus?\"")
+                appendLine("6. \"Reicht mein Geld bis Monatsende?\"")
+                appendLine("7. \"Wann erreiche ich mein Sparziel?\"")
+                appendLine("8. \"Check: 85 €\" (Was-wäre-wenn-Simulator mit Grün/Gelb/Rot-Ampel + Arbeitsstunden-Rechner)")
                 appendLine()
-                appendLine("**Integrierte 13 SmartFinance-Module (`AppHelpRegistry`):**")
+                appendLine("Integrierte 13 SmartFinance-Module (AppHelpRegistry):")
                 AppHelpRegistry.helpEntries.forEach { entry ->
                     appendLine("• ${entry.title}")
                 }
             }.trim()
         }
 
-        // 3. Kategorie-Durchschnitte ("Was gebe ich im Schnitt für Versicherungen / Handyvertrag / Lebensmittel aus?")
         val matchedCat = categories.firstOrNull { cat ->
             lower.contains(cat.name.lowercase(Locale.GERMAN)) ||
                 (cat.name == "Versicherung" && lower.contains("versicherung") && !lower.contains("kfz")) ||
@@ -950,107 +904,104 @@ object SmartFinanceEngine {
             val avg3M = snapshot.categoryHistoricalAvg3M[matchedCat.id] ?: 0.0
             val hours = (avg3M / hourlyWage)
             return buildString {
-                appendLine("📊 **Kategorie-Analyse: ${matchedCat.name}**")
-                appendLine("• **3-Monats-Durchschnitt:** **${formatEuro(avg3M)} / Monat** (ca. ${String.format(Locale.GERMAN, "%.1f", hours)} Arbeitsstunden)")
-                appendLine("• **Aktueller Monat (${snapshot.monthTitleFormatted}):** ${formatEuro(currentMonthVal)}")
+                appendLine("Kategorie-Analyse: ${matchedCat.name}")
+                appendLine("• 3-Monats-Durchschnitt: ${formatEuro(avg3M)} / Monat (ca. ${String.format(Locale.GERMAN, "%.1f", hours)} Arbeitsstunden)")
+                appendLine("• Aktueller Monat (${snapshot.monthTitleFormatted}): ${formatEuro(currentMonthVal)}")
                 if (matchedCat.monthlyBudgetLimit != null) {
-                    appendLine("• **Gesetztes Tab-Limit:** ${formatEuro(matchedCat.monthlyBudgetLimit)}")
+                    appendLine("• Gesetztes Budget-Limit: ${formatEuro(matchedCat.monthlyBudgetLimit)}")
                 }
                 if (matchedCat.dueDayOfMonth != null) {
-                    appendLine("• **Fälligkeitstag im Monat:** jeweils am ${matchedCat.dueDayOfMonth}. des Monats")
+                    appendLine("• Fälligkeitstag im Monat: jeweils am ${matchedCat.dueDayOfMonth}. des Monats")
                 }
                 if (matchedCat.smoothOver12Months && matchedCat.defaultAmount != null) {
-                    appendLine("• **1/12-Glätter aktiv:** Jahresbetrag ${formatEuro(matchedCat.defaultAmount)} wird mit ${formatEuro(matchedCat.defaultAmount / 12.0)}/Monat geglättet.")
+                    appendLine("• 1/12-Glätter aktiv: Jahresbetrag ${formatEuro(matchedCat.defaultAmount)} wird mit ${formatEuro(matchedCat.defaultAmount / 12.0)}/Monat geglättet.")
                 }
             }.trim()
         }
 
-        // 4. Abbuchungs-Wächter: "Wann geht im Monat am meisten ab?"
         if (lower.contains("am meisten") || lower.contains("spitze") || lower.contains("peak") || lower.contains("welle") || lower.contains("belastung")) {
             return buildString {
-                appendLine("🌊 **Monats-Belastungswelle (${snapshot.monthTitleFormatted}):**")
-                appendLine("Am meisten Geld geht im **${snapshot.peakPeriodDescription}** ab:")
-                appendLine("• **Monatsanfang (Tag 1–10):** ${formatEuro(snapshot.loadStartThird)} (Miete, Sparrate, Versicherungen am 1. & 5.)")
-                appendLine("• **Monatsmitte (Tag 11–20):** ${formatEuro(snapshot.loadMiddleThird)} (Handyvertrag am 15., Kfz/Tanken am 20.)")
-                appendLine("• **Monatsende (Tag 21–31):** ${formatEuro(snapshot.loadEndThird)} (Strom, Internet & Streaming am 28.)")
+                appendLine("Monats-Belastungswelle (${snapshot.monthTitleFormatted}):")
+                appendLine("Am meisten Geld geht im ${snapshot.peakPeriodDescription} ab:")
+                appendLine("• Monatsanfang (Tag 1–10): ${formatEuro(snapshot.loadStartThird)} (Miete, Sparrate, Versicherungen am 1. & 5.)")
+                appendLine("• Monatsmitte (Tag 11–20): ${formatEuro(snapshot.loadMiddleThird)} (Handyvertrag am 15., Kfz/Tanken am 20.)")
+                appendLine("• Monatsende (Tag 21–31): ${formatEuro(snapshot.loadEndThird)} (Strom, Internet & Streaming am 28.)")
             }.trim()
         }
 
-        // 5. Abbuchungs-Wächter: "Wann geht die nächste Zahlung ab?" / "Was wird diese Woche noch abgebucht?"
         if (lower.contains("nächste zahlung") || lower.contains("nächste abbuchung") || lower.contains("abgebucht") || lower.contains("diese woche") || lower.contains("offen") || lower.contains("wächter")) {
             return buildString {
-                appendLine("🛡️ **Abbuchungs-Wächter Status:**")
-                appendLine("• **${snapshot.nextDebitHeadline}**")
-                appendLine("• **Gesamt noch offen diesen Monat:** **${formatEuro(snapshot.openUpcomingFixedTotal)}**")
+                appendLine("Abbuchungs-Wächter Status:")
+                appendLine("• ${snapshot.nextDebitHeadline}")
+                appendLine("• Gesamt noch offen diesen Monat: ${formatEuro(snapshot.openUpcomingFixedTotal)}")
                 if (snapshot.upcomingDebits.isNotEmpty()) {
                     appendLine()
-                    appendLine("**Anstehende Abbuchungen im Detail:**")
+                    appendLine("Anstehende Abbuchungen im Detail:")
                     snapshot.upcomingDebits.forEach { item ->
-                        appendLine("• Am **${item.dueDateFormatted}** (in ${item.daysUntilDue} T.): ${item.title} – **${formatEuro(item.amount)}**")
+                        appendLine("• Am ${item.dueDateFormatted} (in ${item.daysUntilDue} T.): ${item.title} – ${formatEuro(item.amount)}")
                     }
                 }
             }.trim()
         }
 
-        // 6. Sparziel-Prognose: "Wann erreiche ich mein Sparziel?"
         if (lower.contains("sparziel") || lower.contains("etappe") || lower.contains("notgroschen") || lower.contains("sparen")) {
             val sp = snapshot.savingsProgress
             return if (sp != null) {
                 buildString {
-                    appendLine("🎯 **Etappen-Sparziel-Prognose (${sp.goal.title}):**")
-                    appendLine("• **Aktueller Stand:** **${formatEuro(sp.totalSaved)}** von **${formatEuro(sp.targetAmount)}** (${(sp.progressFraction * 100).roundToInt()} %)")
-                    appendLine("• **Noch fehlender Betrag:** ${formatEuro(sp.remainingAmount)}")
-                    appendLine("• **Monatliche Dauer-Sparrate:** ${formatEuro(sp.effectiveMonthlyRate)} (jeweils am ${sp.goal.dueDayOfMonth}. des Monats)")
-                    appendLine("• **KI-Prognose:** **${sp.estimatedCompletionText}**")
+                    appendLine("Etappen-Sparziel-Prognose (${sp.goal.title}):")
+                    appendLine("• Aktueller Stand: ${formatEuro(sp.totalSaved)} von ${formatEuro(sp.targetAmount)} (${(sp.progressFraction * 100).roundToInt()} %)")
+                    appendLine("• Noch fehlender Betrag: ${formatEuro(sp.remainingAmount)}")
+                    appendLine("• Monatliche Dauer-Sparrate: ${formatEuro(sp.effectiveMonthlyRate)} (jeweils am ${sp.goal.dueDayOfMonth}. des Monats)")
+                    appendLine("• KI-Prognose: ${sp.estimatedCompletionText}")
                 }.trim()
             } else {
-                "Du hast aktuell noch kein Sparziel angelegt. Öffne 'Kategorien, Sparziele & Verträge', um deine 3.000-€-Etappe zu starten!"
+                "Du hast aktuell noch kein Sparziel angelegt. Wechsle unten in den Tab 'Sparbooster', um deine 3.000-€-Etappe zu starten."
             }
         }
 
-        // 7. Monatsend-Prognose: "Reicht mein Geld bis Monatsende?"
         if (lower.contains("reicht mein geld") || lower.contains("monatsende") || lower.contains("prognose") || lower.contains("burn")) {
-            val statusEmoji = if (snapshot.projectedEndOfMonthBalance >= 0.0) "✅" else "⚠️"
             return buildString {
-                appendLine("$statusEmoji **KI-Monatsend-Prognose (${snapshot.monthTitleFormatted}):**")
-                appendLine("• **Aktuell freies Restbudget (nach Abzug aller offenen Fixkosten):** ${formatEuro(snapshot.remainingFreeBudgetMonth)}")
-                appendLine("• **Dein Ausgaben-Muster (Burn-Rate):** Ø ${formatEuro(snapshot.weekdayBurnRate)} an Werktagen (Mo–Fr) vs. Ø ${formatEuro(snapshot.weekendBurnRate)} am Wochenende (Sa–So).")
-                appendLine("• **Prognostizierter Überschuss am Monatsende:** **${formatEuro(snapshot.projectedEndOfMonthBalance)}**")
+                appendLine("KI-Monatsend-Prognose (${snapshot.monthTitleFormatted}):")
+                appendLine("• Aktuell freies Restbudget (nach Abzug aller offenen Fixkosten): ${formatEuro(snapshot.remainingFreeBudgetMonth)}")
+                appendLine("• Dein Ausgaben-Muster (Burn-Rate): Ø ${formatEuro(snapshot.weekdayBurnRate)} an Werktagen (Mo–Fr) vs. Ø ${formatEuro(snapshot.weekendBurnRate)} am Wochenende (Sa–So).")
+                appendLine("• Prognostizierter Überschuss am Monatsende: ${formatEuro(snapshot.projectedEndOfMonthBalance)}")
                 if (snapshot.projectedEndOfMonthBalance >= 0.0) {
-                    appendLine("Fazit: Ja, dein Geld reicht bei deinem aktuellen Ausgaben-Tempo sicher bis zum Monatsende!")
+                    appendLine("Fazit: Ja, dein Geld reicht bei deinem aktuellen Ausgaben-Tempo sicher bis zum Monatsende.")
                 } else {
                     appendLine("Fazit: Vorsicht! Wenn du dein aktuelles Tempo beibehältst, fehlen am Monatsende ca. ${formatEuro(abs(snapshot.projectedEndOfMonthBalance))}. Halte dich an dein Tagesbudget von ${formatEuro(snapshot.dynamicDailyBudgetToday)}/Tag.")
                 }
             }.trim()
         }
 
-        // 8. Restbudget & Tagesbudget: "Wie viel habe ich heute/diesen Monat noch frei?"
         if (lower.contains("frei") || lower.contains("tagesbudget") || lower.contains("restbudget") || lower.contains("heute") || lower.contains("budget")) {
             val rolloverSign = if (snapshot.rolloverDeltaPerDay >= 0) "+" else ""
             return buildString {
-                appendLine("💶 **Dein aktuelles Frei- & Tagesbudget (${snapshot.monthTitleFormatted}):**")
-                appendLine("• **Freies Tagesbudget heute:** **${formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag**")
-                appendLine("• **Rollover-Effekt:** $rolloverSign${formatEuro(snapshot.rolloverDeltaPerDay)}/Tag gegenüber dem Basis-Tagessatz (${formatEuro(snapshot.baseDailyBudget)}/Tag)")
-                appendLine("• **Freies Restbudget für den gesamten Monat (${snapshot.remainingDaysInMonth} Resttage):** **${formatEuro(snapshot.remainingFreeBudgetMonth)}**")
-                appendLine("• **Bereits geschützte Rücklagen:** ${formatEuro(snapshot.openUpcomingFixedTotal)} offene Fixkosten + ${formatEuro(snapshot.smoothedMonthlyReserveTotal)} (1/12-Jahresglättung) sind bereits abgezogen!")
+                appendLine("Dein aktuelles Frei- & Tagesbudget (${snapshot.monthTitleFormatted}):")
+                appendLine("• Freies Tagesbudget heute: ${formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag")
+                appendLine("• Rollover-Effekt: $rolloverSign${formatEuro(snapshot.rolloverDeltaPerDay)}/Tag gegenüber dem Basis-Tagessatz (${formatEuro(snapshot.baseDailyBudget)}/Tag)")
+                appendLine("• Freies Restbudget für den gesamten Monat (${snapshot.remainingDaysInMonth} Resttage): ${formatEuro(snapshot.remainingFreeBudgetMonth)}")
+                appendLine("• Bereits geschützte Rücklagen: ${formatEuro(snapshot.openUpcomingFixedTotal)} offene Fixkosten + ${formatEuro(snapshot.smoothedMonthlyReserveTotal)} (1/12-Jahresglättung) sind bereits abgezogen.")
             }.trim()
         }
 
-        // 9. Standard-Komplettübersicht bei allgemeinen Fragen
         return buildString {
-            appendLine("🤖 **Smart Finance KI-Kurzbericht (${snapshot.monthTitleFormatted}):**")
-            appendLine("• **Freies Tagesbudget heute:** **${formatEuro(snapshot.dynamicDailyBudgetToday)}** (Restmonat frei: ${formatEuro(snapshot.remainingFreeBudgetMonth)})")
-            appendLine("• **Abbuchungs-Wächter:** ${snapshot.nextDebitHeadline}")
-            appendLine("• **Monatsend-Prognose:** ${formatEuro(snapshot.projectedEndOfMonthBalance)}")
+            appendLine("Smart Finance KI-Kurzbericht (${snapshot.monthTitleFormatted}):")
+            appendLine("• Freies Tagesbudget heute: ${formatEuro(snapshot.dynamicDailyBudgetToday)} (Restmonat frei: ${formatEuro(snapshot.remainingFreeBudgetMonth)})")
+            appendLine("• Abbuchungs-Wächter: ${snapshot.nextDebitHeadline}")
+            appendLine("• Monatsend-Prognose: ${formatEuro(snapshot.projectedEndOfMonthBalance)}")
             if (snapshot.radarAlerts.isNotEmpty()) {
-                appendLine("• **Radar-Warnung:** ${snapshot.radarAlerts.first().title}")
+                appendLine("• Kosten-Radar: ${snapshot.radarAlerts.first().title}")
             }
             appendLine()
-            append("💡 *Tipp: Schreibe z. B. `Check: 85 €` für den Was-wäre-wenn-Kaufsimulator oder `Hilfe` für alle Beispiel-Fragen!*")
+            append("Tipp: Schreibe z. B. 'Check: 85 €' für den Was-wäre-wenn-Kaufsimulator oder 'Hilfe' für alle Beispiel-Fragen.")
         }.trim()
     }
 
     fun formatEuro(amount: Double): String {
         return String.format(Locale.GERMAN, "%,.2f €", amount)
+    }
+
+    fun formatEuroWhole(amount: Double): String {
+        return String.format(Locale.GERMAN, "%,.0f €", amount)
     }
 }

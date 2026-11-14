@@ -1,5 +1,6 @@
 package de.smartfinance.app.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,14 +9,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -40,21 +47,26 @@ import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
+import de.smartfinance.app.data.local.QuickTemplateEntity
 import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.domain.SmartFinanceEngine
+import de.smartfinance.app.ui.theme.CategoryIconCatalog
 import java.time.LocalDate
 import java.util.Locale
 
 /**
- * Einhand-Daumen-Ergonomie: Großes Taschenrechner-Numpad im ModalBottomSheet
- * in der unteren Bildschirmhälfte (inkl. +, -, =, 1/12-Glätter & Fälligkeitstag 1..31).
+ * Einhand-BottomSheet (geöffnet über den runden '+'-FloatingActionButton):
+ * Enthält oben die 1-Tap-Schnellvorlagen für den Alltag und darunter den großen
+ * Taschenrechner-Zahlenblock inkl. 1/12-Glätter & Fälligkeitstag.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalculatorNumpadSheet(
     categories: List<CategoryTabEntity>,
+    quickTemplates: List<QuickTemplateEntity>,
     activeTier: AppTier,
     onDismiss: () -> Unit,
+    onExecuteQuickTemplate: (QuickTemplateEntity) -> Unit,
     onRequestProFeature: (String) -> Unit,
     onConfirmBooking: (
         title: String,
@@ -101,13 +113,71 @@ fun CalculatorNumpadSheet(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // 1. 1-Tap-Schnellvorlagen direkt oben im Sheet
+            if (quickTemplates.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "1-Tap-Schnellvorlagen (Sofort buchen)",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    quickTemplates.forEach { tpl ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.clickable {
+                                onExecuteQuickTemplate(tpl)
+                                onDismiss()
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = CategoryIconCatalog.iconForKey(tpl.emoji),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "${tpl.label} • ${SmartFinanceEngine.formatEuro(tpl.amount)}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(thickness = 0.5.dp)
+            }
+
             Text(
-                text = "🧮 Daumen-Schnelleingabe & Taschenrechner",
+                text = "Individuelle Buchung & Taschenrechner",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
 
-            // Buchungstyp-Auswahl (Ausgabe | Einnahme | Sparrate)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -115,26 +185,25 @@ fun CalculatorNumpadSheet(
                 FilterChip(
                     selected = selectedTxType == TransactionType.EXPENSE,
                     onClick = { selectedTxType = TransactionType.EXPENSE },
-                    label = { Text("💸 Ausgabe") },
+                    label = { Text("Ausgabe") },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = selectedTxType == TransactionType.INCOME,
                     onClick = { selectedTxType = TransactionType.INCOME },
-                    label = { Text("💶 Einnahme") },
+                    label = { Text("Einnahme") },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = selectedTxType == TransactionType.SAVINGS,
                     onClick = { selectedTxType = TransactionType.SAVINGS },
-                    label = { Text("💎 Sparrate") },
+                    label = { Text("Sparrate") },
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            // Großes Taschenrechner-Display
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -160,13 +229,12 @@ fun CalculatorNumpadSheet(
                         Text(
                             text = "1/12-Glätter aktiv: ${SmartFinanceEngine.formatEuro(evaluatedAmount / 12.0)} / Monat",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
                 }
             }
 
-            // Kategorien-Auswahl (Horizontal Scrollable)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,12 +254,18 @@ fun CalculatorNumpadSheet(
                                 expression = String.format(Locale.GERMAN, "%.2f", cat.defaultAmount)
                             }
                         },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = CategoryIconCatalog.iconForKey(cat.iconKey),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
                         label = { Text(cat.name) }
                     )
                 }
             }
 
-            // Optionale Bezeichnung & Fälligkeitstag
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -217,9 +291,8 @@ fun CalculatorNumpadSheet(
                 )
             }
 
-            // 1/12-Jahreskosten-Glätter Schalter
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -231,12 +304,21 @@ fun CalculatorNumpadSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        val badge = if (!FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)) " 🔒 PRO" else ""
-                        Text(
-                            text = "Auf 12 Monate glätten (1/12-Jahreskosten)$badge",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Auf 12 Monate glätten (1/12-Jahreskosten)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (!FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "PRO",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
                         Text(
                             text = "Zieht monatlich virtuell 1/12 als Rücklage vom freien Budget ab",
                             style = MaterialTheme.typography.bodySmall,
@@ -256,7 +338,6 @@ fun CalculatorNumpadSheet(
                 }
             }
 
-            // Großes Daumen-Numpad (4 Spalten x 4 Zeilen)
             val rows = listOf(
                 listOf("7", "8", "9", "⌫"),
                 listOf("4", "5", "6", "+"),
@@ -277,7 +358,7 @@ fun CalculatorNumpadSheet(
                                 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(50.dp),
+                                    .height(48.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
@@ -311,7 +392,7 @@ fun CalculatorNumpadSheet(
                 enabled = evaluatedAmount > 0.0 && selectedCategory != null,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(50.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text(

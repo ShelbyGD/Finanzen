@@ -3,12 +3,15 @@ package de.smartfinance.app.ui.components
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,20 +46,17 @@ import de.smartfinance.app.core.AppHelpRegistry
 import de.smartfinance.app.ui.ChatMessage
 
 /**
- * Einhand-Daumen-Ergonomie: Lokale Smart Finance Hybrid-KI & Q&A-Chat
- * inkl. "Was-wäre-wenn"-Simulator (`Check: 85 €`), Arbeitsstunden-Umrechner
- * und kontextsensitivem `?`-Hilfe-Icon.
+ * Vollwertiger Tab-Screen für den 4. Navigations-Tab "KI-Coach" sowie als ModalBottomSheet.
+ * Komplett ohne rohe Markdown-Sternchen (**) und mit klaren Material-Vektor-Icons.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AiChatBottomSheet(
+fun AiCoachTabScreen(
     messages: List<ChatMessage>,
     hourlyWage: Double,
     onSendMessage: (String) -> Unit,
     onOpenHelpId: (String) -> Unit,
-    onDismiss: () -> Unit
+    modifier: Modifier = Modifier
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -77,79 +78,101 @@ fun AiChatBottomSheet(
         }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        Column(
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Psychology,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Lokaler Smart Finance KI-Coach",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "100 % On-Device • Stundenlohn-Basis: ${String.format("%.2f", hourlyWage)} €/Std.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    IconButton(onClick = { onOpenHelpId(AppHelpRegistry.ID_HYBRID_AI_CHAT) }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                            contentDescription = "Hilfe zur lokalen KI öffnen",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    quickPrompts.forEach { prompt ->
+                        AssistChip(
+                            onClick = { onSendMessage(prompt) },
+                            label = { Text(prompt, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .weight(1f),
+            contentPadding = PaddingValues(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header mit ?-Hilfe-Buttons für Modul #8 (KI-Chat) und Modul #9 (Was-wäre-wenn-Simulator)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "🤖 Lokale Smart Finance Hybrid-KI",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "100 % On-Device • Stundenlohn-Rechner: ${String.format("%.2f", hourlyWage)} €/h",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(onClick = { onOpenHelpId(AppHelpRegistry.ID_HYBRID_AI_CHAT) }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                        contentDescription = "Hilfe zur lokalen KI öffnen",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+            items(messages, key = { it.id }) { msg ->
+                ChatBubbleItem(message = msg)
             }
+        }
 
-            Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-            // 1-Tap Beispiel-Fragen & "Check: 85 €" Simulator-Chips
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                quickPrompts.forEach { prompt ->
-                    AssistChip(
-                        onClick = { onSendMessage(prompt) },
-                        label = { Text(prompt, style = MaterialTheme.typography.labelSmall) }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Chat-Verlauf
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 240.dp, max = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(messages, key = { it.id }) { msg ->
-                    ChatBubbleItem(message = msg)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Daumenfreundliche Eingabeleiste unten
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
@@ -176,9 +199,31 @@ fun AiChatBottomSheet(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AiChatBottomSheet(
+    messages: List<ChatMessage>,
+    hourlyWage: Double,
+    onSendMessage: (String) -> Unit,
+    onOpenHelpId: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        AiCoachTabScreen(
+            messages = messages,
+            hourlyWage = hourlyWage,
+            onSendMessage = onSendMessage,
+            onOpenHelpId = onOpenHelpId,
+            modifier = Modifier.heightIn(min = 420.dp, max = 620.dp)
+        )
     }
 }
 
@@ -186,12 +231,12 @@ fun AiChatBottomSheet(
 private fun ChatBubbleItem(message: ChatMessage) {
     val isUser = message.senderIsUser
     val containerColor = if (isUser) {
-        MaterialTheme.colorScheme.primaryContainer
+        MaterialTheme.colorScheme.primary
     } else {
-        MaterialTheme.colorScheme.surfaceVariant
+        MaterialTheme.colorScheme.surface
     }
     val contentColor = if (isUser) {
-        MaterialTheme.colorScheme.onPrimaryContainer
+        MaterialTheme.colorScheme.onPrimary
     } else {
         MaterialTheme.colorScheme.onSurface
     }
@@ -202,35 +247,36 @@ private fun ChatBubbleItem(message: ChatMessage) {
     ) {
         Surface(
             shape = RoundedCornerShape(
-                topStart = 14.dp,
-                topEnd = 14.dp,
-                bottomStart = if (isUser) 14.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 14.dp
+                topStart = 18.dp,
+                topEnd = 18.dp,
+                bottomStart = if (isUser) 18.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 18.dp
             ),
             color = containerColor,
+            tonalElevation = if (isUser) 0.dp else 1.dp,
             modifier = Modifier.fillMaxWidth(0.9f)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(14.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = if (isUser) "Du" else "🤖 SmartFinance KI",
+                        text = if (isUser) "Du" else "SmartFinance KI-Coach",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (isUser) contentColor.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = message.timestamp,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isUser) contentColor.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = message.text,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = message.text.replace("**", ""),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = contentColor
                 )
             }

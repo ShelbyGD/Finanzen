@@ -2,6 +2,7 @@ package de.smartfinance.app.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,11 +16,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -45,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.data.local.BillingInterval
@@ -60,7 +66,8 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Verwaltung aller dynamischen Kategorien-Tabs, Monatslimits, Fälligkeitstage (1–31),
+ * Tab 2 ("Verträge"):
+ * Verwaltung aller dynamischen Kategorien, Monatslimits, Fälligkeitstage (1–31),
  * 1/12-Jahreskosten-Glättung, Vertrags-Wecker (30-Tage-Vorwarnung) und Etappen-Sparziel.
  */
 @Composable
@@ -87,14 +94,15 @@ fun CategoriesContractsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Etappen-Sparziel-Tracker & Dauer-Sparraten
+        // 1. Etappen-Sparziel-Tracker & Dauer-Sparraten Kurzübersicht
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -106,11 +114,22 @@ fun CategoriesContractsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "🎯 ${savingsProgress?.goal?.title ?: "Etappen-Sparziel (3.000 €)"}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Savings,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = savingsProgress?.goal?.title ?: "Etappen-Sparziel (3.000 €)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         OutlinedButton(onClick = { showSavingsEditor = true }) {
                             Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
@@ -123,8 +142,8 @@ fun CategoriesContractsScreen(
                             progress = { savingsProgress.progressFraction },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(12.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(5.dp))
                         )
                         Text(
                             text = "Erreicht: ${SmartFinanceEngine.formatEuro(savingsProgress.totalSaved)} von ${SmartFinanceEngine.formatEuro(savingsProgress.targetAmount)} (${(savingsProgress.progressFraction * 100).roundToInt()} %)",
@@ -133,14 +152,15 @@ fun CategoriesContractsScreen(
                         )
                         Text(
                             text = "Monatliche Dauer-Sparrate: ${SmartFinanceEngine.formatEuro(savingsProgress.effectiveMonthlyRate)} (am ${savingsProgress.goal.dueDayOfMonth}. des Monats) • ${savingsProgress.estimatedCompletionText}",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
         }
 
-        // 2. Header + "+ Eigenen Tab hinzufügen"
+        // 2. Header + "+ Kategorie / Vertrag hinzufügen"
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -149,8 +169,8 @@ fun CategoriesContractsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "🗂️ Kategorien-Tabs & Vertrags-Wecker",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Verträge, Fixkosten & Budgets",
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -164,18 +184,22 @@ fun CategoriesContractsScreen(
                         if (isProUnlocked) {
                             showCreateDialog = true
                         } else {
-                            onRequestProFeature("Eigene Kategorien-Tabs & Vertrags-Wecker")
+                            onRequestProFeature("Eigene Kategorien & Vertrags-Wecker")
                         }
                     }
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = if (isProUnlocked) Icons.Default.Add else Icons.Outlined.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (isProUnlocked) "+ Tab" else "+ Tab 🔒")
+                    Text(if (isProUnlocked) "Neu" else "Neu (PRO)")
                 }
             }
         }
 
-        // 3. Liste aller Kategorien-Tabs
+        // 3. Liste aller Kategorien & Verträge
         items(categories, key = { it.id }) { cat ->
             CategoryContractCard(
                 category = cat,
@@ -183,14 +207,14 @@ fun CategoriesContractsScreen(
                     if (isProUnlocked) {
                         editingCategory = cat
                     } else {
-                        onRequestProFeature("Kategorien-Tab & Vertrags-Wecker bearbeiten")
+                        onRequestProFeature("Kategorie & Vertrags-Wecker bearbeiten")
                     }
                 },
                 onDelete = {
                     if (isProUnlocked) {
                         onDeleteCategory(cat)
                     } else {
-                        onRequestProFeature("Kategorien-Tab löschen")
+                        onRequestProFeature("Kategorie löschen")
                     }
                 }
             )
@@ -250,15 +274,15 @@ private fun CategoryContractCard(
         days to fmt
     }
 
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -266,12 +290,21 @@ private fun CategoryContractCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = CategoryIconCatalog.iconForKey(category.iconKey),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = CategoryIconCatalog.iconForKey(category.iconKey),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             text = category.name,
@@ -280,7 +313,7 @@ private fun CategoryContractCard(
                         )
                         val typeLabel = when (category.categoryType) {
                             CategoryType.FIXED_EXPENSE -> "Fixkosten / Vertrag"
-                            CategoryType.VARIABLE_EXPENSE -> "Variable Alltagsausgabe"
+                            CategoryType.VARIABLE_EXPENSE -> "Variables Alltagsbudget"
                             CategoryType.SAVINGS -> "Sparziel / Rücklage"
                             CategoryType.INCOME -> "Regelmäßige Einnahme"
                             else -> "Ausgabe"
@@ -309,7 +342,7 @@ private fun CategoryContractCard(
                 category.monthlyBudgetLimit?.let { add("Monatslimit: ${SmartFinanceEngine.formatEuro(it)}") }
                 category.dueDayOfMonth?.let { add("Abbuchungstag: $it. im Monat") }
                 category.defaultAmount?.let { add("Standardbetrag: ${SmartFinanceEngine.formatEuro(it)}") }
-                if (category.smoothOver12Months) add("⚖️ 1/12-Jahresglättung aktiv")
+                if (category.smoothOver12Months) add("1/12-Jahresglättung aktiv")
             }
 
             if (details.isNotEmpty()) {
@@ -323,23 +356,34 @@ private fun CategoryContractCard(
             contractInfo?.let { (daysLeft, formattedDate) ->
                 val isUrgent = daysLeft <= 30
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = if (isUrgent) {
                         MaterialTheme.colorScheme.tertiaryContainer
                     } else {
                         MaterialTheme.colorScheme.surfaceVariant
                     }
                 ) {
-                    Text(
-                        text = if (isUrgent) {
-                            "⏰ Vertrags-Wecker WARNUNG: Endet am $formattedDate (in $daysLeft Tagen – Wechsel prüfen!)"
-                        } else {
-                            "📅 Vertragsende / Stichtag: $formattedDate (in $daysLeft Tagen)"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (isUrgent) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsActive,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isUrgent) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (isUrgent) {
+                                "Vertrags-Wecker: Endet am $formattedDate (in $daysLeft Tagen – Wechsel prüfen!)"
+                            } else {
+                                "Vertragsende / Stichtag: $formattedDate (in $daysLeft Tagen)"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isUrgent) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
                 }
             }
         }
@@ -381,7 +425,7 @@ private fun CategoryEditDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (initialCategory == null) "Neuen Kategorien-Tab anlegen" else "Tab '${initialCategory.name}' bearbeiten",
+                text = if (initialCategory == null) "Neue Kategorie / Vertrag anlegen" else "'${initialCategory.name}' bearbeiten",
                 fontWeight = FontWeight.Bold
             )
         },
@@ -392,12 +436,12 @@ private fun CategoryEditDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Tab-Name (z. B. Fitnessstudio)") },
+                    label = { Text("Bezeichnung (z. B. Fitnessstudio)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Icon wählen:", style = MaterialTheme.typography.labelSmall)
+                Text("Vektor-Icon wählen:", style = MaterialTheme.typography.labelSmall)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -408,6 +452,13 @@ private fun CategoryEditDialog(
                         FilterChip(
                             selected = iconKey == key,
                             onClick = { iconKey = key },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = CategoryIconCatalog.iconForKey(key),
+                                    contentDescription = label,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
                             label = { Text(label) }
                         )
                     }
@@ -538,7 +589,7 @@ private fun SavingsGoalEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("🎯 Etappen-Sparziel bearbeiten", fontWeight = FontWeight.Bold) },
+        title = { Text("Etappen-Sparziel bearbeiten", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(

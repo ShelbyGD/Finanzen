@@ -25,11 +25,6 @@ class FinanceRepository(
     val savingsGoalsFlow: Flow<List<SavingsGoalEntity>> = dao.observeSavingsGoals()
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()
 
-    /**
-     * Initialisiert beim allerersten App-Start die Standard-Tabs, Schnellvorlagen,
-     * das 3.000-€-Etappen-Sparziel sowie einen initialen Satz Demo-Daten,
-     * damit alle Diagramme und der KI-Assistent sofort erlebbar sind.
-     */
     suspend fun ensureInitializedAndSyncRecurring() {
         val existingCategories = dao.getAllCategoryTabsOnce()
         if (existingCategories.isEmpty()) {
@@ -47,49 +42,6 @@ class FinanceRepository(
         val today = LocalDate.now()
         val defaultTabs = listOf(
             CategoryTabEntity(
-                name = "Versicherung",
-                iconKey = "shield",
-                colorHex = 0xFF38BDF8,
-                categoryType = CategoryType.FIXED_EXPENSE,
-                monthlyBudgetLimit = 65.0,
-                dueDayOfMonth = 5,
-                defaultAmount = 45.00,
-                billingInterval = BillingInterval.MONTHLY,
-                smoothOver12Months = false,
-                contractEndDateEpochDay = today.plusDays(75).toEpochDay(),
-                isSystemDefault = true,
-                sortOrder = 1
-            ),
-            CategoryTabEntity(
-                name = "Handyvertrag",
-                iconKey = "phone",
-                colorHex = 0xFFA855F7,
-                categoryType = CategoryType.FIXED_EXPENSE,
-                monthlyBudgetLimit = 35.0,
-                dueDayOfMonth = 15,
-                defaultAmount = 29.99,
-                billingInterval = BillingInterval.MONTHLY,
-                smoothOver12Months = false,
-                // Vertragsende in 18 Tagen -> Löst automatisch den 30-Tage-Vertrags-Wecker aus!
-                contractEndDateEpochDay = today.plusDays(18).toEpochDay(),
-                isSystemDefault = true,
-                sortOrder = 2
-            ),
-            CategoryTabEntity(
-                name = "Kfz-Versicherung",
-                iconKey = "car",
-                colorHex = 0xFFF59E0B,
-                categoryType = CategoryType.FIXED_EXPENSE,
-                monthlyBudgetLimit = 140.0,
-                dueDayOfMonth = 20,
-                defaultAmount = 660.00,
-                billingInterval = BillingInterval.YEARLY,
-                smoothOver12Months = true, // 660 € / 12 = 55,00 €/Monat im 1/12-Glätter
-                contractEndDateEpochDay = today.plusDays(16).toEpochDay(), // Stichtag 30.11. Wechsel-Wecker!
-                isSystemDefault = true,
-                sortOrder = 3
-            ),
-            CategoryTabEntity(
                 name = "Lebensmittel",
                 iconKey = "cart",
                 colorHex = 0xFF10B981,
@@ -101,7 +53,63 @@ class FinanceRepository(
                 smoothOver12Months = false,
                 contractEndDateEpochDay = null,
                 isSystemDefault = true,
+                sortOrder = 1
+            ),
+            CategoryTabEntity(
+                name = "Kfz-Versicherung",
+                iconKey = "car",
+                colorHex = 0xFFF59E0B,
+                categoryType = CategoryType.FIXED_EXPENSE,
+                monthlyBudgetLimit = 140.0,
+                dueDayOfMonth = 20,
+                defaultAmount = 660.00,
+                billingInterval = BillingInterval.YEARLY,
+                smoothOver12Months = true,
+                contractEndDateEpochDay = today.plusDays(16).toEpochDay(),
+                isSystemDefault = true,
+                sortOrder = 2
+            ),
+            CategoryTabEntity(
+                name = "Handyvertrag",
+                iconKey = "phone",
+                colorHex = 0xFFA855F7,
+                categoryType = CategoryType.FIXED_EXPENSE,
+                monthlyBudgetLimit = 35.0,
+                dueDayOfMonth = 15,
+                defaultAmount = 29.99,
+                billingInterval = BillingInterval.MONTHLY,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = today.plusDays(18).toEpochDay(),
+                isSystemDefault = true,
+                sortOrder = 3
+            ),
+            CategoryTabEntity(
+                name = "Versicherung",
+                iconKey = "shield",
+                colorHex = 0xFF38BDF8,
+                categoryType = CategoryType.FIXED_EXPENSE,
+                monthlyBudgetLimit = 65.0,
+                dueDayOfMonth = 5,
+                defaultAmount = 45.00,
+                billingInterval = BillingInterval.MONTHLY,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = today.plusDays(75).toEpochDay(),
+                isSystemDefault = true,
                 sortOrder = 4
+            ),
+            CategoryTabEntity(
+                name = "Freizeit",
+                iconKey = "leisure",
+                colorHex = 0xFF6366F1,
+                categoryType = CategoryType.VARIABLE_EXPENSE,
+                monthlyBudgetLimit = 150.0,
+                dueDayOfMonth = null,
+                defaultAmount = null,
+                billingInterval = BillingInterval.ONE_TIME,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 5
             ),
             CategoryTabEntity(
                 name = "Fixkosten",
@@ -115,21 +123,21 @@ class FinanceRepository(
                 smoothOver12Months = false,
                 contractEndDateEpochDay = null,
                 isSystemDefault = true,
-                sortOrder = 5
+                sortOrder = 6
             ),
             CategoryTabEntity(
                 name = "Sparen",
                 iconKey = "savings",
                 colorHex = 0xFF06B6D4,
                 categoryType = CategoryType.SAVINGS,
-                monthlyBudgetLimit = null,
+                monthlyBudgetLimit = 300.0,
                 dueDayOfMonth = 1,
                 defaultAmount = 250.00,
                 billingInterval = BillingInterval.MONTHLY,
                 smoothOver12Months = false,
                 contractEndDateEpochDay = null,
                 isSystemDefault = true,
-                sortOrder = 6
+                sortOrder = 7
             ),
             CategoryTabEntity(
                 name = "Gehalt & Einnahmen",
@@ -143,7 +151,7 @@ class FinanceRepository(
                 smoothOver12Months = false,
                 contractEndDateEpochDay = null,
                 isSystemDefault = true,
-                sortOrder = 7
+                sortOrder = 8
             )
         )
 
@@ -161,7 +169,7 @@ class FinanceRepository(
             listOf(
                 QuickTemplateEntity(
                     label = "Bäcker & Kaffee",
-                    emoji = "☕",
+                    emoji = "cafe",
                     amount = 4.80,
                     categoryId = lebensmittelCat.id,
                     categoryName = lebensmittelCat.name,
@@ -169,7 +177,7 @@ class FinanceRepository(
                 ),
                 QuickTemplateEntity(
                     label = "Supermarkt",
-                    emoji = "🛒",
+                    emoji = "cart",
                     amount = 36.50,
                     categoryId = lebensmittelCat.id,
                     categoryName = lebensmittelCat.name,
@@ -177,15 +185,15 @@ class FinanceRepository(
                 ),
                 QuickTemplateEntity(
                     label = "Tanken",
-                    emoji = "⛽",
+                    emoji = "fuel",
                     amount = 64.00,
                     categoryId = kfzCat.id,
                     categoryName = kfzCat.name,
                     transactionType = TransactionType.EXPENSE
                 ),
                 QuickTemplateEntity(
-                    label = "Mittagessen",
-                    emoji = "🍕",
+                    label = "Mittagstisch",
+                    emoji = "food",
                     amount = 13.50,
                     categoryId = lebensmittelCat.id,
                     categoryName = lebensmittelCat.name,
@@ -193,7 +201,7 @@ class FinanceRepository(
                 ),
                 QuickTemplateEntity(
                     label = "Extra-Sparrate",
-                    emoji = "💎",
+                    emoji = "savings",
                     amount = 50.00,
                     categoryId = sparenCat.id,
                     categoryName = sparenCat.name,
@@ -216,39 +224,34 @@ class FinanceRepository(
         return byName
     }
 
-    /**
-     * Erzeugt 6 Monate realistische Demo-Daten (vergangene 5 Monate + aktueller Monat)
-     * mit exakt verteilten Abbuchungstagen am 1., 5., 15., 20. und 28. des Monats
-     * zum sofortigen Testen der Belastungswelle, des Abbuchungs-Wächters und der KI.
-     */
     suspend fun generateSixMonthsDemoData() {
         dao.deleteAllTransactions()
         val existingCats = dao.getAllCategoryTabsOnce()
-        val categoriesByName = if (existingCats.size < 6) {
+        val categoriesByName = if (existingCats.size < 7) {
             seedDefaultCategoriesAndTemplates()
         } else {
             existingCats.associateBy { it.name }
         }
 
-        val incomeCat = categoriesByName["Gehalt & Einnahmen"]!!
-        val fixkostenCat = categoriesByName["Fixkosten"]!!
-        val versicherungCat = categoriesByName["Versicherung"]!!
-        val handyCat = categoriesByName["Handyvertrag"]!!
-        val kfzCat = categoriesByName["Kfz-Versicherung"]!!
-        val lebensmittelCat = categoriesByName["Lebensmittel"]!!
-        val sparenCat = categoriesByName["Sparen"]!!
+        val incomeCat = categoriesByName["Gehalt & Einnahmen"] ?: existingCats.first()
+        val fixkostenCat = categoriesByName["Fixkosten"] ?: existingCats.first()
+        val versicherungCat = categoriesByName["Versicherung"] ?: existingCats.first()
+        val handyCat = categoriesByName["Handyvertrag"] ?: existingCats.first()
+        val kfzCat = categoriesByName["Kfz-Versicherung"] ?: existingCats.first()
+        val lebensmittelCat = categoriesByName["Lebensmittel"] ?: existingCats.first()
+        val freizeitCat = categoriesByName["Freizeit"] ?: lebensmittelCat
+        val sparenCat = categoriesByName["Sparen"] ?: existingCats.first()
 
         val today = LocalDate.now()
         val currentYm = YearMonth.from(today)
         val demoTransactions = mutableListOf<TransactionEntity>()
 
-        // 6 Monate rückwirkend bis heute (5 volle Vormonate + aktueller Monat)
         for (monthOffset in 5 downTo 0) {
             val ym = currentYm.minusMonths(monthOffset.toLong())
             val isCurrentMonth = monthOffset == 0
             val maxDayToBook = if (isCurrentMonth) today.dayOfMonth else ym.lengthOfMonth()
 
-            // --- TAG 1: Gehalt (+2.850 €), Warmmiete (-850 €) & Dauer-Sparrate (-250 €) ---
+            // Tag 1: Gehalt (+2.850 €), Warmmiete (-850 €) & Dauer-Sparrate (-250 €)
             if (1 <= maxDayToBook) {
                 val d1 = ym.atDay(1)
                 demoTransactions.add(
@@ -295,7 +298,7 @@ class FinanceRepository(
                 )
             }
 
-            // --- TAG 5: Versicherung (Haftpflicht, Hausrat & Rechtsschutz: 45,00 €) ---
+            // Tag 5: Versicherung (45,00 €)
             if (5 <= maxDayToBook) {
                 val d5 = ym.atDay(5)
                 demoTransactions.add(
@@ -314,7 +317,25 @@ class FinanceRepository(
                 )
             }
 
-            // --- TAG 15: Handyvertrag (29,99 €) ---
+            // Tag 10: Freizeit & Kino/Streaming
+            if (10 <= maxDayToBook) {
+                val d10 = ym.atDay(10)
+                demoTransactions.add(
+                    TransactionEntity(
+                        title = "Restaurant & Freizeit-Aktivität",
+                        amount = 48.50,
+                        transactionType = TransactionType.EXPENSE,
+                        categoryId = freizeitCat.id,
+                        categoryName = freizeitCat.name,
+                        dateEpochDay = d10.toEpochDay(),
+                        dueDayOfMonth = 10,
+                        isFixedRecurring = false,
+                        billingInterval = BillingInterval.ONE_TIME
+                    )
+                )
+            }
+
+            // Tag 15: Handyvertrag (29,99 €)
             if (15 <= maxDayToBook) {
                 val d15 = ym.atDay(15)
                 demoTransactions.add(
@@ -333,10 +354,9 @@ class FinanceRepository(
                 )
             }
 
-            // --- TAG 20: Kfz-Versicherung & Mobilität (Jahresbeitrag geglättet + Tanken) ---
+            // Tag 20: Kfz-Versicherung & Mobilität
             if (20 <= maxDayToBook) {
                 val d20 = ym.atDay(20)
-                // Im ältesten Monat der 6-Monats-Historie wurde die Jahresrechnung über 660 € mit 1/12-Glättung gebucht:
                 if (monthOffset == 5) {
                     demoTransactions.add(
                         TransactionEntity(
@@ -369,7 +389,7 @@ class FinanceRepository(
                 )
             }
 
-            // --- TAG 28: Stadtwerke Strom, Glasfaser & Streaming-Paket (89,90 €) ---
+            // Tag 28: Stadtwerke Strom, Glasfaser & Streaming (89,90 €)
             val day28 = min(28, ym.lengthOfMonth())
             if (day28 <= maxDayToBook) {
                 val d28 = ym.atDay(day28)
@@ -389,7 +409,7 @@ class FinanceRepository(
                 )
             }
 
-            // --- VARIABLE ALLTAGSAUSGABEN (Lebensmittel: Werktage vs. Wochenende) ---
+            // Variable Alltagsausgaben (Lebensmittel)
             val shoppingDays = listOf(3, 6, 9, 12, 14, 17, 21, 24, 27)
             for (shopDay in shoppingDays) {
                 if (shopDay <= maxDayToBook && shopDay <= ym.lengthOfMonth()) {
@@ -420,8 +440,6 @@ class FinanceRepository(
                 }
             }
 
-            // Im aktuellen Monat zusätzlich einen Sondereinkauf einfügen, damit das
-            // "Schleichende-Kosten-Radar" (>20 % über 3-Monats-Schnitt) sofort demonstriert wird:
             if (isCurrentMonth) {
                 val specialDay = min(today.dayOfMonth, 10).coerceAtLeast(1)
                 demoTransactions.add(
@@ -444,10 +462,6 @@ class FinanceRepository(
         dao.insertTransactionsReplace(demoTransactions)
     }
 
-    /**
-     * Prüft im aktuellen Monat, ob fällige Daueraufträge (dueDayOfMonth <= heute) bereits
-     * gebucht wurden, und legt fehlende Buchungen automatisch an.
-     */
     suspend fun processDueRecurringBookings(today: LocalDate) {
         val allTransactions = dao.getAllTransactionsOnce()
         if (allTransactions.isEmpty()) return
