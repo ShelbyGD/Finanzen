@@ -7,26 +7,8 @@ plugins {
 
 val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 val keystoreFile = file("keystore/smartfinance.jks")
-val keystorePassword = "SmartFinance2026Key!"
-val keystoreAlias = "smartfinance_key"
-
-// Fallback: Erzeugt den deterministischen Keystore automatisch beim Konfigurieren,
-// falls app/keystore/smartfinance.jks lokal noch nicht existiert.
-if (!keystoreFile.exists()) {
-    keystoreFile.parentFile?.mkdirs()
-    val process = ProcessBuilder(
-        "keytool", "-genkeypair", "-v",
-        "-keystore", keystoreFile.absolutePath,
-        "-alias", keystoreAlias,
-        "-keyalg", "RSA",
-        "-keysize", "2048",
-        "-validity", "10000",
-        "-storepass", keystorePassword,
-        "-keypass", keystorePassword,
-        "-dname", "CN=SmartFinance 2026, OU=Mobile, O=SmartFinance, L=Berlin, ST=Berlin, C=DE"
-    ).inheritIO().start()
-    process.waitFor()
-}
+val keystorePassword = "smart1234"
+val keystoreAlias = "smartfinance"
 
 android {
     namespace = "de.smartfinance.app"

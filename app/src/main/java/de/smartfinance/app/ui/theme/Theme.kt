@@ -33,6 +33,16 @@ val BudgetRingGreen = Color(0xFF10B981)
 val BudgetRingOrange = Color(0xFFF59E0B)
 val BudgetRingRed = Color(0xFFEF4444)
 
+// Edle Kategorie-Akzentfarben für die runden Icon-Kreise in den Listen
+val CategoryColorEmerald = Color(0xFF10B981)   // Lebensmittel & Einnahmen
+val CategoryColorBlue = Color(0xFF3B82F6)      // Handyvertrag & Kommunikation
+val CategoryColorAmber = Color(0xFFF59E0B)     // Strom / Stadtwerke / Energie
+val CategoryColorCoralRed = Color(0xFFEF4444)  // Kfz & Tanken
+val CategoryColorIndigo = Color(0xFF6366F1)    // Versicherung
+val CategoryColorTurquoise = Color(0xFF06B6D4) // Sparen & Rücklagen
+val CategoryColorRose = Color(0xFFEC4899)      // Freizeit & Lifestyle
+val CategoryColorPurple = Color(0xFF8B5CF6)    // Wohnen & Warmmiete
+
 private val CleanLightColors = lightColorScheme(
     primary = Color(0xFF4A25AA),
     onPrimary = Color.White,
@@ -99,10 +109,13 @@ object CategoryIconCatalog {
         "home" to "Wohnen & Fixkosten",
         "savings" to "Sparen & Etappen",
         "income" to "Gehalt & Einnahmen",
-        "bolt" to "Energie & Strom",
-        "medical" to "Gesundheit",
-        "leisure" to "Freizeit & Medien",
-        "pet" to "Haustier",
+        "bolt" to "Strom & Energie",
+        "leisure" to "Freizeit & Gaming",
+        "food" to "Restaurant",
+        "cafe" to "Bäcker & Café",
+        "fuel" to "Tanken",
+        "health" to "Gesundheit",
+        "pets" to "Haustiere",
         "star" to "Sonstiges"
     )
 
@@ -113,15 +126,63 @@ object CategoryIconCatalog {
         "cart" -> Icons.Default.ShoppingCart
         "home" -> Icons.Default.Home
         "savings" -> Icons.Default.Savings
-        "income" -> Icons.Default.Payments
+        "income", "salary" -> Icons.Default.Payments
         "bolt" -> Icons.Default.Bolt
-        "medical" -> Icons.Default.LocalHospital
         "leisure" -> Icons.Default.SportsEsports
-        "pet" -> Icons.Default.Pets
+        "food" -> Icons.Default.Restaurant
         "cafe" -> Icons.Default.LocalCafe
         "fuel" -> Icons.Default.LocalGasStation
-        "food" -> Icons.Default.Restaurant
+        "health" -> Icons.Default.LocalHospital
+        "pets" -> Icons.Default.Pets
         "star" -> Icons.Default.Star
         else -> Icons.Default.AccountBalanceWallet
+    }
+
+    /**
+     * Liefert für jede Kategorie / Buchung eine eigene, edle Akzentfarbe für den runden Icon-Kreis:
+     * - Lebensmittel / Supermarkt / Bäcker = Smaragdgrün
+     * - Handyvertrag = Blau
+     * - Strom / Stadtwerke / Energie = Orange/Amber
+     * - Kfz / Tanken = Korallenrot
+     * - Versicherung = Indigo
+     * - Sparen = Türkis
+     * - Freizeit = Rose/Pink
+     * - Wohnen / Miete = Violett
+     */
+    fun accentColorFor(iconKey: String, titleOrCategory: String = ""): Color {
+        val lowerText = titleOrCategory.lowercase()
+        if (lowerText.contains("stadtwerke") || lowerText.contains("strom") || lowerText.contains("energie") || lowerText.contains("glasfaser")) {
+            return CategoryColorAmber
+        }
+        if (lowerText.contains("handy") || lowerText.contains("mobilfunk") || lowerText.contains("telekom") || lowerText.contains("vodafone")) {
+            return CategoryColorBlue
+        }
+        if (lowerText.contains("kfz") || lowerText.contains("tank") || lowerText.contains("auto")) {
+            return CategoryColorCoralRed
+        }
+        if (lowerText.contains("versicherung") || lowerText.contains("haftpflicht") || lowerText.contains("hausrat")) {
+            return CategoryColorIndigo
+        }
+        if (lowerText.contains("sparen") || lowerText.contains("sparrate") || lowerText.contains("sparbooster")) {
+            return CategoryColorTurquoise
+        }
+        if (lowerText.contains("lebensmittel") || lowerText.contains("rewe") || lowerText.contains("edeka") || lowerText.contains("aldi") || lowerText.contains("lidl")) {
+            return CategoryColorEmerald
+        }
+        if (lowerText.contains("freizeit") || lowerText.contains("kino") || lowerText.contains("restaurant")) {
+            return CategoryColorRose
+        }
+
+        return when (iconKey.lowercase()) {
+            "cart", "cafe", "income", "salary" -> CategoryColorEmerald
+            "phone" -> CategoryColorBlue
+            "bolt" -> CategoryColorAmber
+            "car", "fuel" -> CategoryColorCoralRed
+            "shield" -> CategoryColorIndigo
+            "savings" -> CategoryColorTurquoise
+            "leisure", "food" -> CategoryColorRose
+            "home" -> CategoryColorPurple
+            else -> CategoryColorIndigo
+        }
     }
 }

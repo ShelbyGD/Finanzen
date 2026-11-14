@@ -13,12 +13,14 @@ data class UserSettingsState(
     val averageMonthsWindow: Int = 3,
     val lastSeenVersionCode: Int = 0,
     val showUpdateBanner: Boolean = false,
-    val isDarkMode: Boolean = false
+    val isDarkMode: Boolean = false,
+    val isDemoDataActive: Boolean = false
 )
 
 /**
- * Verwaltet persistente Nutzereinstellungen, den Light/Dark-Theme-Umschalter sowie die
- * Versionserkennung für das automatische Update-Banner.
+ * Verwaltet persistente Nutzereinstellungen, den Light/Dark-Theme-Umschalter,
+ * den Status des Test-Labors (Echte Daten vs. Beispieldaten) sowie die Versionserkennung
+ * für den Update-Hinweis in der Benachrichtigungs-Glocke.
  */
 class AppPreferences(context: Context) {
 
@@ -34,6 +36,7 @@ class AppPreferences(context: Context) {
         val avgWindow = prefs.getInt(KEY_AVG_WINDOW, 3)
         val lastSeenVersion = prefs.getInt(KEY_LAST_SEEN_VERSION_CODE, -1)
         val isDark = prefs.getBoolean(KEY_DARK_MODE, false)
+        val isDemo = prefs.getBoolean(KEY_DEMO_DATA_ACTIVE, false)
         val currentVersion = BuildConfig.VERSION_CODE
 
         val shouldShowUpdateBanner = lastSeenVersion < currentVersion
@@ -44,7 +47,8 @@ class AppPreferences(context: Context) {
             averageMonthsWindow = avgWindow,
             lastSeenVersionCode = if (lastSeenVersion == -1) 0 else lastSeenVersion,
             showUpdateBanner = shouldShowUpdateBanner,
-            isDarkMode = isDark
+            isDarkMode = isDark,
+            isDemoDataActive = isDemo
         )
     }
 
@@ -72,6 +76,11 @@ class AppPreferences(context: Context) {
         _settingsState.value = _settingsState.value.copy(isDarkMode = next)
     }
 
+    fun setDemoDataActive(active: Boolean) {
+        prefs.edit().putBoolean(KEY_DEMO_DATA_ACTIVE, active).apply()
+        _settingsState.value = _settingsState.value.copy(isDemoDataActive = active)
+    }
+
     fun dismissUpdateBanner() {
         val currentVersion = BuildConfig.VERSION_CODE
         prefs.edit().putInt(KEY_LAST_SEEN_VERSION_CODE, currentVersion).apply()
@@ -81,10 +90,10 @@ class AppPreferences(context: Context) {
         )
     }
 
-    fun isInitialSeedDone(): Boolean = prefs.getBoolean(KEY_INITIAL_SEED_DONE, false)
+    fun isLegacyAutoSeedCleaned(): Boolean = prefs.getBoolean(KEY_LEGACY_AUTOSEED_CLEANED, false)
 
-    fun markInitialSeedDone() {
-        prefs.edit().putBoolean(KEY_INITIAL_SEED_DONE, true).apply()
+    fun markLegacyAutoSeedCleaned() {
+        prefs.edit().putBoolean(KEY_LEGACY_AUTOSEED_CLEANED, true).apply()
     }
 
     fun exportToMap(): Map<String, Any> = mapOf(
@@ -104,7 +113,8 @@ class AppPreferences(context: Context) {
         private const val KEY_HOURLY_WAGE = "hourly_wage"
         private const val KEY_AVG_WINDOW = "avg_months_window"
         private const val KEY_LAST_SEEN_VERSION_CODE = "last_seen_version_code"
-        private const val KEY_INITIAL_SEED_DONE = "initial_seed_done"
         private const val KEY_DARK_MODE = "dark_mode_enabled"
+        private const val KEY_DEMO_DATA_ACTIVE = "demo_data_active"
+        private const val KEY_LEGACY_AUTOSEED_CLEANED = "legacy_autoseed_cleaned_v5"
     }
 }

@@ -25,22 +25,183 @@ class FinanceRepository(
     val savingsGoalsFlow: Flow<List<SavingsGoalEntity>> = dao.observeSavingsGoals()
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()
 
+    /**
+     * Startet die App standardmäßig komplett sauber und leer (0,00 €) für echte Nutzerdaten.
+     * Beim ersten Start werden ausschließlich die leeren Standard-Kategorien mit 0,00 € angelegt.
+     * Falls aus einem früheren Build noch automatisch eingespielte Demo-Buchungen vorhanden sind,
+     * werden diese einmalig beim Update auf Build #5 bereinigt.
+     */
     suspend fun ensureInitializedAndSyncRecurring() {
         val existingCategories = dao.getAllCategoryTabsOnce()
         if (existingCategories.isEmpty()) {
-            seedDefaultCategoriesAndTemplates()
-            if (!preferences.isInitialSeedDone()) {
-                generateSixMonthsDemoData()
-                preferences.markInitialSeedDone()
-            }
-        } else {
-            processDueRecurringBookings(LocalDate.now())
+            seedCleanCategoriesAndTemplates()
+            preferences.setDemoDataActive(false)
+            preferences.markLegacyAutoSeedCleaned()
+            return
         }
+
+        if (!preferences.isLegacyAutoSeedCleaned()) {
+            val existingTx = dao.getAllTransactionsOnce()
+            val hasOldAutoSeededDemo = existingTx.any {
+                it.title == "Feinkost & Gäste-Bewirtung (Sondereinkauf)"
+            }
+            if (hasOldAutoSeededDemo && !preferences.settingsState.value.isDemoDataActive) {
+                resetAllData()
+            }
+            preferences.markLegacyAutoSeedCleaned()
+        }
+
+        processDueRecurringBookings(LocalDate.now())
     }
 
-    suspend fun seedDefaultCategoriesAndTemplates(): Map<String, CategoryTabEntity> {
+    /**
+     * Legt die leeren Standard-Kategorien (Lebensmittel, Kfz-Versicherung, Handyvertrag,
+     * Versicherung, Freizeit, Fixkosten, Sparen, Gehalt & Einnahmen) komplett sauber mit 0,00 € an.
+     */
+    suspend fun seedCleanCategoriesAndTemplates(): Map<String, CategoryTabEntity> {
+        val cleanTabs = listOf(
+            CategoryTabEntity(
+                name = "Lebensmittel",
+                iconKey = "cart",
+                colorHex = 0xFF10B981,
+                categoryType = CategoryType.VARIABLE_EXPENSE,
+                monthlyBudgetLimit = 0.0,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.ONE_TIME,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 1
+            ),
+            CategoryTabEntity(
+                name = "Kfz-Versicherung",
+                iconKey = "car",
+                colorHex = 0xFFEF4444,
+                categoryType = CategoryType.FIXED_EXPENSE,
+                monthlyBudgetLimit = 0.0,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.YEARLY,
+                smoothOver12Months = true,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 2
+            ),
+            CategoryTabEntity(
+                name = "Handyvertrag",
+                iconKey = "phone",
+                colorHex = 0xFF3B82F6,
+                categoryType = CategoryType.FIXED_EXPENSE,
+                monthlyBudgetLimit = 0.0,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.MONTHLY,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 3
+            ),
+            CategoryTabEntity(
+                name = "Versicherung",
+                iconKey = "shield",
+                colorHex = 0xFF6366F1,
+                categoryType = CategoryType.FIXED_EXPENSE,
+                monthlyBudgetLimit = 0.0,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.MONTHLY,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 4
+            ),
+            CategoryTabEntity(
+                name = "Freizeit",
+                iconKey = "leisure",
+                colorHex = 0xFFEC4899,
+                categoryType = CategoryType.VARIABLE_EXPENSE,
+                monthlyBudgetLimit = 0.0,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.ONE_TIME,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 5
+            ),
+            CategoryTabEntity(
+                name = "Fixkosten",
+                iconKey = "home",
+                colorHex = 0xFF8B5CF6,
+                categoryType = CategoryType.FIXED_EXPENSE,
+                monthlyBudgetLimit = 0.0,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.MONTHLY,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 6
+            ),
+            CategoryTabEntity(
+                name = "Sparen",
+                iconKey = "savings",
+                colorHex = 0xFF06B6D4,
+                categoryType = CategoryType.SAVINGS,
+                monthlyBudgetLimit = 0.0,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.MONTHLY,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 7
+            ),
+            CategoryTabEntity(
+                name = "Gehalt & Einnahmen",
+                iconKey = "income",
+                colorHex = 0xFF10B981,
+                categoryType = CategoryType.INCOME,
+                monthlyBudgetLimit = null,
+                dueDayOfMonth = null,
+                defaultAmount = 0.0,
+                billingInterval = BillingInterval.MONTHLY,
+                smoothOver12Months = false,
+                contractEndDateEpochDay = null,
+                isSystemDefault = true,
+                sortOrder = 8
+            )
+        )
+
+        dao.deleteAllCategoryTabs()
+        dao.insertCategoryTabs(cleanTabs)
+        val savedCategories = dao.getAllCategoryTabsOnce()
+        val byName = savedCategories.associateBy { it.name }
+
+        insertDefaultQuickTemplates(byName, savedCategories)
+
+        dao.deleteAllSavingsGoals()
+        dao.insertSavingsGoal(
+            SavingsGoalEntity(
+                title = "Etappen-Sparziel: 3.000 € Notgroschen",
+                targetAmount = 3000.0,
+                initialSavedAmount = 0.0,
+                monthlyContributionGoal = 0.0,
+                dueDayOfMonth = 1
+            )
+        )
+
+        return byName
+    }
+
+    /**
+     * Legt die Kategorien mit realistischen Test-Limits, Fälligkeitstagen (1., 5., 15., 20., 28.),
+     * 1/12-Glättung und 30-Tage-Vertrags-Wecker für das Test-Labor an.
+     */
+    private suspend fun seedDemoCategoriesAndTemplates(): Map<String, CategoryTabEntity> {
         val today = LocalDate.now()
-        val defaultTabs = listOf(
+        val demoTabs = listOf(
             CategoryTabEntity(
                 name = "Lebensmittel",
                 iconKey = "cart",
@@ -58,7 +219,7 @@ class FinanceRepository(
             CategoryTabEntity(
                 name = "Kfz-Versicherung",
                 iconKey = "car",
-                colorHex = 0xFFF59E0B,
+                colorHex = 0xFFEF4444,
                 categoryType = CategoryType.FIXED_EXPENSE,
                 monthlyBudgetLimit = 140.0,
                 dueDayOfMonth = 20,
@@ -72,7 +233,7 @@ class FinanceRepository(
             CategoryTabEntity(
                 name = "Handyvertrag",
                 iconKey = "phone",
-                colorHex = 0xFFA855F7,
+                colorHex = 0xFF3B82F6,
                 categoryType = CategoryType.FIXED_EXPENSE,
                 monthlyBudgetLimit = 35.0,
                 dueDayOfMonth = 15,
@@ -86,7 +247,7 @@ class FinanceRepository(
             CategoryTabEntity(
                 name = "Versicherung",
                 iconKey = "shield",
-                colorHex = 0xFF38BDF8,
+                colorHex = 0xFF6366F1,
                 categoryType = CategoryType.FIXED_EXPENSE,
                 monthlyBudgetLimit = 65.0,
                 dueDayOfMonth = 5,
@@ -100,7 +261,7 @@ class FinanceRepository(
             CategoryTabEntity(
                 name = "Freizeit",
                 iconKey = "leisure",
-                colorHex = 0xFF6366F1,
+                colorHex = 0xFFEC4899,
                 categoryType = CategoryType.VARIABLE_EXPENSE,
                 monthlyBudgetLimit = 150.0,
                 dueDayOfMonth = null,
@@ -114,7 +275,7 @@ class FinanceRepository(
             CategoryTabEntity(
                 name = "Fixkosten",
                 iconKey = "home",
-                colorHex = 0xFFEC4899,
+                colorHex = 0xFF8B5CF6,
                 categoryType = CategoryType.FIXED_EXPENSE,
                 monthlyBudgetLimit = 980.0,
                 dueDayOfMonth = 1,
@@ -142,7 +303,7 @@ class FinanceRepository(
             CategoryTabEntity(
                 name = "Gehalt & Einnahmen",
                 iconKey = "income",
-                colorHex = 0xFF22C55E,
+                colorHex = 0xFF10B981,
                 categoryType = CategoryType.INCOME,
                 monthlyBudgetLimit = null,
                 dueDayOfMonth = 1,
@@ -156,10 +317,30 @@ class FinanceRepository(
         )
 
         dao.deleteAllCategoryTabs()
-        dao.insertCategoryTabs(defaultTabs)
+        dao.insertCategoryTabs(demoTabs)
         val savedCategories = dao.getAllCategoryTabsOnce()
         val byName = savedCategories.associateBy { it.name }
 
+        insertDefaultQuickTemplates(byName, savedCategories)
+
+        dao.deleteAllSavingsGoals()
+        dao.insertSavingsGoal(
+            SavingsGoalEntity(
+                title = "Etappen-Sparziel: 3.000 € Notgroschen",
+                targetAmount = 3000.0,
+                initialSavedAmount = 350.0,
+                monthlyContributionGoal = 250.0,
+                dueDayOfMonth = 1
+            )
+        )
+
+        return byName
+    }
+
+    private suspend fun insertDefaultQuickTemplates(
+        byName: Map<String, CategoryTabEntity>,
+        savedCategories: List<CategoryTabEntity>
+    ) {
         val lebensmittelCat = byName["Lebensmittel"] ?: savedCategories.first()
         val kfzCat = byName["Kfz-Versicherung"] ?: savedCategories.first()
         val sparenCat = byName["Sparen"] ?: savedCategories.first()
@@ -209,38 +390,25 @@ class FinanceRepository(
                 )
             )
         )
-
-        dao.deleteAllSavingsGoals()
-        dao.insertSavingsGoal(
-            SavingsGoalEntity(
-                title = "Etappen-Sparziel: 3.000 € Notgroschen",
-                targetAmount = 3000.0,
-                initialSavedAmount = 350.0,
-                monthlyContributionGoal = 250.0,
-                dueDayOfMonth = 1
-            )
-        )
-
-        return byName
     }
 
+    /**
+     * Wird ausschließlich über den Reiter "Beispieldaten & Test-Labor" ausgelöst:
+     * Lädt 6 Monate realistische Test-Buchungen, Verträge und Sparziele.
+     */
     suspend fun generateSixMonthsDemoData() {
         dao.deleteAllTransactions()
-        val existingCats = dao.getAllCategoryTabsOnce()
-        val categoriesByName = if (existingCats.size < 7) {
-            seedDefaultCategoriesAndTemplates()
-        } else {
-            existingCats.associateBy { it.name }
-        }
+        val categoriesByName = seedDemoCategoriesAndTemplates()
+        val allCats = dao.getAllCategoryTabsOnce()
 
-        val incomeCat = categoriesByName["Gehalt & Einnahmen"] ?: existingCats.first()
-        val fixkostenCat = categoriesByName["Fixkosten"] ?: existingCats.first()
-        val versicherungCat = categoriesByName["Versicherung"] ?: existingCats.first()
-        val handyCat = categoriesByName["Handyvertrag"] ?: existingCats.first()
-        val kfzCat = categoriesByName["Kfz-Versicherung"] ?: existingCats.first()
-        val lebensmittelCat = categoriesByName["Lebensmittel"] ?: existingCats.first()
+        val incomeCat = categoriesByName["Gehalt & Einnahmen"] ?: allCats.first()
+        val fixkostenCat = categoriesByName["Fixkosten"] ?: allCats.first()
+        val versicherungCat = categoriesByName["Versicherung"] ?: allCats.first()
+        val handyCat = categoriesByName["Handyvertrag"] ?: allCats.first()
+        val kfzCat = categoriesByName["Kfz-Versicherung"] ?: allCats.first()
+        val lebensmittelCat = categoriesByName["Lebensmittel"] ?: allCats.first()
         val freizeitCat = categoriesByName["Freizeit"] ?: lebensmittelCat
-        val sparenCat = categoriesByName["Sparen"] ?: existingCats.first()
+        val sparenCat = categoriesByName["Sparen"] ?: allCats.first()
 
         val today = LocalDate.now()
         val currentYm = YearMonth.from(today)
@@ -460,6 +628,7 @@ class FinanceRepository(
         }
 
         dao.insertTransactionsReplace(demoTransactions)
+        preferences.setDemoDataActive(true)
     }
 
     suspend fun processDueRecurringBookings(today: LocalDate) {
@@ -506,13 +675,14 @@ class FinanceRepository(
         }
     }
 
+    /**
+     * Entfernt alle Beispieldaten / Buchungen restlos und setzt die App komplett sauber
+     * auf 0,00 € zurück, damit sofort mit echten Zahlen gestartet werden kann.
+     */
     suspend fun resetAllData() {
         dao.deleteAllTransactions()
-        seedDefaultCategoriesAndTemplates()
-        val goals = dao.getAllSavingsGoalsOnce()
-        goals.forEach { goal ->
-            dao.updateSavingsGoal(goal.copy(initialSavedAmount = 0.0))
-        }
+        seedCleanCategoriesAndTemplates()
+        preferences.setDemoDataActive(false)
     }
 
     suspend fun addTransaction(transaction: TransactionEntity) {

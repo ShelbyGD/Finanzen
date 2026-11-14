@@ -22,23 +22,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Ensure Deterministic Signing Keystore Exists
+      - name: Verify Static Git Keystore Exists
         run: |
-          mkdir -p app/keystore
-          if [ ! -f "app/keystore/smartfinance.jks" ]; then
-            echo "Erzeuge deterministischen Keystore app/keystore/smartfinance.jks..."
-            keytool -genkeypair -v \
-              -keystore app/keystore/smartfinance.jks \
-              -alias smartfinance_key \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass "SmartFinance2026Key!" \
-              -keypass "SmartFinance2026Key!" \
-              -dname "CN=SmartFinance 2026, OU=Mobile, O=SmartFinance, L=Berlin, ST=Berlin, C=DE"
-          else
-            echo " Bestehender Keystore app/keystore/smartfinance.jks gefunden (In-Place-Update-Signatur aktiv)."
-          fi
+          test -f "app/keystore/smartfinance.jks"
+          ls -lh "app/keystore/smartfinance.jks"
 
       - name: Setup Gradle with Caching
         uses: gradle/actions/setup-gradle@v4

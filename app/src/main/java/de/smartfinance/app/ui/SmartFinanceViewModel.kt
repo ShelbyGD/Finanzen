@@ -496,7 +496,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             repository.generateSixMonthsDemoData()
             withContext(Dispatchers.Main) {
                 _selectedMonthPage.value = baseMonthIndex
-                _snackbarMessage.value = "6 Monate Demo-Daten (Abbuchungstage 1., 5., 15., 20., 28.) erfolgreich generiert."
+                _snackbarMessage.value = "6 Monate Beispieldaten zum Testen geladen."
             }
         }
     }
@@ -506,7 +506,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             repository.resetAllData()
             withContext(Dispatchers.Main) {
                 _selectedMonthPage.value = baseMonthIndex
-                _snackbarMessage.value = "Alle Buchungen wurden zurückgesetzt."
+                _snackbarMessage.value = "Beispieldaten entfernt – App auf 0,00 € zurückgesetzt."
             }
         }
     }

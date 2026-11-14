@@ -91,6 +91,7 @@ import de.smartfinance.app.ui.screens.HelpChangelogScreen
 import de.smartfinance.app.ui.screens.LiteProOverviewScreen
 import de.smartfinance.app.ui.screens.SavingsBoosterTabScreen
 import de.smartfinance.app.ui.screens.SettingsDemoScreen
+import de.smartfinance.app.ui.screens.TestLabScreen
 import de.smartfinance.app.ui.theme.SmartFinanceTheme
 import kotlinx.coroutines.launch
 
@@ -163,7 +164,9 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         }
     }
 
-    val totalAlertsCount = currentSnapshot.contractAlerts.size + currentSnapshot.radarAlerts.size
+    val totalAlertsCount = currentSnapshot.contractAlerts.size +
+        currentSnapshot.radarAlerts.size +
+        (if (settingsState.showUpdateBanner) 1 else 0)
     val isCurrentMonth = selectedMonthPage == viewModel.baseMonthIndex
 
     ModalNavigationDrawer(
@@ -270,35 +273,18 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         Column(
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                val topBarHeading = if (currentDestination == DrawerDestination.COCKPIT) {
-                                    selectedBottomTab.label
-                                } else {
-                                    currentDestination.title
-                                }
-                                Text(
-                                    text = topBarHeading,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer
-                                ) {
-                                    Text(
-                                        text = "v${BuildConfig.VERSION_NAME} (#${BuildConfig.BUILD_NUMBER})",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
+                            val topBarHeading = if (currentDestination == DrawerDestination.COCKPIT) {
+                                selectedBottomTab.label
+                            } else {
+                                currentDestination.title
                             }
+                            Text(
+                                text = topBarHeading,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
 
                             // Darunter klein der wischbare/wählbare Monat, z. B. `< November 2026 >`
                             Row(
@@ -371,7 +357,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Notifications,
-                                    contentDescription = "Vertrags-Wecker & Budget-Warnungen"
+                                    contentDescription = "Benachrichtigungen, Update-Info & Vertrags-Wecker"
                                 )
                             }
                         }
@@ -484,9 +470,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     },
                                     onNavigateToContracts = {
                                         viewModel.selectBottomTab(BottomNavTab.CONTRACTS)
-                                    },
-                                    onDismissUpdateBanner = viewModel::dismissUpdateBanner,
-                                    onClickUpdateBanner = viewModel::openUpdateChangelogFromBanner
+                                    }
                                 )
                             }
 
@@ -562,6 +546,18 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             onUpdateSavingsGoal = viewModel::updateSavingsGoal,
                             onRequestProFeature = { title ->
                                 viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
+                            }
+                        )
+                    }
+
+                    DrawerDestination.TEST_LAB -> {
+                        TestLabScreen(
+                            settingsState = settingsState,
+                            transactionsCount = allTransactions.size,
+                            onLoadSixMonthsDemoData = viewModel::generateSixMonthsDemoData,
+                            onResetToCleanZero = viewModel::resetAllData,
+                            onBackToOverview = {
+                                viewModel.selectBottomTab(BottomNavTab.OVERVIEW)
                             }
                         )
                     }
@@ -668,6 +664,9 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         NotificationsBottomSheet(
             contractAlerts = currentSnapshot.contractAlerts,
             radarAlerts = currentSnapshot.radarAlerts,
+            showUpdateNotification = settingsState.showUpdateBanner,
+            onOpenUpdateChangelog = viewModel::openUpdateChangelogFromBanner,
+            onDismissUpdateNotification = viewModel::dismissUpdateBanner,
             onSelectCategory = { catId ->
                 viewModel.closeNotificationsSheet()
                 viewModel.selectCategoryFilter(catId)

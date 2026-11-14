@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.smartfinance.app.BuildConfig
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.core.HelpEntry
@@ -234,14 +235,17 @@ fun ProFeatureLockedDialog(
 
 /**
  * Benachrichtigungs-Center BottomSheet (geöffnet über die Glocke oben rechts in der TopAppBar).
- * Bündelt alle Vertrags-Wecker (30-Tage-Vorwarnung) und Schleichende-Kosten-Radar-Warnungen,
- * damit keine klobigen Warn-Banner mehr den Hauptbildschirm überladen.
+ * Zeigt als obersten Eintrag die Update-Info ("Update auf v1.0.X erfolgreich") sowie alle
+ * Vertrags-Wecker (30-Tage-Vorwarnung) und Schleichende-Kosten-Radar-Warnungen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsBottomSheet(
     contractAlerts: List<ContractExpiryAlert>,
     radarAlerts: List<RadarAnomalyAlert>,
+    showUpdateNotification: Boolean,
+    onOpenUpdateChangelog: () -> Unit,
+    onDismissUpdateNotification: () -> Unit,
     onSelectCategory: (Long) -> Unit,
     onOpenContractsTab: () -> Unit,
     onDismiss: () -> Unit
@@ -263,6 +267,57 @@ fun NotificationsBottomSheet(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
+
+            // Oberster Eintrag in der Glocke: Update-Info ("Update auf v1.0.X erfolgreich")
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF10B981).copy(alpha = 0.14f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onDismiss()
+                        onOpenUpdateChangelog()
+                    }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Update auf v${BuildConfig.VERSION_NAME} (Build #${BuildConfig.BUILD_NUMBER}) erfolgreich",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Tippe hier für alle Neuerungen im Update-Changelog >",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (showUpdateNotification) {
+                        TextButton(onClick = onDismissUpdateNotification) {
+                            Text("OK", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
 
             if (contractAlerts.isEmpty() && radarAlerts.isEmpty()) {
                 Surface(

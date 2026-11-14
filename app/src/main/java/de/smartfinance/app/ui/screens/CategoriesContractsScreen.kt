@@ -94,7 +94,7 @@ fun CategoriesContractsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // 1. Etappen-Sparziel-Tracker & Dauer-Sparraten Kurzübersicht
@@ -248,8 +248,8 @@ fun CategoriesContractsScreen(
         SavingsGoalEditDialog(
             initialTitle = currentGoal?.title ?: "Etappen-Sparziel: 3.000 € Notgroschen",
             initialTarget = currentGoal?.targetAmount ?: 3000.0,
-            initialBaseSaved = currentGoal?.initialSavedAmount ?: 350.0,
-            initialMonthlyRate = currentGoal?.monthlyContributionGoal ?: 250.0,
+            initialBaseSaved = currentGoal?.initialSavedAmount ?: 0.0,
+            initialMonthlyRate = currentGoal?.monthlyContributionGoal ?: 0.0,
             initialDueDay = currentGoal?.dueDayOfMonth ?: 1,
             onDismiss = { showSavingsEditor = false },
             onSave = { title, target, baseSaved, monthlyRate, dueDay ->
@@ -273,6 +273,7 @@ private fun CategoryContractCard(
         val fmt = endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
         days to fmt
     }
+    val accentColor = CategoryIconCatalog.accentColorFor(category.iconKey, category.name)
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -292,14 +293,14 @@ private fun CategoryContractCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                        color = accentColor.copy(alpha = 0.15f),
                         modifier = Modifier.size(40.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = CategoryIconCatalog.iconForKey(category.iconKey),
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = accentColor,
                                 modifier = Modifier.size(20.dp)
                             )
                         }

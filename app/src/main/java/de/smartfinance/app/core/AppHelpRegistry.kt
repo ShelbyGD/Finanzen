@@ -271,19 +271,38 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_DEMO_SHORTCUTS_SIMULATOR,
             moduleNumber = 13,
-            title = "13. Demo-Daten-Generator, Light/Dark-Theme & Lite/Pro-Simulator",
+            title = "13. Beispieldaten & Test-Labor, Light/Dark-Theme & Lite/Pro-Simulator",
             category = "System, Test & Komfort",
-            shortSummary = "6 Monate realistische Testdaten mit 1 Tap erzeugen, Light/Dark-Mode-Umschalter in der Top-Bar, Homescreen-Shortcuts und Live-Umschalter zwischen Lite & Pro.",
+            shortSummary = "Sauberer App-Start mit 0,00 €, eigener Reiter 'Beispieldaten & Test-Labor' im Hamburger-Menü, Light/Dark-Mode-Umschalter und Live-Umschalter zwischen Lite & Pro.",
             stepByStepGuide = listOf(
-                "Wechsle über das Sonnen-/Mond-Symbol oben rechts in der Top-Bar jederzeit live zwischen dem hellen Clean-Banking-Look und dem Dark Mode.",
-                "Öffne im linken Menü 'Einstellungen & Demo-Daten' und tippe auf '6 Monate Demo-Daten generieren', um realistische Buchungen mit verteilten Abbuchungstagen (1., 5., 15., 20. und 28.) zu erzeugen.",
-                "Halte das App-Icon auf dem Homescreen gedrückt für Direkt-Shortcuts ('Schnell-Ausgabe', 'Beleg scannen', 'KI-Finanzcheck')."
+                "Die App startet beim ersten Öffnen komplett sauber und leer (0,00 €) für deine echten Finanzdaten.",
+                "Öffne im linken Hamburger-Menü den Reiter 'Beispieldaten & Test-Labor': Dort siehst du jederzeit den aktuellen Status ('Aktueller Modus: Echte Daten (Sauber)' vs. 'Aktueller Modus: Test-Beispieldaten aktiv').",
+                "Mit einem Tap auf '6 Monate Beispieldaten zum Testen laden' spielst du realistische Buchungen, Verträge und Sparziele zum Testen ein. Mit 'Beispieldaten wieder entfernen / App auf 0,00 € zurücksetzen' löschst du alle Testdaten restlos für deinen echten Start."
             ),
             exampleTips = listOf(
+                "Wechsle über das Sonnen-/Mond-Symbol oben rechts in der Top-Bar jederzeit live zwischen dem hellen Clean-Banking-Look und dem Dark Mode.",
                 "Unter 'Lite vs. Pro Übersicht' im Hamburger-Menü kannst du jederzeit live den Lite-Modus simulieren."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
+        ),
+        HelpEntry(
+            id = "test_lab",
+            moduleNumber = 14,
+            title = "14. Beispieldaten & Test-Labor (0,00 € Echtbetrieb vs. 6-Monats-Testszenario)",
+            category = "Test-Labor & Neustart",
+            shortSummary = "Dedizierter Menüpunkt im linken Hamburger-Menü zum Umschalten zwischen 6 Monaten Test-Beispieldaten und einem komplett sauberen 0,00-€-Start für echte Daten.",
+            stepByStepGuide = listOf(
+                "Tippe oben links auf das Hamburger-Menü und wähle 'Beispieldaten & Test-Labor'.",
+                "Prüfe oben die Status-Anzeige ('Aktueller Modus: Echte Daten (Sauber)' oder 'Aktueller Modus: Test-Beispieldaten aktiv').",
+                "Tippe auf '6 Monate Beispieldaten zum Testen laden', um Grafiken, Belastungswelle, Vertrags-Wecker und KI-Durchschnitte mit Demo-Zahlen auszuprobieren.",
+                "Tippe auf 'Beispieldaten wieder entfernen / App auf 0,00 € zurücksetzen', um alle Buchungen restlos zu löschen und sauber bei 0,00 € zu starten."
+            ),
+            exampleTips = listOf(
+                "Alle Standard-Kategorien (Lebensmittel, Kfz-Versicherung, Handyvertrag, Versicherung, Freizeit, Fixkosten, Sparen) bleiben beim Zurücksetzen als leere 0,00-€-Hüllen erhalten."
+            ),
+            requiredTier = AppTier.LITE_FREE,
+            addedInVersion = BuildConfig.VERSION_NAME
         )
     )
 
@@ -293,11 +312,22 @@ object AppHelpRegistry {
             buildNumber = BuildConfig.BUILD_NUMBER,
             date = "14.11.2026",
             newFeatures = listOf(
-                "UI/UX-Komplett-Redesign (Build #${BuildConfig.BUILD_NUMBER}): Moderner 5-Tab Clean-Banking-Look ('Übersicht', 'Verträge', 'Analysen', 'KI-Coach', 'Sparbooster') mit Material-Vektor-Icons.",
-                "Top-Bar mit großem 'Übersicht'-Header, wischbarem Monat sowie 3 Direkt-Icons für Beleg-Scanner-Kamera, Benachrichtigungs-Glocke (mit Badge-Zähler) und Light/Dark-Mode-Umschalter.",
-                "Violette Hero-Budget-Karte (Farbverlauf #4A25AA bis #311B92) mit PRO-Statistik-Badge, Resttagen, großem verfügbaren Budget, türkisfarbenem Fortschrittsbalken (#00E5FF) und Tagessatz.",
-                "Budgets-Karte mit runden 52dp Kreis-Fortschrittsringen (Grün / Orange >75 % / Rot >100 %) und rundem '+'-Button zum Hinzufügen neuer Kategorien.",
-                "Gruppierte Listen-Container ('Nächste Abbuchungen' & 'Letzte Buchungen') mit 0.5dp Trennlinien, Detail-/Löschen-BottomSheet bei Zeilen-Tap und '+'-FloatingActionButton für 1-Tap-Vorlagen & Zahlenblock."
+                "Statischer Git-Keystore (app/keystore/smartfinance.jks) fest im Repository verankert für garantierte, nahtlose In-Place-Updates über bestehende Installationen.",
+                "Sauberer App-Start (0,00 €) ohne automatische Demo-Buchungen sowie neuer eigener Reiter 'Beispieldaten & Test-Labor' im Hamburger-Menü (inkl. Status-Anzeige, 1-Tap 6-Monats-Testdaten & 1-Tap Reset auf 0,00 €).",
+                "Budgets-Karte optimiert: Exakt 4 runde Budget-Ringe + '+'-Kreis-Button gleichmäßig über die Kartenbreite verteilt (Arrangement.SpaceBetween) ohne Abschneiden am rechten Rand.",
+                "Abwechslungsreiche, edle Kategorie-Farben für die runden Icon-Kreise in 'Nächste Abbuchungen' und 'Letzte Buchungen' (Smaragdgrün, Blau, Amber/Orange, Korallenrot, Indigo, Türkis, Violett).",
+                "Update-Erfolgsmeldung ('Update auf v1.0.X erfolgreich') als oberster Eintrag direkt in das Benachrichtigungs-BottomSheet der Glocke oben rechts integriert.",
+                "Erhöhtes Bottom-Padding (112dp) in den Listen, damit der '+'-FloatingActionButton niemals Euro-Beträge am unteren Rand verdeckt, sowie aufgeräumter 'Übersicht'-Header."
+            )
+        ),
+        ChangelogEntry(
+            versionName = "1.0.4",
+            buildNumber = 4,
+            date = "14.11.2026",
+            newFeatures = listOf(
+                "UI/UX-Komplett-Redesign: Moderner 5-Tab Clean-Banking-Look ('Übersicht', 'Verträge', 'Analysen', 'KI-Coach', 'Sparbooster') mit Material-Vektor-Icons.",
+                "Violette Hero-Budget-Karte mit PRO-Statistik-Badge, Resttagen, großem verfügbaren Budget, türkisfarbenem Fortschrittsbalken und Tagessatz.",
+                "Gruppierte Listen-Container ('Nächste Abbuchungen' & 'Letzte Buchungen') mit 0.5dp Trennlinien und Detail-/Löschen-BottomSheet."
             )
         ),
         ChangelogEntry(
@@ -313,7 +343,7 @@ object AppHelpRegistry {
             buildNumber = 1,
             date = "14.11.2026",
             newFeatures = listOf(
-                "Initiales Voll-Release von SmartFinance 2026 (v1.0.1, Build #1) mit deterministischer In-Place-Update-Signatur, Room-Datenschutz, lokaler Hybrid-KI und ML Kit OCR."
+                "Initiales Voll-Release von SmartFinance 2026 (v1.0.1, Build #1) mit Room-Datenschutz, lokaler Hybrid-KI und ML Kit OCR."
             )
         )
     )

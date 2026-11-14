@@ -3,7 +3,6 @@ package de.smartfinance.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,16 +18,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.AlertDialog
@@ -65,7 +61,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import de.smartfinance.app.BuildConfig
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.core.UserSettingsState
@@ -92,11 +87,11 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * Tab 1: "Übersicht" im Ultra-Clean "Finanzguru-Style" Layout (Build #3):
- * - Violette Hero-Karte mit PRO/Statistik-Badge, verfügbarem Monatsbudget & türkisfarbenem Fortschrittsbalken
- * - "Budgets"-Karte mit runden 52.dp Kreis-Ringen (CircularProgressIndicator in Grün/Orange/Rot) + '+' Button
- * - Gruppierter Listen-Container "Nächste Abbuchungen (Wächter)" mit "Belastungswelle öffnen >"
- * - Gruppierter Listen-Container "Letzte Buchungen" mit hauchdünnen Trennlinien (Tap öffnet Bearbeiten/Löschen-Sheet)
+ * Tab 1: "Übersicht" im Ultra-Clean "Finanzguru-Style" Layout (Build #5):
+ * - Violette Hero-Karte direkt ganz oben (Update-Hinweis liegt in der Benachrichtigungs-Glocke)
+ * - "Budgets"-Karte mit exakt 4 Budget-Ringen + 5. Kreis '+'-Button gleichmäßig über die Breite verteilt (Arrangement.SpaceBetween)
+ * - Abwechslungsreiche, edle Kategorie-Farben für die runden Icon-Kreise in "Nächste Abbuchungen" & "Letzte Buchungen"
+ * - Großzügiges PaddingValues(bottom = 112.dp), damit der '+' FloatingActionButton niemals Euro-Beträge verdeckt
  */
 @Composable
 fun CockpitScreen(
@@ -111,9 +106,7 @@ fun CockpitScreen(
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onNavigateToAnalytics: () -> Unit,
-    onNavigateToContracts: () -> Unit,
-    onDismissUpdateBanner: () -> Unit,
-    onClickUpdateBanner: () -> Unit
+    onNavigateToContracts: () -> Unit
 ) {
     val pagerState = rememberPagerState(
         initialPage = selectedMonthPage,
@@ -145,13 +138,10 @@ fun CockpitScreen(
             categories = categories,
             allTransactions = allTransactions,
             selectedCategoryId = selectedCategoryId,
-            showUpdateBanner = settingsState.showUpdateBanner,
             onSelectCategoryFilter = onSelectCategoryFilter,
             onSelectTransaction = onSelectTransaction,
             onNavigateToAnalytics = onNavigateToAnalytics,
-            onNavigateToContracts = onNavigateToContracts,
-            onDismissUpdateBanner = onDismissUpdateBanner,
-            onClickUpdateBanner = onClickUpdateBanner
+            onNavigateToContracts = onNavigateToContracts
         )
     }
 }
@@ -162,13 +152,10 @@ private fun OverviewMonthContent(
     categories: List<CategoryTabEntity>,
     allTransactions: List<TransactionEntity>,
     selectedCategoryId: Long?,
-    showUpdateBanner: Boolean,
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onNavigateToAnalytics: () -> Unit,
-    onNavigateToContracts: () -> Unit,
-    onDismissUpdateBanner: () -> Unit,
-    onClickUpdateBanner: () -> Unit
+    onNavigateToContracts: () -> Unit
 ) {
     val periodTransactions = remember(allTransactions, snapshot.selectedYearMonth, selectedCategoryId) {
         allTransactions
@@ -194,19 +181,9 @@ private fun OverviewMonthContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Optionales In-App Update-Banner nach neuem Build
-        if (showUpdateBanner) {
-            item {
-                CleanUpdateBannerCard(
-                    onOpenChangelog = onClickUpdateBanner,
-                    onDismiss = onDismissUpdateBanner
-                )
-            }
-        }
-
         // 1. DIE VIOLETTE HERO-KARTE (Oben im "Übersicht"-Tab)
         item {
             VioletHeroBudgetCard(
@@ -215,7 +192,7 @@ private fun OverviewMonthContent(
             )
         }
 
-        // 2. DIE "BUDGETS"-KARTE MIT RUNDEN KREIS-RINGEN (Circular Progress Rings)
+        // 2. DIE "BUDGETS"-KARTE MIT 4 RUNDEN KREIS-RINGEN + '+' BUTTON (Arrangement.SpaceBetween)
         item {
             CircularBudgetsCard(
                 categories = budgetCategories,
@@ -249,63 +226,13 @@ private fun OverviewMonthContent(
     }
 }
 
-@Composable
-private fun CleanUpdateBannerCard(
-    onOpenChangelog: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpenChangelog() }
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Update v${BuildConfig.VERSION_NAME} (Build #${BuildConfig.BUILD_NUMBER}) installiert",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Tippe hier für alle Neuerungen im Changelog >",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                    )
-                }
-            }
-            IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Banner schließen")
-            }
-        }
-    }
-}
-
 /**
  * 2. DIE VIOLETTE HERO-KARTE (Oben im "Übersicht"-Tab):
  * - Abgerundete Karte (RoundedCornerShape(20.dp)) mit violett-blauem Farbverlauf
  *   (Color(0xFF4A25AA) zu Color(0xFF311B92)) und weißer Schrift.
  * - Kopfzeile: Links kleines abgerundetes Badge "PRO" + "Statistik", rechts "X Tage bis Monatsende >".
- * - Zentrum: Riesige, fette Zahl "1.065 €" und direkt daneben kleiner "vom Budget verfügbar".
- * - Unten: Schlanker, türkisfarbener LinearProgressIndicator (Color(0xFF00E5FF)) und "Heute frei: 62,66 € / Tag".
+ * - Zentrum: Riesige, fette Zahl und direkt daneben kleiner "vom Budget verfügbar".
+ * - Unten: Schlanker, türkisfarbener LinearProgressIndicator (Color(0xFF00E5FF)) und "Heute frei: XX,XX € / Tag".
  * - Tap wechselt direkt in den Tab "Analysen".
  */
 @Composable
@@ -313,10 +240,12 @@ private fun VioletHeroBudgetCard(
     snapshot: DashboardAnalysisSnapshot,
     onClickHero: () -> Unit
 ) {
-    val effectiveIncome = max(snapshot.actualIncome, snapshot.targetIncome).coerceAtLeast(1.0)
-    val availableRatio = (snapshot.remainingFreeBudgetMonth / effectiveIncome)
-        .toFloat()
-        .coerceIn(0.05f, 1f)
+    val effectiveIncome = max(snapshot.actualIncome, snapshot.targetIncome)
+    val availableRatio = if (effectiveIncome > 0.0) {
+        (snapshot.remainingFreeBudgetMonth / effectiveIncome).toFloat().coerceIn(0.05f, 1f)
+    } else {
+        0f
+    }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -437,11 +366,11 @@ private fun VioletHeroBudgetCard(
 }
 
 /**
- * 3. DIE "BUDGETS"-KARTE MIT RUNDEN KREIS-RINGEN (Circular Progress Rings):
- * - Header: Links fett "Budgets", rechts in Türkis/Akzentfarbe "Alle anzeigen >".
- * - Horizontal Scrollable Row mit runden 52.dp Kreisen + farbigem CircularProgressIndicator
- *   (Grün = im Budget, Orange = >75 %, Rot = Limit überschritten) + Material-Vektor-Icon innen.
- * - Ganz rechts ein runder '+'-Kreis-Button zum Hinzufügen einer neuen Kategorie.
+ * 3. DIE "BUDGETS"-KARTE MIT RUNDEN KREIS-RINGEN (Build #5):
+ * - Zeigt exakt 4 Budget-Ringe + direkt daneben als 5. Kreis den '+'-Button
+ *   gleichmäßig verteilt über die Kartenbreite (Arrangement.SpaceBetween),
+ *   sodass alle 5 Kreise ohne Abschneiden am rechten Rand komplett sichtbar sind.
+ * - Alle weiteren Kategorien öffnen sich über "Alle anzeigen >".
  */
 @Composable
 private fun CircularBudgetsCard(
@@ -451,6 +380,10 @@ private fun CircularBudgetsCard(
     onSelectCategory: (Long) -> Unit,
     onShowAllOrAddCategory: () -> Unit
 ) {
+    val visibleFourCategories = remember(categories) {
+        categories.take(4)
+    }
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -488,26 +421,26 @@ private fun CircularBudgetsCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                categories.forEach { category ->
-                    val spent = spentPerCategory[category.id] ?: (category.defaultAmount ?: 0.0)
-                    val limit = category.monthlyBudgetLimit ?: category.defaultAmount ?: 200.0
+                visibleFourCategories.forEach { category ->
+                    val spent = spentPerCategory[category.id] ?: 0.0
+                    val limit = category.monthlyBudgetLimit ?: category.defaultAmount ?: 0.0
                     val ratio = if (limit > 0.0) (spent / limit).toFloat() else 0f
                     val ringColor = when {
                         ratio > 1.0f -> BudgetRingRed
                         ratio >= 0.75f -> BudgetRingOrange
                         else -> BudgetRingGreen
                     }
+                    val accentColor = CategoryIconCatalog.accentColorFor(category.iconKey, category.name)
                     val isSelected = selectedCategoryId == category.id
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .width(72.dp)
+                            .width(60.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .clickable { onSelectCategory(category.id) }
                             .padding(vertical = 2.dp)
@@ -522,19 +455,21 @@ private fun CircularBudgetsCard(
                                 color = MaterialTheme.colorScheme.surfaceVariant,
                                 strokeWidth = 4.dp
                             )
-                            CircularProgressIndicator(
-                                progress = { ratio.coerceIn(0.06f, 1f) },
-                                modifier = Modifier.size(52.dp),
-                                color = ringColor,
-                                strokeWidth = 4.dp,
-                                strokeCap = StrokeCap.Round
-                            )
+                            if (ratio > 0f) {
+                                CircularProgressIndicator(
+                                    progress = { ratio.coerceIn(0.05f, 1f) },
+                                    modifier = Modifier.size(52.dp),
+                                    color = ringColor,
+                                    strokeWidth = 4.dp,
+                                    strokeCap = StrokeCap.Round
+                                )
+                            }
                             Surface(
                                 shape = CircleShape,
                                 color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primaryContainer
+                                    accentColor.copy(alpha = 0.25f)
                                 } else {
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                    accentColor.copy(alpha = 0.14f)
                                 },
                                 modifier = Modifier.size(40.dp)
                             ) {
@@ -542,11 +477,7 @@ private fun CircularBudgetsCard(
                                     Icon(
                                         imageVector = CategoryIconCatalog.iconForKey(category.iconKey),
                                         contentDescription = category.name,
-                                        tint = if (isSelected) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        },
+                                        tint = accentColor,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -572,17 +503,17 @@ private fun CircularBudgetsCard(
                         Text(
                             text = "${(ratio * 100).roundToInt()} %",
                             style = MaterialTheme.typography.labelSmall,
-                            color = ringColor,
+                            color = if (ratio > 0f) ringColor else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                // Runder '+'-Kreis-Button ganz rechts zum Hinzufügen einer neuen Kategorie
+                // 5. Kreis: Runder '+'-Button rechts neben den 4 Budget-Ringen
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .width(72.dp)
+                        .width(60.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .clickable { onShowAllOrAddCategory() }
                         .padding(vertical = 2.dp)
@@ -623,6 +554,7 @@ private fun CircularBudgetsCard(
  * 4.1 GRUPPIERTER LISTEN-CONTAINER: Sektion "Nächste Abbuchungen (Wächter)"
  * - Sektions-Überschrift (fett, 18.sp) außerhalb der Karte
  * - Gemeinsamer Karten-Container (RoundedCornerShape(20.dp)) mit den nächsten 2–3 anstehenden Fixkosten
+ * - Jede Kategorie hat ihre eigene, edle Hintergrundfarbe für den runden Icon-Kreis
  * - Zeilen innen durch HorizontalDivider(thickness = 0.5.dp) getrennt + Link "Belastungswelle öffnen >"
  */
 @Composable
@@ -672,7 +604,7 @@ private fun UpcomingDebitsGroupedSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Alle geplanten Fixkosten für diesen Monat sind bereits beglichen.",
+                            text = "Aktuell stehen keine offenen Fixkosten-Abbuchungen für diesen Monat an.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -684,6 +616,10 @@ private fun UpcomingDebitsGroupedSection(
                             1 -> "Morgen (${debit.dueDateFormatted})"
                             else -> "In ${debit.daysUntilDue} Tagen (${debit.dueDateFormatted})"
                         }
+                        val accentColor = CategoryIconCatalog.accentColorFor(
+                            iconKey = debit.iconKey,
+                            titleOrCategory = "${debit.title} ${debit.categoryName}"
+                        )
 
                         Row(
                             modifier = Modifier
@@ -699,14 +635,14 @@ private fun UpcomingDebitsGroupedSection(
                             ) {
                                 Surface(
                                     shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                                    color = accentColor.copy(alpha = 0.15f),
                                     modifier = Modifier.size(40.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = CategoryIconCatalog.iconForKey(debit.iconKey),
                                             contentDescription = debit.title,
-                                            tint = MaterialTheme.colorScheme.primary,
+                                            tint = accentColor,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -781,8 +717,9 @@ private fun UpcomingDebitsGroupedSection(
  * 4.2 GRUPPIERTER LISTEN-CONTAINER: Sektion "Letzte Buchungen"
  * - Sektions-Überschrift (fett, 18.sp) außerhalb der Karte
  * - EIN gemeinsamer Karten-Container (RoundedCornerShape(20.dp)), Zeilen durch HorizontalDivider(thickness = 0.5.dp) getrennt
- * - Links farbiges Vektor-Icon im Kreis, mittig Titel + kleines Datum, rechts Betrag in Grün (Einnahme) oder Neutral/Dunkel (Ausgabe)
- * - Tap auf eine Zeile öffnet ein Bearbeiten/Löschen-BottomSheet
+ * - Jede Kategorie hat ihre eigene, edle Hintergrundfarbe für den runden Icon-Kreis
+ * - Rechts Betrag in Grün (Einnahme) oder Neutral/Dunkel (Ausgabe)
+ * - Tap auf eine Zeile öffnet das Bearbeiten/Löschen-BottomSheet
  */
 @Composable
 private fun RecentBookingsGroupedSection(
@@ -844,12 +781,13 @@ private fun RecentBookingsGroupedSection(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Keine Buchungen in dieser Auswahl.",
+                        text = "Noch keine Buchungen vorhanden (0,00 €).",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Tippe rechts unten auf den '+' Button für 1-Tap-Vorlagen oder eine neue Buchung.",
+                        text = "Tippe auf den '+' Button für deine ersten echten Einnahmen/Ausgaben oder lade im Hamburger-Menü unter 'Beispieldaten & Test-Labor' ein 6-Monats-Testszenario.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -866,20 +804,13 @@ private fun RecentBookingsGroupedSection(
                             else -> "cart"
                         }
                         val isIncome = tx.transactionType == TransactionType.INCOME
-                        val isSavings = tx.transactionType == TransactionType.SAVINGS
                         val dateStr = LocalDate.ofEpochDay(tx.dateEpochDay)
                             .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
 
-                        val circleColor = when {
-                            isIncome -> BudgetRingGreen.copy(alpha = 0.14f)
-                            isSavings -> MaterialTheme.colorScheme.secondaryContainer
-                            else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-                        }
-                        val iconTint = when {
-                            isIncome -> BudgetRingGreen
-                            isSavings -> MaterialTheme.colorScheme.secondary
-                            else -> MaterialTheme.colorScheme.primary
-                        }
+                        val accentColor = CategoryIconCatalog.accentColorFor(
+                            iconKey = iconKey,
+                            titleOrCategory = "${tx.title} ${tx.categoryName}"
+                        )
 
                         Row(
                             modifier = Modifier
@@ -895,14 +826,14 @@ private fun RecentBookingsGroupedSection(
                             ) {
                                 Surface(
                                     shape = CircleShape,
-                                    color = circleColor,
+                                    color = accentColor.copy(alpha = 0.15f),
                                     modifier = Modifier.size(40.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = CategoryIconCatalog.iconForKey(iconKey),
                                             contentDescription = tx.title,
-                                            tint = iconTint,
+                                            tint = accentColor,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -980,7 +911,7 @@ fun AnalyticsTabScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         // 1. Große grafische Monats-Belastungswelle (Tag 1–31)
@@ -1282,7 +1213,7 @@ fun SavingsBoosterTabScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         // 1. Hero-Karte Sparbooster
@@ -1457,7 +1388,7 @@ fun SavingsBoosterTabScreen(
                 ) {
                     if (savingsBookings.isEmpty()) {
                         Text(
-                            text = "Noch keine einzelnen Spar-Buchungen vorhanden.",
+                            text = "Noch keine einzelnen Spar-Buchungen vorhanden (0,00 €).",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp)
@@ -1465,6 +1396,7 @@ fun SavingsBoosterTabScreen(
                     } else {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             val visibleSavings = savingsBookings.take(15)
+                            val savingsAccent = CategoryIconCatalog.accentColorFor("savings", "Sparen")
                             visibleSavings.forEachIndexed { idx, tx ->
                                 val dateStr = LocalDate.ofEpochDay(tx.dateEpochDay)
                                     .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
@@ -1478,14 +1410,14 @@ fun SavingsBoosterTabScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Surface(
                                             shape = CircleShape,
-                                            color = BudgetRingGreen.copy(alpha = 0.14f),
+                                            color = savingsAccent.copy(alpha = 0.15f),
                                             modifier = Modifier.size(38.dp)
                                         ) {
                                             Box(contentAlignment = Alignment.Center) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Savings,
                                                     contentDescription = null,
-                                                    tint = BudgetRingGreen,
+                                                    tint = savingsAccent,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -1532,8 +1464,8 @@ fun SavingsBoosterTabScreen(
         BoosterGoalEditDialog(
             initialTitle = currentGoal?.title ?: "Etappen-Sparziel: 3.000 € Notgroschen",
             initialTarget = currentGoal?.targetAmount ?: 3000.0,
-            initialBaseSaved = currentGoal?.initialSavedAmount ?: 350.0,
-            initialMonthlyRate = currentGoal?.monthlyContributionGoal ?: 250.0,
+            initialBaseSaved = currentGoal?.initialSavedAmount ?: 0.0,
+            initialMonthlyRate = currentGoal?.monthlyContributionGoal ?: 0.0,
             initialDueDay = currentGoal?.dueDayOfMonth ?: 1,
             onDismiss = { showEditGoalDialog = false },
             onSave = { title, target, baseSaved, monthlyRate, dueDay ->
@@ -1609,7 +1541,7 @@ private fun BoosterGoalEditDialog(
                 onClick = {
                     val target = targetText.replace(",", ".").toDoubleOrNull() ?: 3000.0
                     val base = baseText.replace(",", ".").toDoubleOrNull() ?: 0.0
-                    val rate = rateText.replace(",", ".").toDoubleOrNull() ?: 250.0
+                    val rate = rateText.replace(",", ".").toDoubleOrNull() ?: 0.0
                     val day = (dueDayText.toIntOrNull() ?: 1).coerceIn(1, 31)
                     onSave(title.ifBlank { "Etappen-Sparziel" }, target, base, rate, day)
                 }
