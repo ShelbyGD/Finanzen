@@ -105,6 +105,8 @@ fun CockpitScreen(
     onSelectMonthPage: (Int) -> Unit,
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
+    onOpenAddBooking: () -> Unit,
+    onUpdatePlannedIncome: (Double, Int?) -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToContracts: () -> Unit
 ) {
@@ -140,6 +142,8 @@ fun CockpitScreen(
             selectedCategoryId = selectedCategoryId,
             onSelectCategoryFilter = onSelectCategoryFilter,
             onSelectTransaction = onSelectTransaction,
+            onOpenAddBooking = onOpenAddBooking,
+            onUpdatePlannedIncome = onUpdatePlannedIncome,
             onNavigateToAnalytics = onNavigateToAnalytics,
             onNavigateToContracts = onNavigateToContracts
         )
@@ -154,9 +158,17 @@ private fun OverviewMonthContent(
     selectedCategoryId: Long?,
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
+    onOpenAddBooking: () -> Unit,
+    onUpdatePlannedIncome: (Double, Int?) -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToContracts: () -> Unit
 ) {
+    var showIncomeDialog by remember { mutableStateOf(false) }
+
+    val incomeCategory = remember(categories) {
+        categories.firstOrNull { it.categoryType == CategoryType.INCOME }
+    }
+
     val periodTransactions = remember(allTransactions, snapshot.selectedYearMonth, selectedCategoryId) {
         allTransactions
             .filter { tx ->
@@ -188,7 +200,8 @@ private fun OverviewMonthContent(
         item {
             VioletHeroBudgetCard(
                 snapshot = snapshot,
-                onClickHero = onNavigateToAnalytics
+                onClickHero = onNavigateToAnalytics,
+                onClickEditIncome = { showIncomeDialog = true }
             )
         }
 
@@ -209,7 +222,8 @@ private fun OverviewMonthContent(
         item {
             UpcomingDebitsGroupedSection(
                 snapshot = snapshot,
-                onOpenWaveAnalytics = onNavigateToAnalytics
+                onOpenWaveAnalytics = onNavigateToAnalytics,
+                onEmptyClick = onNavigateToContracts
             )
         }
 
@@ -220,29 +234,103 @@ private fun OverviewMonthContent(
                 categoryById = categoryById,
                 selectedCategoryName = selectedCategoryId?.let { categoryById[it]?.name },
                 onClearFilter = { onSelectCategoryFilter(null) },
-                onSelectTransaction = onSelectTransaction
+                onSelectTransaction = onSelectTransaction,
+                onEmptyClick = onOpenAddBooking
             )
         }
     }
+
+    if (showIncomeDialog) {
+        IncomeEditDialog(
+            initialAmount = incomeCategory?.defaultAmount ?: 0.0,
+            initialPayDay = incomeCategory?.dueDayOfMonth ?: 1,
+            onDismiss = { showIncomeDialog = false },
+            onSave = { amount, payDay ->
+                onUpdatePlannedIncome(amount, payDay)
+                showIncomeDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun IncomeEditDialog(
+    initialAmount: Double,
+    initialPayDay: Int,
+    onDismiss: () -> Unit,
+    onSave: (Double, Int?) -> Unit
+) {
+    var amountText by remember {
+        mutableStateOf(if (initialAmount > 0.0) String.format(Locale.GERMAN, "%.2f", initialAmount) else "")
+    }
+    var payDayText by remember {
+        mutableStateOf(initialPayDay.toString())
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Monatliche Einnahmen / Grundgehalt",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Trage dein monatliches Grundgehalt bzw. deine geplanten monatlichen Einnahmen ein. Du kannst Einzel-Einnahmen jederzeit auch über den '+' Button buchen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Monatliche Einnahmen (€)") },
+                    placeholder = { Text("0,00") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = payDayText,
+                    onValueChange = { payDayText = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Gehalts-Tag im Monat (1–31)") },
+                    placeholder = { Text("1") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = amountText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                    val day = payDayText.toIntOrNull()?.coerceIn(1, 31)
+                    onSave(amt, if (amt > 0.0) (day ?: 1) else null)
+                }
+            ) {
+                Text("Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
 }
 
 /**
- * 2. DIE VIOLETTE HERO-KARTE (Oben im "Übersicht"-Tab):
- * - Abgerundete Karte (RoundedCornerShape(20.dp)) mit violett-blauem Farbverlauf
- *   (Color(0xFF4A25AA) zu Color(0xFF311B92)) und weißer Schrift.
- * - Kopfzeile: Links kleines abgerundetes Badge "PRO" + "Statistik", rechts "X Tage bis Monatsende >".
- * - Zentrum: Riesige, fette Zahl und direkt daneben kleiner "vom Budget verfügbar".
- * - Unten: Schlanker, türkisfarbener LinearProgressIndicator (Color(0xFF00E5FF)) und "Heute frei: XX,XX € / Tag".
- * - Tap wechselt direkt in den Tab "Analysen".
+ * 2. DIE VIOLETTE HERO-KARTE (Oben im "Übersicht"-Tab)
  */
 @Composable
 private fun VioletHeroBudgetCard(
     snapshot: DashboardAnalysisSnapshot,
-    onClickHero: () -> Unit
+    onClickHero: () -> Unit,
+    onClickEditIncome: () -> Unit
 ) {
     val effectiveIncome = max(snapshot.actualIncome, snapshot.targetIncome)
     val availableRatio = if (effectiveIncome > 0.0) {
-        (snapshot.remainingFreeBudgetMonth / effectiveIncome).toFloat().coerceIn(0.05f, 1f)
+        (snapshot.remainingFreeBudgetMonth / effectiveIncome).toFloat().coerceIn(0f, 1f)
     } else {
         0f
     }
@@ -312,9 +400,9 @@ private fun VioletHeroBudgetCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = SmartFinanceEngine.formatEuroWhole(snapshot.remainingFreeBudgetMonth),
-                        fontSize = 36.sp,
-                        lineHeight = 40.sp,
+                        text = SmartFinanceEngine.formatEuro(snapshot.remainingFreeBudgetMonth),
+                        fontSize = 32.sp,
+                        lineHeight = 36.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
@@ -323,7 +411,7 @@ private fun VioletHeroBudgetCard(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.padding(bottom = 5.dp)
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
 
@@ -347,11 +435,27 @@ private fun VioletHeroBudgetCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Einnahmen: ${SmartFinanceEngine.formatEuroWhole(effectiveIncome)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.75f)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onClickEditIncome() }
+                                .padding(vertical = 2.dp, horizontal = 4.dp)
+                        ) {
+                            Text(
+                                text = "Einnahmen: ${SmartFinanceEngine.formatEuro(effectiveIncome)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White.copy(alpha = 0.90f)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Einnahmen eintragen",
+                                tint = HeroTurquoiseAccent,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
                         Text(
                             text = "Heute frei: ${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag",
                             style = MaterialTheme.typography.labelMedium,
@@ -1249,7 +1353,7 @@ fun SavingsBoosterTabScreen(
                                     tint = HeroTurquoiseAccent
                                 )
                                 Text(
-                                    text = savingsProgress?.goal?.title ?: "Etappen-Sparziel (3.000 €)",
+                                    text = savingsProgress?.goal?.title ?: "Mein Sparziel",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -1270,13 +1374,13 @@ fun SavingsBoosterTabScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = SmartFinanceEngine.formatEuroWhole(savingsProgress.totalSaved),
-                                    fontSize = 34.sp,
+                                    text = SmartFinanceEngine.formatEuro(savingsProgress.totalSaved),
+                                    fontSize = 32.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color.White
                                 )
                                 Text(
-                                    text = "von ${SmartFinanceEngine.formatEuroWhole(savingsProgress.targetAmount)} erreicht (${(savingsProgress.progressFraction * 100).roundToInt()} %)",
+                                    text = "von ${SmartFinanceEngine.formatEuro(savingsProgress.targetAmount)} erreicht (${(savingsProgress.progressFraction * 100).roundToInt()} %)",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color.White.copy(alpha = 0.85f),
                                     modifier = Modifier.padding(bottom = 4.dp)
@@ -1324,7 +1428,7 @@ fun SavingsBoosterTabScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Etappen-Sparziel & Dauer-Sparrate anpassen", color = Color.White)
+                            Text("Sparziel & monatliche Sparrate eintragen", color = Color.White)
                         }
                     }
                 }
@@ -1349,7 +1453,7 @@ fun SavingsBoosterTabScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Lege mit einem Tap zusätzliches Geld auf dein Etappen-Sparziel zurück und verkürze sofort die verbleibende Laufzeit:",
+                        text = "Lege mit einem Tap zusätzliches Geld auf dein Sparziel zurück und verkürze sofort die verbleibende Laufzeit:",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1388,10 +1492,13 @@ fun SavingsBoosterTabScreen(
                 ) {
                     if (savingsBookings.isEmpty()) {
                         Text(
-                            text = "Noch keine einzelnen Spar-Buchungen vorhanden (0,00 €).",
+                            text = "Noch keine Einträge vorhanden – tippe hier oder auf +, um deine eigenen Werte einzutragen",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showEditGoalDialog = true }
+                                .padding(18.dp)
                         )
                     } else {
                         Column(modifier = Modifier.fillMaxWidth()) {
@@ -1462,8 +1569,8 @@ fun SavingsBoosterTabScreen(
     if (showEditGoalDialog) {
         val currentGoal = savingsProgress?.goal
         BoosterGoalEditDialog(
-            initialTitle = currentGoal?.title ?: "Etappen-Sparziel: 3.000 € Notgroschen",
-            initialTarget = currentGoal?.targetAmount ?: 3000.0,
+            initialTitle = currentGoal?.title ?: "Mein Sparziel",
+            initialTarget = currentGoal?.targetAmount ?: 0.0,
             initialBaseSaved = currentGoal?.initialSavedAmount ?: 0.0,
             initialMonthlyRate = currentGoal?.monthlyContributionGoal ?: 0.0,
             initialDueDay = currentGoal?.dueDayOfMonth ?: 1,
@@ -1487,34 +1594,43 @@ private fun BoosterGoalEditDialog(
     onSave: (String, Double, Double, Double, Int) -> Unit
 ) {
     var title by remember { mutableStateOf(initialTitle) }
-    var targetText by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", initialTarget)) }
-    var baseText by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", initialBaseSaved)) }
-    var rateText by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", initialMonthlyRate)) }
+    var targetText by remember {
+        mutableStateOf(if (initialTarget > 0.0) String.format(Locale.GERMAN, "%.2f", initialTarget) else "")
+    }
+    var baseText by remember {
+        mutableStateOf(if (initialBaseSaved > 0.0) String.format(Locale.GERMAN, "%.2f", initialBaseSaved) else "")
+    }
+    var rateText by remember {
+        mutableStateOf(if (initialMonthlyRate > 0.0) String.format(Locale.GERMAN, "%.2f", initialMonthlyRate) else "")
+    }
     var dueDayText by remember { mutableStateOf(initialDueDay.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Etappen-Sparziel bearbeiten", fontWeight = FontWeight.Bold) },
+        title = { Text("Sparziel bearbeiten", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Bezeichnung der Spar-Etappe") },
+                    label = { Text("Bezeichnung des Sparziels") },
+                    placeholder = { Text("Mein Sparziel") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = targetText,
                     onValueChange = { targetText = it },
-                    label = { Text("Etappen-Zielbetrag (€)") },
+                    label = { Text("Zielbetrag (€)") },
+                    placeholder = { Text("0,00") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = baseText,
                     onValueChange = { baseText = it },
-                    label = { Text("Startguthaben vor Buchungen (€)") },
+                    label = { Text("Startguthaben (€)") },
+                    placeholder = { Text("0,00") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1523,6 +1639,7 @@ private fun BoosterGoalEditDialog(
                         value = rateText,
                         onValueChange = { rateText = it },
                         label = { Text("Monatliche Sparrate (€)") },
+                        placeholder = { Text("0,00") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -1539,11 +1656,11 @@ private fun BoosterGoalEditDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val target = targetText.replace(",", ".").toDoubleOrNull() ?: 3000.0
-                    val base = baseText.replace(",", ".").toDoubleOrNull() ?: 0.0
-                    val rate = rateText.replace(",", ".").toDoubleOrNull() ?: 0.0
+                    val target = targetText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                    val base = baseText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                    val rate = rateText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                     val day = (dueDayText.toIntOrNull() ?: 1).coerceIn(1, 31)
-                    onSave(title.ifBlank { "Etappen-Sparziel" }, target, base, rate, day)
+                    onSave(title.ifBlank { "Mein Sparziel" }, target, base, rate, day)
                 }
             ) {
                 Text("Speichern")

@@ -53,9 +53,8 @@ enum class BottomNavTab(val label: String) {
 enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
     CATEGORIES_CONTRACTS("Kategorien, Sparziele & Verträge"),
-    TEST_LAB("Beispieldaten & Test-Labor"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
-    SETTINGS_DEMO("Einstellungen & Demo-Daten"),
+    SETTINGS_DEMO("Einstellungen"),
     HELP_CHANGELOG("Hilfe, Features & Was ist neu?"),
     LITE_PRO_OVERVIEW("Lite vs. Pro Übersicht")
 }
@@ -473,9 +472,14 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun parseDemoReceipt(index: Int): OcrReceiptResult {
-        val sampleText = ReceiptOcrParser.SAMPLE_RECEIPT_TEXTS[index % ReceiptOcrParser.SAMPLE_RECEIPT_TEXTS.size]
-        return ReceiptOcrParser.parseRawReceiptText(sampleText, categories.value)
+    fun updatePlannedMonthlyIncome(monthlyAmount: Double, payDayOfMonth: Int?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updatePlannedMonthlyIncome(monthlyAmount, payDayOfMonth)
+            repository.processDueRecurringBookings(LocalDate.now())
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "Monatliche Einnahmen (${SmartFinanceEngine.formatEuro(monthlyAmount)}) gespeichert."
+            }
+        }
     }
 
     fun updateBillingStartDay(day: Int) {
@@ -492,22 +496,12 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         preferences.setAverageMonthsWindow(months)
     }
 
-    fun generateSixMonthsDemoData() {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.generateSixMonthsDemoData()
-            withContext(Dispatchers.Main) {
-                _selectedMonthPage.value = baseMonthIndex
-                _snackbarMessage.value = "6 Monate Beispieldaten zum Testen geladen."
-            }
-        }
-    }
-
     fun resetAllData() {
         viewModelScope.launch(Dispatchers.IO) {
             repository.resetAllData()
             withContext(Dispatchers.Main) {
                 _selectedMonthPage.value = baseMonthIndex
-                _snackbarMessage.value = "Beispieldaten entfernt – App auf 0,00 € zurückgesetzt."
+                _snackbarMessage.value = "Alle Daten auf 0,00 € zurückgesetzt."
             }
         }
     }
@@ -565,15 +559,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                 withContext(Dispatchers.Main) {
                     _snackbarMessage.value = "CSV-Import-Fehler: ${err.localizedMessage}"
                 }
-            }
-        }
-    }
-
-    fun importSampleBankCsv() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val res = vaultManager.importBankCsvContent(DataVaultManager.SAMPLE_BANK_CSV)
-            withContext(Dispatchers.Main) {
-                _snackbarMessage.value = res.message
             }
         }
     }

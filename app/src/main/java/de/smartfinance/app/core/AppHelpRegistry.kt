@@ -165,14 +165,14 @@ object AppHelpRegistry {
             moduleNumber = 7,
             title = "7. Sparbooster: Etappen-Sparziel-Tracker & Dauer-Sparraten",
             category = "Sparen & Vermögensaufbau",
-            shortSummary = " Eigener 'Sparbooster'-Tab in der unteren Navigationsleiste für dein 3.000-€-Etappen-Sparziel inklusive KI-Berechnung des Zieldatums.",
+            shortSummary = "Eigener 'Sparbooster'-Tab in der unteren Navigationsleiste für dein individuelles Etappen-Sparziel (Start bei 0,00 €) inklusive KI-Berechnung des Zieldatums.",
             stepByStepGuide = listOf(
                 "Wechsle über die untere 5er-Navigationsleiste in den Tab 'Sparbooster'.",
-                "Lege deinen Zielbetrag (z. B. 3.000 €), deinen aktuellen Startbestand und deine monatliche Dauer-Sparrate (z. B. 250 €/Monat) fest.",
+                "Tippe auf 'Sparziel anpassen', um deinen eigenen Zielbetrag, deinen aktuellen Startbestand und deine monatliche Dauer-Sparrate einzutragen.",
                 "Nutze die 1-Tap-Sparbooster-Buttons (+25 €, +50 €, +100 €), um spontan zusätzliches Geld auf dein Etappen-Ziel einzuzahlen."
             ),
             exampleTips = listOf(
-                "Beispiel: '1.850 € von 3.000 € erreicht (62 %) – Zieldatum: April 2027 (in 5 Monaten).'"
+                "Alle Sparziel-Werte starten standardmäßig sauber bei 0,00 € und werden sofort nach deiner Eingabe berechnet."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
@@ -209,10 +209,10 @@ object AppHelpRegistry {
             stepByStepGuide = listOf(
                 "Öffne den Tab 'KI-Coach' und tippe z. B. 'Check: 85 €' oder 'Kann ich mir 120 € leisten?' ein.",
                 "Der Simulator prüft, ob nach Abzug dieses Spontankaufs UND aller noch offenen Fixkosten-Abbuchungen des Monats genug Tagesbudget übrig bleibt.",
-                "Du erhältst sofort eine Ampel-Bewertung (Grün / Gelb / Rot), dein neues Tagesbudget nach dem Kauf sowie die Umrechnung in Netto-Arbeitsstunden (Standard: 15,75 €/h)."
+                "Trage unter 'Einstellungen' deinen eigenen Netto-Stundenlohn ein, damit der Simulator jeden Kaufbetrag exakt in deine persönliche Arbeitszeit umrechnet."
             ),
             exampleTips = listOf(
-                "Beispiel für 'Check: 85 €' bei 15,75 €/Std.: 'GRÜN – Kauf problemlos möglich. Entspricht 5 Std. 24 Min. deiner Arbeitszeit.'"
+                "Der Kauf-Simulator berücksichtigt automatisch alle noch offenen Fixkosten-Verträge bis zum Monatsende."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -220,13 +220,13 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_ONE_TAP_RECURRING,
             moduleNumber = 10,
-            title = "10. FloatingActionButton (+), 1-Tap-Schnelleingabe & Daueraufträge",
+            title = "10. FloatingActionButton (+), Direkteingabe & Daueraufträge",
             category = "Alltag & Automatisierung",
-            shortSummary = "Runder '+'-FloatingActionButton rechts unten öffnet das Einhand-BottomSheet mit 1-Tap-Schnellvorlagen und dem großen Taschenrechner-Numpad.",
+            shortSummary = "Runder '+'-FloatingActionButton rechts unten öffnet das Einhand-BottomSheet mit dem großen Taschenrechner-Numpad. Zudem sind Grundgehalt, Budgets, Verträge und Sparziel direkt antippen- und editierbar.",
             stepByStepGuide = listOf(
-                "Tippe in der Übersicht rechts unten auf den runden '+'-Button (FloatingActionButton).",
-                "Oben im sich öffnenden BottomSheet findest du deine 1-Tap-Schnellvorlagen (z. B. Bäcker 4,80 €, Supermarkt 36,50 €, Tanken 64,00 €) für die Sofort-Buchung.",
-                "Darunter kannst du über den Taschenrechner-Zahlenblock individuelle Beträge (inkl. + und - Rechnung) eingeben. Ein Tap auf eine bestehende Buchung in der Liste öffnet das Detail- & Löschen-Sheet."
+                "Tippe in der Übersicht rechts unten auf den runden '+'-Button (FloatingActionButton) oder auf einen leeren Listen-Platzhalter.",
+                "Über den Taschenrechner-Zahlenblock gibst du eigene Einnahmen, Ausgaben oder Sparraten (inkl. + und - Rechnung) ein.",
+                "Tippe in der violetten Hero-Karte direkt auf 'Einnahmen: 0,00 €', um dein monatliches Grundgehalt einzutragen, oder im Tab 'Verträge' auf eine Kategorie, um eigene Budgets und Fixkosten festzulegen."
             ),
             exampleTips = listOf(
                 "Wiederkehrende Fixkosten, Gehalt und Dauer-Sparraten werden im laufenden Monat bis zum heutigen Kalendertag automatisch am jeweiligen Fälligkeitstag (1–31) gebucht."
@@ -239,10 +239,10 @@ object AppHelpRegistry {
             moduleNumber = 11,
             title = "11. Offline Beleg-Scanner (Google ML Kit OCR)",
             category = "Kamera & Belegerkennung",
-            shortSummary = "Direkt über das Kamera-Icon oben rechts in der Top-Bar erreichbar: Scanne Kassenbons offline per Kamera/Galerie mit automatischer Betrags- und Händlererkennung.",
+            shortSummary = "Direkt über das Kamera-Icon oben rechts in der Top-Bar erreichbar: Scanne echte Kassenbons offline per Kamera/Galerie mit automatischer Betrags- und Händlererkennung.",
             stepByStepGuide = listOf(
                 "Tippe oben rechts in der Top-Bar auf das Kamera-Icon oder nutze den Homescreen-Shortcut.",
-                "Fotografiere den Kassenbon, wähle ein Bild aus der Galerie oder teste den integrierten 'Beispiel-Kassenbon (OCR-Demo)'.",
+                "Wähle ein Foto deines Kassenbons aus der Galerie aus.",
                 "Die On-Device-Texterkennung (Google ML Kit) extrahiert per Regex den höchsten plausiblen Euro-Gesamtbetrag, das Belegdatum und ordnet Händler automatisch der passenden Kategorie zu."
             ),
             exampleTips = listOf(
@@ -260,10 +260,10 @@ object AppHelpRegistry {
             stepByStepGuide = listOf(
                 "Öffne über das linke Hamburger-Menü den Bereich 'Daten-Tresor (Backup & Import)'.",
                 "Mit 'Backup speichern' sicherst du alle Buchungen, Kategorien, Verträge, Sparziele und Einstellungen als JSON-Datei.",
-                "Über 'Bank-CSV-Datei auswählen & importieren' liest du Kontoauszüge deiner Hausbank inkl. automatischer Kategorisierung ein."
+                "Über 'Bank-CSV-Datei auswählen & importieren' liest du echte Kontoauszüge deiner Hausbank inkl. automatischer Kategorisierung ein."
             ),
             exampleTips = listOf(
-                "Im Daten-Tresor findest du außerdem einen 1-Tap-Testbutton 'Beispiel-Bank-CSV sofort testen'."
+                "Vor einem Smartphone-Wechsel kannst du deine gesamte Datenbank mit einem Tap als JSON-Datei exportieren und auf dem neuen Gerät wieder einspielen."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -271,35 +271,17 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_DEMO_SHORTCUTS_SIMULATOR,
             moduleNumber = 13,
-            title = "13. Beispieldaten & Test-Labor, Light/Dark-Theme & Lite/Pro-Simulator",
-            category = "System, Test & Komfort",
-            shortSummary = "Sauberer App-Start mit 0,00 €, eigener Reiter 'Beispieldaten & Test-Labor' im Hamburger-Menü, Light/Dark-Mode-Umschalter und Live-Umschalter zwischen Lite & Pro.",
+            title = "13. 100 % Null-Start (0,00 €), Direkteingabe & In-Place-Updates",
+            category = "System, Datenschutz & Komfort",
+            shortSummary = "Garantierter 0,00-€-Start ohne Demo-Daten, deaktiviertes Android Cloud-AutoBackup, direktes Eintragen aller eigenen Werte per Tap sowie Base64-Keystore für nahtlose In-Place-Updates.",
             stepByStepGuide = listOf(
-                "Die App startet beim ersten Öffnen komplett sauber und leer (0,00 €) für deine echten Finanzdaten.",
-                "Öffne im linken Hamburger-Menü den Reiter 'Beispieldaten & Test-Labor': Dort siehst du jederzeit den aktuellen Status ('Aktueller Modus: Echte Daten (Sauber)' vs. 'Aktueller Modus: Test-Beispieldaten aktiv').",
-                "Mit einem Tap auf '6 Monate Beispieldaten zum Testen laden' spielst du realistische Buchungen, Verträge und Sparziele zum Testen ein. Mit 'Beispieldaten wieder entfernen / App auf 0,00 € zurücksetzen' löschst du alle Testdaten restlos für deinen echten Start."
+                "Nach der Installation stehen alle Einnahmen, Ausgaben, Tagesbudgets, Verträge und Sparziele exakt bei 0,00 €.",
+                "Tippe in der violetten Hero-Karte auf 'Einnahmen: 0,00 €' (oder öffne 'Einstellungen'), um dein eigenes monatliches Grundgehalt einzutragen.",
+                "Tippe im Tab 'Verträge' auf eine beliebige Kategorie, um dein persönliches Monatsbudget oder einen Fixkosten-Vertrag festzulegen, oder nutze den '+'-Button für Einzelbuchungen."
             ),
             exampleTips = listOf(
                 "Wechsle über das Sonnen-/Mond-Symbol oben rechts in der Top-Bar jederzeit live zwischen dem hellen Clean-Banking-Look und dem Dark Mode.",
                 "Unter 'Lite vs. Pro Übersicht' im Hamburger-Menü kannst du jederzeit live den Lite-Modus simulieren."
-            ),
-            requiredTier = AppTier.LITE_FREE,
-            addedInVersion = "1.0.1"
-        ),
-        HelpEntry(
-            id = "test_lab",
-            moduleNumber = 14,
-            title = "14. Beispieldaten & Test-Labor (0,00 € Echtbetrieb vs. 6-Monats-Testszenario)",
-            category = "Test-Labor & Neustart",
-            shortSummary = "Dedizierter Menüpunkt im linken Hamburger-Menü zum Umschalten zwischen 6 Monaten Test-Beispieldaten und einem komplett sauberen 0,00-€-Start für echte Daten.",
-            stepByStepGuide = listOf(
-                "Tippe oben links auf das Hamburger-Menü und wähle 'Beispieldaten & Test-Labor'.",
-                "Prüfe oben die Status-Anzeige ('Aktueller Modus: Echte Daten (Sauber)' oder 'Aktueller Modus: Test-Beispieldaten aktiv').",
-                "Tippe auf '6 Monate Beispieldaten zum Testen laden', um Grafiken, Belastungswelle, Vertrags-Wecker und KI-Durchschnitte mit Demo-Zahlen auszuprobieren.",
-                "Tippe auf 'Beispieldaten wieder entfernen / App auf 0,00 € zurücksetzen', um alle Buchungen restlos zu löschen und sauber bei 0,00 € zu starten."
-            ),
-            exampleTips = listOf(
-                "Alle Standard-Kategorien (Lebensmittel, Kfz-Versicherung, Handyvertrag, Versicherung, Freizeit, Fixkosten, Sparen) bleiben beim Zurücksetzen als leere 0,00-€-Hüllen erhalten."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = BuildConfig.VERSION_NAME
@@ -312,12 +294,11 @@ object AppHelpRegistry {
             buildNumber = BuildConfig.BUILD_NUMBER,
             date = "14.11.2026",
             newFeatures = listOf(
-                "Statischer Git-Keystore (app/keystore/smartfinance.jks) fest im Repository verankert für garantierte, nahtlose In-Place-Updates über bestehende Installationen.",
-                "Sauberer App-Start (0,00 €) ohne automatische Demo-Buchungen sowie neuer eigener Reiter 'Beispieldaten & Test-Labor' im Hamburger-Menü (inkl. Status-Anzeige, 1-Tap 6-Monats-Testdaten & 1-Tap Reset auf 0,00 €).",
-                "Budgets-Karte optimiert: Exakt 4 runde Budget-Ringe + '+'-Kreis-Button gleichmäßig über die Kartenbreite verteilt (Arrangement.SpaceBetween) ohne Abschneiden am rechten Rand.",
-                "Abwechslungsreiche, edle Kategorie-Farben für die runden Icon-Kreise in 'Nächste Abbuchungen' und 'Letzte Buchungen' (Smaragdgrün, Blau, Amber/Orange, Korallenrot, Indigo, Türkis, Violett).",
-                "Update-Erfolgsmeldung ('Update auf v1.0.X erfolgreich') als oberster Eintrag direkt in das Benachrichtigungs-BottomSheet der Glocke oben rechts integriert.",
-                "Erhöhtes Bottom-Padding (112dp) in den Listen, damit der '+'-FloatingActionButton niemals Euro-Beträge am unteren Rand verdeckt, sowie aufgeräumter 'Übersicht'-Header."
+                "100 % echter Null-Start (0,00 €): Sämtliche Demo-Daten, Beispiel-Fallbacks und der Demo-Generator wurden restlos aus dem Code entfernt.",
+                "Frische Datenbank ('smartfinance_clean_user.db') und deaktiviertes Android AutoBackup (allowBackup=false), damit keine gecachten Alt-Daten wiederhergestellt werden.",
+                "Direkteingabe überall per Tap: Grundgehalt direkt auf der violetten Hero-Karte ('Einnahmen: 0,00 €') oder in den Einstellungen eintragen; Kategorien, Budgets, Verträge und Sparziel direkt per Tap bearbeiten.",
+                "Klickbare Leer-Platzhalter ('Noch keine Einträge vorhanden – tippe hier oder auf +, um deine eigenen Werte einzutragen') in 'Nächste Abbuchungen' und 'Letzte Buchungen'.",
+                "Garantiertes In-Place-Update ('Drüber-Installieren'): Base64-Keystore (app/keystore/keystore.b64) mit automatischer Gradle-Dekodierung für Debug & Release sowie streng monoton steigender Zeitstempel-versionCode."
             )
         ),
         ChangelogEntry(

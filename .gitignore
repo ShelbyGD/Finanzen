@@ -15,8 +15,9 @@ captures/
 .DS_Store
 Thumbs.db
 
-# WICHTIG: app/keystore/smartfinance.jks und gradle/wrapper/gradle-wrapper.jar
+# WICHTIG: app/keystore/keystore.b64, app/keystore/smartfinance.jks und gradle/wrapper/gradle-wrapper.jar
 # werden ABSICHTLICH NICHT ignoriert, damit GitHub Actions Builds immer
 # dieselbe APK-Signatur für nahtlose In-Place-Updates behalten!
+!app/keystore/keystore.b64
 !app/keystore/smartfinance.jks
 !gradle/wrapper/gradle-wrapper.jar

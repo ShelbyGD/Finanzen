@@ -75,7 +75,7 @@ object ReceiptOcrParser {
             }
         }
 
-        val finalAmount = if (maxTotalLineAmount > 0.0) maxTotalLineAmount else if (maxOverallAmount > 0.0) maxOverallAmount else 34.90
+        val finalAmount = if (maxTotalLineAmount > 0.0) maxTotalLineAmount else if (maxOverallAmount > 0.0) maxOverallAmount else 0.0
 
         // 2. Datum extrahieren
         var detectedDate = LocalDate.now()
@@ -97,16 +97,12 @@ object ReceiptOcrParser {
         // 3. Händlername & passende Kategorie bestimmen
         val fullLower = rawText.lowercase()
         val (merchantTitle, targetCategoryName) = when {
-            fullLower.contains("rewe") -> "REWE Markt Kassenbon" to "Lebensmittel"
-            fullLower.contains("edeka") -> "EDEKA Center Kassenbon" to "Lebensmittel"
-            fullLower.contains("aldi") -> "ALDI Einkauf Kassenbon" to "Lebensmittel"
-            fullLower.contains("lidl") -> "LIDL Markt Kassenbon" to "Lebensmittel"
-            fullLower.contains("kaufland") -> "Kaufland Kassenbon" to "Lebensmittel"
-            fullLower.contains("dm-drogerie") || fullLower.contains("rossmann") -> "Drogeriemarkt Beleg" to "Lebensmittel"
-            fullLower.contains("aral") || fullLower.contains("shell") || fullLower.contains("jet ") || fullLower.contains("totalenergies") || fullLower.contains("super e10") || fullLower.contains("diesel") -> "Tankstellen-Beleg" to "Kfz-Versicherung"
-            fullLower.contains("telekom") || fullLower.contains("vodafone") || fullLower.contains("o2") -> "Mobilfunk-Rechnung" to "Handyvertrag"
-            fullLower.contains("allianz") || fullLower.contains("huk") || fullLower.contains("versicherung") -> "Versicherungs-Beleg" to "Versicherung"
-            fullLower.contains("stadtwerke") || fullLower.contains("miete") || fullLower.contains("strom") -> "Fixkosten-Beleg" to "Fixkosten"
+            fullLower.contains("supermarkt") || fullLower.contains("lebensmittel") || fullLower.contains("markt") || fullLower.contains("bäcker") -> "Lebensmittel-Beleg" to "Lebensmittel"
+            fullLower.contains("drogerie") -> "Drogeriemarkt-Beleg" to "Lebensmittel"
+            fullLower.contains("tankstelle") || fullLower.contains("kraftstoff") || fullLower.contains("super e10") || fullLower.contains("diesel") -> "Tankstellen-Beleg" to "Kfz-Versicherung"
+            fullLower.contains("mobilfunk") || fullLower.contains("telekom") || fullLower.contains("vodafone") || fullLower.contains("o2") -> "Mobilfunk-Rechnung" to "Handyvertrag"
+            fullLower.contains("versicherung") -> "Versicherungs-Beleg" to "Versicherung"
+            fullLower.contains("miete") || fullLower.contains("strom") || fullLower.contains("energie") -> "Fixkosten-Beleg" to "Fixkosten"
             else -> {
                 val firstLine = lines.firstOrNull { it.length >= 3 }?.take(35) ?: "Gescannte Beleg-Ausgabe"
                 firstLine to "Lebensmittel"
@@ -126,43 +122,4 @@ object ReceiptOcrParser {
             rawRecognizedText = rawText
         )
     }
-
-    val SAMPLE_RECEIPT_TEXTS = listOf(
-        """
-        REWE Markt GmbH
-        Domstraße 20, 50668 Köln
-        Datum: 14.11.2026  Uhrzeit: 17:42
-        ---------------------------------
-        Bio Alpenmilch 1,5%         1,49
-        Frische Bergkäse Theke      4,89
-        Rinderhackfleisch Bio       6,99
-        Olivenöl Extra Vergine      8,49
-        Obst & Gemüse Auswahl      11,24
-        Haferflocken Vollkorn       1,85
-        ---------------------------------
-        SUMME EUR                  34,95
-        Kartenzahlung Girocard     34,95
-        Vielen Dank für Ihren Einkauf!
-        """.trimIndent(),
-        """
-        ARAL Tankstelle Berlin
-        Quittung Kraftstoff & Shop
-        Datum: 14.11.2026
-        ---------------------------------
-        41,25 L Super E10          72,60
-        Scheibenklar Winter         6,90
-        ---------------------------------
-        ZU ZAHLEN EUR              79,50
-        EC-CASH                    79,50
-        """.trimIndent(),
-        """
-        Telekom Deutschland GmbH
-        Mobilfunk Monatsrechnung
-        Rechnungsdatum: 14.11.2026
-        ---------------------------------
-        MagentaMobil 5G Grundpreis 29,99
-        ---------------------------------
-        GESAMTBETRAG EUR           29,99
-        """.trimIndent()
-    )
 }

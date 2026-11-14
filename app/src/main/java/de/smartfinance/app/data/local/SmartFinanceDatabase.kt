@@ -49,7 +49,7 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     SmartFinanceDatabase::class.java,
-                    "smartfinance_2026.db"
+                    "smartfinance_clean_user.db"
                 )
                     .addMigrations(SAFE_MIGRATION_1_2)
                     .build()

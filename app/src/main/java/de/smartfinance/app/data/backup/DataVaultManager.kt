@@ -403,8 +403,8 @@ class DataVaultManager(
             lower.contains("telekom") || lower.contains("vodafone") || lower.contains("o2") || lower.contains("mobilfunk") || lower.contains("handy") -> "Handyvertrag"
             lower.contains("kfz") || lower.contains("huk") || lower.contains("autoversicherung") || lower.contains("adac") -> "Kfz-Versicherung"
             lower.contains("allianz") || lower.contains("versicherung") || lower.contains("haftpflicht") || lower.contains("hausrat") -> "Versicherung"
-            lower.contains("rewe") || lower.contains("edeka") || lower.contains("aldi") || lower.contains("lidl") || lower.contains("kaufland") || lower.contains("dm ") || lower.contains("rossmann") || lower.contains("bäcker") -> "Lebensmittel"
-            lower.contains("miete") || lower.contains("stadtwerke") || lower.contains("strom") || lower.contains("rundfunk") || lower.contains("netflix") || lower.contains("spotify") -> "Fixkosten"
+            lower.contains("supermarkt") || lower.contains("markt") || lower.contains("lidl") || lower.contains("kaufland") || lower.contains("dm ") || lower.contains("rossmann") || lower.contains("bäcker") -> "Lebensmittel"
+            lower.contains("miete") || lower.contains("strom") || lower.contains("rundfunk") || lower.contains("netflix") || lower.contains("spotify") -> "Fixkosten"
             lower.contains("spar") || lower.contains("etf") || lower.contains("tagesgeld") -> "Sparen"
             else -> null
         }
@@ -413,21 +413,5 @@ class DataVaultManager(
         } else {
             null
         }
-    }
-
-    companion object {
-        val SAMPLE_BANK_CSV: String
-            get() {
-                val today = LocalDate.now()
-                val fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-                return """
-                    Buchungstag;Empfänger / Zahlungspflichtiger;Verwendungszweck;Betrag;Währung
-                    ${today.minusDays(5).format(fmt)};REWE Markt GmbH;Kartenzahlung Wocheneinkauf;-64,80;EUR
-                    ${today.minusDays(4).format(fmt)};Telekom Deutschland GmbH;Mobilfunk Rechnung Handyvertrag;-29,99;EUR
-                    ${today.minusDays(3).format(fmt)};Allianz Versicherungs-AG;Hausrat & Privathaftpflicht;-42,50;EUR
-                    ${today.minusDays(2).format(fmt)};ALDI Sued sagt Danke;Lebensmittel Einkauf;-38,45;EUR
-                    ${today.minusDays(1).format(fmt)};Tagesgeld Notgroschen;Sparrate Etappen-Sparziel;-150,00;EUR
-                """.trimIndent()
-            }
     }
 }

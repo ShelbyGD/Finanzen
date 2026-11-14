@@ -181,7 +181,7 @@ object SmartFinanceEngine {
         val plannedMonthlyIncome = categories
             .filter { it.categoryType == CategoryType.INCOME && (it.defaultAmount ?: 0.0) > 0.0 }
             .sumOf { it.defaultAmount ?: 0.0 }
-        val targetIncome = max(actualIncome, if (plannedMonthlyIncome > 0.0) plannedMonthlyIncome else 2850.0)
+        val targetIncome = max(actualIncome, plannedMonthlyIncome)
         val effectiveIncome = if (isFutureMonth || actualIncome == 0.0) targetIncome else actualIncome
 
         val expenseTransactions = monthTransactions.filter { it.transactionType == TransactionType.EXPENSE }
@@ -528,28 +528,6 @@ object SmartFinanceEngine {
             }
         }
 
-        val day28 = min(28, maxDay)
-        if (day28 > referenceDay) {
-            val alreadyBooked28 = monthTransactions.any {
-                it.dueDayOfMonth == 28 && it.isFixedRecurring
-            }
-            if (!alreadyBooked28) {
-                val dueDate = selectedYearMonth.atDay(day28)
-                val daysUntil = ChronoUnit.DAYS.between(today, dueDate).toInt().coerceAtLeast(0)
-                list.add(
-                    UpcomingDebitItem(
-                        title = "Stadtwerke Strom, Glasfaser & Streaming",
-                        categoryName = "Fixkosten",
-                        iconKey = "bolt",
-                        dueDayOfMonth = day28,
-                        dueDateFormatted = dueDate.format(dayMonthFormatter),
-                        daysUntilDue = daysUntil,
-                        amount = 89.90
-                    )
-                )
-            }
-        }
-
         return list.sortedBy { it.dueDayOfMonth }
     }
 
@@ -632,7 +610,7 @@ object SmartFinanceEngine {
             }
         }
 
-        if (countedMonths == 0) return 2850.0 to 1650.0
+        if (countedMonths == 0) return 0.0 to 0.0
         return (totalInc / countedMonths) to (totalExp / countedMonths)
     }
 
@@ -651,6 +629,8 @@ object SmartFinanceEngine {
                 !it.isFixedRecurring &&
                 !it.smoothOver12Months
         }
+
+        if (variableTx.isEmpty()) return 0.0 to 0.0
 
         var weekdaySpend = 0.0
         var weekendSpend = 0.0
@@ -675,8 +655,8 @@ object SmartFinanceEngine {
             cursor = cursor.plusDays(1)
         }
 
-        val avgWeekday = if (totalWeekdays > 0) weekdaySpend / totalWeekdays else 10.50
-        val avgWeekend = if (totalWeekendDays > 0) weekendSpend / totalWeekendDays else 18.50
+        val avgWeekday = if (totalWeekdays > 0) weekdaySpend / totalWeekdays else 0.0
+        val avgWeekend = if (totalWeekendDays > 0) weekendSpend / totalWeekendDays else 0.0
         return avgWeekday to avgWeekend
     }
 
@@ -794,14 +774,17 @@ object SmartFinanceEngine {
         snapshot: DashboardAnalysisSnapshot,
         hourlyWage: Double
     ): WhatIfSimulationResult {
-        val effectiveWage = if (hourlyWage > 0.0) hourlyWage else 15.75
-        val totalMinutes = ((amount / effectiveWage) * 60.0).roundToInt()
-        val hours = totalMinutes / 60
-        val minutes = totalMinutes % 60
-        val workHoursText = if (hours > 0) {
-            "$hours Std. $minutes Min. Netto-Arbeitszeit (bei ${formatEuro(effectiveWage)}/Std.)"
+        val workHoursText = if (hourlyWage > 0.0) {
+            val totalMinutes = ((amount / hourlyWage) * 60.0).roundToInt()
+            val hours = totalMinutes / 60
+            val minutes = totalMinutes % 60
+            if (hours > 0) {
+                "$hours Std. $minutes Min. Netto-Arbeitszeit (bei ${formatEuro(hourlyWage)}/Std.)"
+            } else {
+                "$minutes Min. Netto-Arbeitszeit (bei ${formatEuro(hourlyWage)}/Std.)"
+            }
         } else {
-            "$minutes Min. Netto-Arbeitszeit (bei ${formatEuro(effectiveWage)}/Std.)"
+            "Stundenlohn noch auf 0,00 €/Std. (in Einstellungen eintragbar)"
         }
 
         val remainingAfter = snapshot.remainingFreeBudgetMonth - amount
@@ -834,7 +817,7 @@ object SmartFinanceEngine {
             requestedAmount = amount,
             status = status,
             workHoursText = workHoursText,
-            hourlyWage = effectiveWage,
+            hourlyWage = hourlyWage,
             currentDailyBudget = snapshot.dynamicDailyBudgetToday,
             newDailyBudgetAfterPurchase = newDailyBudget,
             remainingFreeMonthBudgetAfter = remainingAfter,
@@ -873,7 +856,7 @@ object SmartFinanceEngine {
 
         if (lower.contains("hilfe") || lower.contains("was kannst du") || lower.contains("befehl") || lower.contains("beispiel")) {
             return buildString {
-                appendLine("Lokale Smart Finance Hybrid-KI – Übersicht & Beispiel-Fragen:")
+                appendLine("Lokale Smart Finance Hybrid-KI – Übersicht & Fragen:")
                 appendLine("Ich arbeite zu 100 % lokal auf deinem Gerät und kenne alle Zahlen deiner Datenbank in Echtzeit.")
                 appendLine()
                 appendLine("Frag mich zum Beispiel:")
@@ -886,7 +869,7 @@ object SmartFinanceEngine {
                 appendLine("7. \"Wann erreiche ich mein Sparziel?\"")
                 appendLine("8. \"Check: 85 €\" (Was-wäre-wenn-Simulator mit Grün/Gelb/Rot-Ampel + Arbeitsstunden-Rechner)")
                 appendLine()
-                appendLine("Integrierte 13 SmartFinance-Module (AppHelpRegistry):")
+                appendLine("Integrierte SmartFinance-Module (AppHelpRegistry):")
                 AppHelpRegistry.helpEntries.forEach { entry ->
                     appendLine("• ${entry.title}")
                 }
@@ -902,10 +885,14 @@ object SmartFinanceEngine {
         if (matchedCat != null && (lower.contains("schnitt") || lower.contains("durchschnitt") || lower.contains("gebe ich") || lower.contains("kostet") || lower.contains("wie viel"))) {
             val currentMonthVal = snapshot.categoryTotalsThisMonth[matchedCat.id] ?: 0.0
             val avg3M = snapshot.categoryHistoricalAvg3M[matchedCat.id] ?: 0.0
-            val hours = (avg3M / hourlyWage)
+            val hours = if (hourlyWage > 0.0) (avg3M / hourlyWage) else 0.0
             return buildString {
                 appendLine("Kategorie-Analyse: ${matchedCat.name}")
-                appendLine("• 3-Monats-Durchschnitt: ${formatEuro(avg3M)} / Monat (ca. ${String.format(Locale.GERMAN, "%.1f", hours)} Arbeitsstunden)")
+                if (hourlyWage > 0.0) {
+                    appendLine("• 3-Monats-Durchschnitt: ${formatEuro(avg3M)} / Monat (ca. ${String.format(Locale.GERMAN, "%.1f", hours)} Arbeitsstunden)")
+                } else {
+                    appendLine("• 3-Monats-Durchschnitt: ${formatEuro(avg3M)} / Monat")
+                }
                 appendLine("• Aktueller Monat (${snapshot.monthTitleFormatted}): ${formatEuro(currentMonthVal)}")
                 if (matchedCat.monthlyBudgetLimit != null) {
                     appendLine("• Gesetztes Budget-Limit: ${formatEuro(matchedCat.monthlyBudgetLimit)}")
@@ -923,9 +910,9 @@ object SmartFinanceEngine {
             return buildString {
                 appendLine("Monats-Belastungswelle (${snapshot.monthTitleFormatted}):")
                 appendLine("Am meisten Geld geht im ${snapshot.peakPeriodDescription} ab:")
-                appendLine("• Monatsanfang (Tag 1–10): ${formatEuro(snapshot.loadStartThird)} (Miete, Sparrate, Versicherungen am 1. & 5.)")
-                appendLine("• Monatsmitte (Tag 11–20): ${formatEuro(snapshot.loadMiddleThird)} (Handyvertrag am 15., Kfz/Tanken am 20.)")
-                appendLine("• Monatsende (Tag 21–31): ${formatEuro(snapshot.loadEndThird)} (Strom, Internet & Streaming am 28.)")
+                appendLine("• Monatsanfang (Tag 1–10): ${formatEuro(snapshot.loadStartThird)}")
+                appendLine("• Monatsmitte (Tag 11–20): ${formatEuro(snapshot.loadMiddleThird)}")
+                appendLine("• Monatsende (Tag 21–31): ${formatEuro(snapshot.loadEndThird)}")
             }.trim()
         }
 

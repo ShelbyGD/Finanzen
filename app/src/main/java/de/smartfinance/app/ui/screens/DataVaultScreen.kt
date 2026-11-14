@@ -52,7 +52,6 @@ fun DataVaultScreen(
     onExportBackupUri: (Uri) -> Unit,
     onImportBackupUri: (Uri) -> Unit,
     onImportBankCsvUri: (Uri) -> Unit,
-    onImportSampleBankCsv: () -> Unit,
     onRequestProFeature: (String) -> Unit
 ) {
     val isProUnlocked = FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)
@@ -233,19 +232,6 @@ fun DataVaultScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Bank-CSV-Datei auswählen & importieren")
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            if (isProUnlocked) {
-                                onImportSampleBankCsv()
-                            } else {
-                                onRequestProFeature("Bank-CSV Kontoauszug-Import")
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Beispiel-Bank-CSV sofort testen (5 Demo-Bankumsätze)")
                     }
                 }
             }

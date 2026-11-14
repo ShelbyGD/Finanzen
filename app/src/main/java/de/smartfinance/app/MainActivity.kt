@@ -91,7 +91,6 @@ import de.smartfinance.app.ui.screens.HelpChangelogScreen
 import de.smartfinance.app.ui.screens.LiteProOverviewScreen
 import de.smartfinance.app.ui.screens.SavingsBoosterTabScreen
 import de.smartfinance.app.ui.screens.SettingsDemoScreen
-import de.smartfinance.app.ui.screens.TestLabScreen
 import de.smartfinance.app.ui.theme.SmartFinanceTheme
 import kotlinx.coroutines.launch
 
@@ -465,6 +464,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onSelectMonthPage = viewModel::setSelectedMonthPage,
                                     onSelectCategoryFilter = viewModel::selectCategoryFilter,
                                     onSelectTransaction = viewModel::openTransactionActionSheet,
+                                    onOpenAddBooking = viewModel::openCalculatorSheet,
+                                    onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                                     onNavigateToAnalytics = {
                                         viewModel.selectBottomTab(BottomNavTab.ANALYTICS)
                                     },
@@ -550,18 +551,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         )
                     }
 
-                    DrawerDestination.TEST_LAB -> {
-                        TestLabScreen(
-                            settingsState = settingsState,
-                            transactionsCount = allTransactions.size,
-                            onLoadSixMonthsDemoData = viewModel::generateSixMonthsDemoData,
-                            onResetToCleanZero = viewModel::resetAllData,
-                            onBackToOverview = {
-                                viewModel.selectBottomTab(BottomNavTab.OVERVIEW)
-                            }
-                        )
-                    }
-
                     DrawerDestination.DATA_VAULT -> {
                         DataVaultScreen(
                             transactionsCount = allTransactions.size,
@@ -570,7 +559,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             onExportBackupUri = { uri -> viewModel.exportBackupToUri(context, uri) },
                             onImportBackupUri = { uri -> viewModel.importBackupFromUri(context, uri) },
                             onImportBankCsvUri = { uri -> viewModel.importBankCsvFromUri(context, uri) },
-                            onImportSampleBankCsv = viewModel::importSampleBankCsv,
                             onRequestProFeature = { title ->
                                 viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
                             }
@@ -578,12 +566,17 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                     }
 
                     DrawerDestination.SETTINGS_DEMO -> {
+                        val incomeCategory = remember(categories) {
+                            categories.firstOrNull { it.categoryType == de.smartfinance.app.data.local.CategoryType.INCOME }
+                        }
                         SettingsDemoScreen(
                             settingsState = settingsState,
+                            plannedMonthlyIncome = incomeCategory?.monthlyBudget ?: 0.0,
+                            plannedPayDay = incomeCategory?.dueDayOfMonth ?: 1,
+                            onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                             onUpdateBillingDay = viewModel::updateBillingStartDay,
                             onUpdateHourlyWage = viewModel::updateHourlyWage,
                             onUpdateAvgWindow = viewModel::updateAverageWindow,
-                            onGenerateSixMonthsDemo = viewModel::generateSixMonthsDemoData,
                             onResetAllData = viewModel::resetAllData
                         )
                     }
@@ -644,7 +637,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         ReceiptScannerSheet(
             categories = categories,
             onScanUri = { uri -> viewModel.scanReceiptFromUri(context, uri) },
-            onDemoScan = viewModel::parseDemoReceipt,
             onBookScannedReceipt = { title, amount, category, date ->
                 viewModel.addBooking(
                     title = title,

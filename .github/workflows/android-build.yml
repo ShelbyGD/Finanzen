@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-apk:
-    name: Build Signed APK (v1.0.${{ github.run_number }})
+    name: Build Signed APK (v1.1.${{ github.run_number }})
     runs-on: ubuntu-latest
 
     steps:
@@ -22,10 +22,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Verify Static Git Keystore Exists
+      - name: Verify Static Base64 Keystore in Git
         run: |
-          test -f "app/keystore/smartfinance.jks"
-          ls -lh "app/keystore/smartfinance.jks"
+          test -f "app/keystore/keystore.b64"
+          ls -lh "app/keystore/keystore.b64"
 
       - name: Setup Gradle with Caching
         uses: gradle/actions/setup-gradle@v4
@@ -42,13 +42,13 @@ jobs:
 
       - name: Prepare Versioned APK File
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "SmartFinance-v1.0.${{ github.run_number }}.apk"
-          ls -lh "SmartFinance-v1.0.${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "SmartFinance-v1.1.${{ github.run_number }}.apk"
+          ls -lh "SmartFinance-v1.1.${{ github.run_number }}.apk"
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SmartFinance-v1.0.${{ github.run_number }}.apk
-          path: SmartFinance-v1.0.${{ github.run_number }}.apk
+          name: SmartFinance-v1.1.${{ github.run_number }}.apk
+          path: SmartFinance-v1.1.${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 90

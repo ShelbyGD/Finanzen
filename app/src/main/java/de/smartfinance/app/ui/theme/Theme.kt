@@ -36,7 +36,7 @@ val BudgetRingRed = Color(0xFFEF4444)
 // Edle Kategorie-Akzentfarben für die runden Icon-Kreise in den Listen
 val CategoryColorEmerald = Color(0xFF10B981)   // Lebensmittel & Einnahmen
 val CategoryColorBlue = Color(0xFF3B82F6)      // Handyvertrag & Kommunikation
-val CategoryColorAmber = Color(0xFFF59E0B)     // Strom / Stadtwerke / Energie
+val CategoryColorAmber = Color(0xFFF59E0B)     // Strom & Energie
 val CategoryColorCoralRed = Color(0xFFEF4444)  // Kfz & Tanken
 val CategoryColorIndigo = Color(0xFF6366F1)    // Versicherung
 val CategoryColorTurquoise = Color(0xFF06B6D4) // Sparen & Rücklagen
@@ -142,7 +142,7 @@ object CategoryIconCatalog {
      * Liefert für jede Kategorie / Buchung eine eigene, edle Akzentfarbe für den runden Icon-Kreis:
      * - Lebensmittel / Supermarkt / Bäcker = Smaragdgrün
      * - Handyvertrag = Blau
-     * - Strom / Stadtwerke / Energie = Orange/Amber
+     * - Strom & Energie = Orange/Amber
      * - Kfz / Tanken = Korallenrot
      * - Versicherung = Indigo
      * - Sparen = Türkis
@@ -151,7 +151,7 @@ object CategoryIconCatalog {
      */
     fun accentColorFor(iconKey: String, titleOrCategory: String = ""): Color {
         val lowerText = titleOrCategory.lowercase()
-        if (lowerText.contains("stadtwerke") || lowerText.contains("strom") || lowerText.contains("energie") || lowerText.contains("glasfaser")) {
+        if (lowerText.contains("strom") || lowerText.contains("energie") || lowerText.contains("glasfaser")) {
             return CategoryColorAmber
         }
         if (lowerText.contains("handy") || lowerText.contains("mobilfunk") || lowerText.contains("telekom") || lowerText.contains("vodafone")) {
@@ -166,7 +166,7 @@ object CategoryIconCatalog {
         if (lowerText.contains("sparen") || lowerText.contains("sparrate") || lowerText.contains("sparbooster")) {
             return CategoryColorTurquoise
         }
-        if (lowerText.contains("lebensmittel") || lowerText.contains("rewe") || lowerText.contains("edeka") || lowerText.contains("aldi") || lowerText.contains("lidl")) {
+        if (lowerText.contains("lebensmittel") || lowerText.contains("supermarkt") || lowerText.contains("einkauf")) {
             return CategoryColorEmerald
         }
         if (lowerText.contains("freizeit") || lowerText.contains("kino") || lowerText.contains("restaurant")) {

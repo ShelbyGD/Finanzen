@@ -125,7 +125,7 @@ fun CategoriesContractsScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = savingsProgress?.goal?.title ?: "Etappen-Sparziel (3.000 €)",
+                                text = savingsProgress?.goal?.title ?: "Mein Sparziel",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -169,12 +169,12 @@ fun CategoriesContractsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Verträge, Fixkosten & Budgets",
+                        text = "Verträge, Fixkosten, Einnahmen & Budgets",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Limits, Fälligkeitstage (1–31), 1/12-Glättung & 30-Tage-Kündigungswecker",
+                        text = "Tippe auf eine Kategorie, um eigene Budgets, Grundgehalt oder Verträge einzutragen",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -204,18 +204,10 @@ fun CategoriesContractsScreen(
             CategoryContractCard(
                 category = cat,
                 onEdit = {
-                    if (isProUnlocked) {
-                        editingCategory = cat
-                    } else {
-                        onRequestProFeature("Kategorie & Vertrags-Wecker bearbeiten")
-                    }
+                    editingCategory = cat
                 },
                 onDelete = {
-                    if (isProUnlocked) {
-                        onDeleteCategory(cat)
-                    } else {
-                        onRequestProFeature("Kategorie löschen")
-                    }
+                    onDeleteCategory(cat)
                 }
             )
         }
@@ -246,8 +238,8 @@ fun CategoriesContractsScreen(
     if (showSavingsEditor) {
         val currentGoal = savingsProgress?.goal
         SavingsGoalEditDialog(
-            initialTitle = currentGoal?.title ?: "Etappen-Sparziel: 3.000 € Notgroschen",
-            initialTarget = currentGoal?.targetAmount ?: 3000.0,
+            initialTitle = currentGoal?.title ?: "Mein Sparziel",
+            initialTarget = currentGoal?.targetAmount ?: 0.0,
             initialBaseSaved = currentGoal?.initialSavedAmount ?: 0.0,
             initialMonthlyRate = currentGoal?.monthlyContributionGoal ?: 0.0,
             initialDueDay = currentGoal?.dueDayOfMonth ?: 1,
@@ -279,6 +271,7 @@ private fun CategoryContractCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = onEdit,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -316,7 +309,7 @@ private fun CategoryContractCard(
                             CategoryType.FIXED_EXPENSE -> "Fixkosten / Vertrag"
                             CategoryType.VARIABLE_EXPENSE -> "Variables Alltagsbudget"
                             CategoryType.SAVINGS -> "Sparziel / Rücklage"
-                            CategoryType.INCOME -> "Regelmäßige Einnahme"
+                            CategoryType.INCOME -> "Regelmäßige Einnahme / Gehalt"
                             else -> "Ausgabe"
                         }
                         Text(
@@ -340,19 +333,17 @@ private fun CategoryContractCard(
             }
 
             val details = buildList {
-                category.monthlyBudgetLimit?.let { add("Monatslimit: ${SmartFinanceEngine.formatEuro(it)}") }
+                add("Monatslimit: ${SmartFinanceEngine.formatEuro(category.monthlyBudgetLimit ?: 0.0)}")
+                add("Dauerbetrag: ${SmartFinanceEngine.formatEuro(category.defaultAmount ?: 0.0)}")
                 category.dueDayOfMonth?.let { add("Abbuchungstag: $it. im Monat") }
-                category.defaultAmount?.let { add("Standardbetrag: ${SmartFinanceEngine.formatEuro(it)}") }
                 if (category.smoothOver12Months) add("1/12-Jahresglättung aktiv")
             }
 
-            if (details.isNotEmpty()) {
-                Text(
-                    text = details.joinToString(" • "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = details.joinToString(" • "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             contractInfo?.let { (daysLeft, formattedDate) ->
                 val isUrgent = daysLeft <= 30
@@ -402,7 +393,7 @@ private fun CategoryEditDialog(
     var categoryType by remember { mutableStateOf(initialCategory?.categoryType ?: CategoryType.VARIABLE_EXPENSE) }
     var limitText by remember {
         mutableStateOf(
-            initialCategory?.monthlyBudgetLimit?.let { String.format(Locale.GERMAN, "%.2f", it) } ?: ""
+            initialCategory?.monthlyBudgetLimit?.takeIf { it > 0.0 }?.let { String.format(Locale.GERMAN, "%.2f", it) } ?: ""
         )
     }
     var dueDayText by remember {
@@ -410,7 +401,7 @@ private fun CategoryEditDialog(
     }
     var defaultAmtText by remember {
         mutableStateOf(
-            initialCategory?.defaultAmount?.let { String.format(Locale.GERMAN, "%.2f", it) } ?: ""
+            initialCategory?.defaultAmount?.takeIf { it > 0.0 }?.let { String.format(Locale.GERMAN, "%.2f", it) } ?: ""
         )
     }
     var smooth12 by remember { mutableStateOf(initialCategory?.smoothOver12Months ?: false) }
@@ -437,7 +428,7 @@ private fun CategoryEditDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Bezeichnung (z. B. Fitnessstudio)") },
+                    label = { Text("Bezeichnung") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -465,7 +456,12 @@ private fun CategoryEditDialog(
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     FilterChip(
                         selected = categoryType == CategoryType.FIXED_EXPENSE,
                         onClick = { categoryType = CategoryType.FIXED_EXPENSE },
@@ -481,6 +477,11 @@ private fun CategoryEditDialog(
                         onClick = { categoryType = CategoryType.SAVINGS },
                         label = { Text("Sparen") }
                     )
+                    FilterChip(
+                        selected = categoryType == CategoryType.INCOME,
+                        onClick = { categoryType = CategoryType.INCOME },
+                        label = { Text("Einnahme") }
+                    )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -488,6 +489,7 @@ private fun CategoryEditDialog(
                         value = limitText,
                         onValueChange = { limitText = it },
                         label = { Text("Monatslimit (€)") },
+                        placeholder = { Text("0,00") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -495,6 +497,7 @@ private fun CategoryEditDialog(
                         value = dueDayText,
                         onValueChange = { dueDayText = it.filter { ch -> ch.isDigit() } },
                         label = { Text("Fälligkeit (1-31)") },
+                        placeholder = { Text("z. B. 1") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -505,6 +508,7 @@ private fun CategoryEditDialog(
                         value = defaultAmtText,
                         onValueChange = { defaultAmtText = it },
                         label = { Text("Dauerbetrag (€)") },
+                        placeholder = { Text("0,00") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -512,7 +516,7 @@ private fun CategoryEditDialog(
                         value = contractDaysUntilEndText,
                         onValueChange = { contractDaysUntilEndText = it.filter { ch -> ch.isDigit() } },
                         label = { Text("Vertrag endet in (Tagen)") },
-                        placeholder = { Text("z. B. 20") },
+                        placeholder = { Text("optional") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -535,9 +539,9 @@ private fun CategoryEditDialog(
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
-                        val limit = limitText.replace(",", ".").toDoubleOrNull()
+                        val limit = limitText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                         val due = dueDayText.toIntOrNull()?.coerceIn(1, 31)
-                        val defAmt = defaultAmtText.replace(",", ".").toDoubleOrNull()
+                        val defAmt = defaultAmtText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                         val contractEpoch = contractDaysUntilEndText.toLongOrNull()?.let {
                             LocalDate.now().plusDays(it).toEpochDay()
                         }
@@ -583,34 +587,43 @@ private fun SavingsGoalEditDialog(
     onSave: (String, Double, Double, Double, Int) -> Unit
 ) {
     var title by remember { mutableStateOf(initialTitle) }
-    var targetText by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", initialTarget)) }
-    var baseText by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", initialBaseSaved)) }
-    var rateText by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", initialMonthlyRate)) }
+    var targetText by remember {
+        mutableStateOf(if (initialTarget > 0.0) String.format(Locale.GERMAN, "%.2f", initialTarget) else "")
+    }
+    var baseText by remember {
+        mutableStateOf(if (initialBaseSaved > 0.0) String.format(Locale.GERMAN, "%.2f", initialBaseSaved) else "")
+    }
+    var rateText by remember {
+        mutableStateOf(if (initialMonthlyRate > 0.0) String.format(Locale.GERMAN, "%.2f", initialMonthlyRate) else "")
+    }
     var dueDayText by remember { mutableStateOf(initialDueDay.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Etappen-Sparziel bearbeiten", fontWeight = FontWeight.Bold) },
+        title = { Text("Sparziel bearbeiten", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Bezeichnung der Spar-Etappe") },
+                    label = { Text("Bezeichnung des Sparziels") },
+                    placeholder = { Text("Mein Sparziel") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = targetText,
                     onValueChange = { targetText = it },
-                    label = { Text("Etappen-Zielbetrag (€)") },
+                    label = { Text("Zielbetrag (€)") },
+                    placeholder = { Text("0,00") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = baseText,
                     onValueChange = { baseText = it },
-                    label = { Text("Startguthaben vor Buchungen (€)") },
+                    label = { Text("Startguthaben (€)") },
+                    placeholder = { Text("0,00") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -619,6 +632,7 @@ private fun SavingsGoalEditDialog(
                         value = rateText,
                         onValueChange = { rateText = it },
                         label = { Text("Monatliche Sparrate (€)") },
+                        placeholder = { Text("0,00") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -635,11 +649,11 @@ private fun SavingsGoalEditDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val target = targetText.replace(",", ".").toDoubleOrNull() ?: 3000.0
-                    val base = baseText.replace(",", ".").toDoubleOrNull() ?: 0.0
-                    val rate = rateText.replace(",", ".").toDoubleOrNull() ?: 250.0
+                    val target = targetText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                    val base = baseText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                    val rate = rateText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                     val day = (dueDayText.toIntOrNull() ?: 1).coerceIn(1, 31)
-                    onSave(title.ifBlank { "Etappen-Sparziel" }, target, base, rate, day)
+                    onSave(title.ifBlank { "Mein Sparziel" }, target, base, rate, day)
                 }
             ) {
                 Text("Speichern")

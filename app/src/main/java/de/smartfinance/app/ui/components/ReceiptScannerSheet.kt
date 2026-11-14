@@ -63,7 +63,6 @@ import java.util.Locale
 fun ReceiptScannerSheet(
     categories: List<CategoryTabEntity>,
     onScanUri: suspend (Uri) -> Result<OcrReceiptResult>,
-    onDemoScan: (Int) -> OcrReceiptResult,
     onBookScannedReceipt: (
         title: String,
         amount: Double,
@@ -78,7 +77,6 @@ fun ReceiptScannerSheet(
 
     var isScanning by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var demoIndex by remember { mutableIntStateOf(0) }
 
     var scannedResult by remember { mutableStateOf<OcrReceiptResult?>(null) }
     var editableTitle by remember { mutableStateOf("") }
@@ -121,7 +119,7 @@ fun ReceiptScannerSheet(
             tempCameraUri = uri
             takePictureLauncher.launch(uri)
         } else {
-            errorMessage = "Kamera-Berechtigung wurde abgelehnt. Nutze alternativ Galerie oder den OCR-Demo-Bon."
+            errorMessage = "Kamera-Berechtigung wurde abgelehnt. Bitte nutze alternativ die Foto-Galerie."
         }
     }
 
@@ -201,19 +199,6 @@ fun ReceiptScannerSheet(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Galerie")
                 }
-            }
-
-            OutlinedButton(
-                onClick = {
-                    val result = onDemoScan(demoIndex)
-                    demoIndex++
-                    applyResult(result)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Beispiel-Kassenbon testen (REWE / ARAL / Telekom)")
             }
 
             if (isScanning) {
