@@ -35,6 +35,13 @@ object FeatureGate {
     private val _currentTier = MutableStateFlow(AppTier.PRO_FULL)
     val currentTier: StateFlow<AppTier> = _currentTier.asStateFlow()
 
+    const val FEATURE_GEMINI_CLOUD_VISION = "Gemini Cloud-KI & Vision-Split-Modul"
+    val GEMINI_CLOUD_VISION_TIER: AppTier = AppTier.PRO_FULL
+
+    fun isGeminiCloudVisionUnlocked(activeTier: AppTier = _currentTier.value): Boolean {
+        return isUnlocked(GEMINI_CLOUD_VISION_TIER, activeTier)
+    }
+
     fun isUnlocked(requiredTier: AppTier, activeTier: AppTier = _currentTier.value): Boolean {
         return when (requiredTier) {
             AppTier.LITE_FREE -> true

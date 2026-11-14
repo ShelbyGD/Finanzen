@@ -39,12 +39,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.smartfinance.app.core.GeminiVaultState
 import de.smartfinance.app.core.UserSettingsState
 import de.smartfinance.app.domain.SmartFinanceEngine
 import java.util.Locale
 
 /**
  * Einstellungen Screen (100 % frei von Demo-Daten):
+ * - Sicherer Google Gemini API-Key-Tresor (BYOK) & Modell-Wahl
  * - Direktes Eintragen des monatlichen Grundgehalts / der geplanten Einnahmen (Startwert: 0,00 €)
  * - Einstellbarer Abrechnungs-Starttag (1., 15., 28. des Monats)
  * - Einstellbarer Netto-Stundenlohn für den Arbeitsstunden-Umrechner (Startwert: 0,00 €)
@@ -54,8 +56,10 @@ import java.util.Locale
 @Composable
 fun SettingsDemoScreen(
     settingsState: UserSettingsState,
+    vaultState: GeminiVaultState,
     plannedMonthlyIncome: Double,
     plannedPayDay: Int?,
+    onOpenApiKeyVault: () -> Unit,
     onUpdatePlannedIncome: (Double, Int?) -> Unit,
     onUpdateBillingDay: (Int) -> Unit,
     onUpdateHourlyWage: (Double) -> Unit,
@@ -82,6 +86,48 @@ fun SettingsDemoScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // 0. Google Gemini API-Key-Tresor (BYOK) & Verbindungs-Test
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Google Gemini API-Key-Tresor (BYOK)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (vaultState.hasApiKey) {
+                            "Status: Gemini Cloud-KI aktiv (${vaultState.modelDisplayName}) • Key: ${vaultState.maskedApiKey}"
+                        } else {
+                            "Status: Lokal-Modus aktiv (Kein API-Key hinterlegt). Hinterlege deinen kostenlosen Key von aistudio.google.com für Hybrid-Coach, Vision-Beleg-Split & Sprach-Buchung."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = onOpenApiKeyVault,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (vaultState.hasApiKey) {
+                                "API-Key & Verbindung testen / Modell wechseln"
+                            } else {
+                                "Kostenlosen Gemini API-Key hinterlegen & testen"
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         // 1. Monatliches Grundgehalt / Regelmäßige Einnahmen
         item {
             Card(

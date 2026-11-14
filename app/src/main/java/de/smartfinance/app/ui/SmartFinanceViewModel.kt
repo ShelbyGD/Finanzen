@@ -5,10 +5,12 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import de.smartfinance.app.core.ApiKeyManager
 import de.smartfinance.app.core.AppHelpRegistry
 import de.smartfinance.app.core.AppPreferences
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.core.FeatureGate
+import de.smartfinance.app.core.GeminiVaultState
 import de.smartfinance.app.core.HelpEntry
 import de.smartfinance.app.core.UserSettingsState
 import de.smartfinance.app.data.backup.DataVaultManager
@@ -21,10 +23,14 @@ import de.smartfinance.app.data.local.SmartFinanceDatabase
 import de.smartfinance.app.data.local.TransactionEntity
 import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.data.repository.FinanceRepository
+import de.smartfinance.app.domain.ContractScanProposal
 import de.smartfinance.app.domain.DashboardAnalysisSnapshot
-import de.smartfinance.app.domain.OcrReceiptResult
-import de.smartfinance.app.domain.ReceiptOcrParser
+import de.smartfinance.app.domain.GeminiApiService
+import de.smartfinance.app.domain.GeminiVisionScanResult
+import de.smartfinance.app.domain.ReceiptSplitItem
 import de.smartfinance.app.domain.SmartFinanceEngine
+import de.smartfinance.app.domain.VoiceBookingProposal
+import de.smartfinance.app.domain.VoiceParseResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -71,6 +77,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     private val database = SmartFinanceDatabase.getInstance(application)
     private val dao = database.smartFinanceDao()
     val preferences = AppPreferences(application)
+    val apiKeyManager = ApiKeyManager(application)
     val repository = FinanceRepository(dao)
     val vaultManager = DataVaultManager(dao, preferences)
 
@@ -100,6 +107,15 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     private val _showNotificationsSheet = MutableStateFlow(false)
     val showNotificationsSheet: StateFlow<Boolean> = _showNotificationsSheet.asStateFlow()
 
+    private val _showApiKeyVaultSheet = MutableStateFlow(false)
+    val showApiKeyVaultSheet: StateFlow<Boolean> = _showApiKeyVaultSheet.asStateFlow()
+
+    private val _isTestingGeminiConnection = MutableStateFlow(false)
+    val isTestingGeminiConnection: StateFlow<Boolean> = _isTestingGeminiConnection.asStateFlow()
+
+    private val _isAiThinking = MutableStateFlow(false)
+    val isAiThinking: StateFlow<Boolean> = _isAiThinking.asStateFlow()
+
     private val _selectedTransactionForAction = MutableStateFlow<TransactionEntity?>(null)
     val selectedTransactionForAction: StateFlow<TransactionEntity?> = _selectedTransactionForAction.asStateFlow()
 
@@ -119,12 +135,13 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         listOf(
             ChatMessage(
                 senderIsUser = false,
-                text = "Willkommen im lokalen Smart Finance KI-Coach.\n\n" +
+                text = "Willkommen im SmartFinance Hybrid KI-Coach.\n\n" +
                     "Frag mich zum Beispiel:\n" +
                     "• Wie viel habe ich heute noch frei?\n" +
                     "• Wann geht die nächste Zahlung ab?\n" +
                     "• Reicht mein Geld bis Monatsende?\n" +
-                    "• Oder gib Check: 85 € für den Was-wäre-wenn-Kaufsimulator inkl. Arbeitsstunden-Rechner ein."
+                    "• Oder gib Check: 85 € für den Was-wäre-wenn-Kaufsimulator inkl. Arbeitsstunden-Rechner ein.\n" +
+                    "• Tipp: Über das Mikrofon-Icon kannst du auch Mehrfach-Buchungen direkt einsprechen."
             )
         )
     )
@@ -132,6 +149,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     val activeTier: StateFlow<AppTier> = FeatureGate.currentTier
     val settingsState: StateFlow<UserSettingsState> = preferences.settingsState
+    val geminiVaultState: StateFlow<GeminiVaultState> = apiKeyManager.vaultState
 
     val categories: StateFlow<List<CategoryTabEntity>> = repository.categoryTabsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -447,28 +465,197 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    fun openApiKeyVaultSheet() {
+        runIfUnlockedOrShowProDialog(
+            requiredTier = FeatureGate.GEMINI_CLOUD_VISION_TIER,
+            featureTitle = FeatureGate.FEATURE_GEMINI_CLOUD_VISION
+        ) {
+            _showApiKeyVaultSheet.value = true
+        }
+    }
+
+    fun closeApiKeyVaultSheet() {
+        _showApiKeyVaultSheet.value = false
+    }
+
+    fun saveGeminiApiKey(rawKey: String) {
+        apiKeyManager.saveApiKey(rawKey)
+        if (rawKey.trim().isNotEmpty()) {
+            _snackbarMessage.value = "Gemini API-Key sicher im lokalen Tresor gespeichert."
+        } else {
+            _snackbarMessage.value = "API-Key entfernt – 100 % Lokal-Modus aktiv."
+        }
+    }
+
+    fun clearGeminiApiKey() {
+        apiKeyManager.clearApiKey()
+        _snackbarMessage.value = "API-Key entfernt – Lokal-Modus aktiv."
+    }
+
+    fun selectGeminiModel(model: String) {
+        apiKeyManager.setSelectedModel(model)
+    }
+
+    fun testGeminiConnection(rawKey: String, model: String) {
+        viewModelScope.launch {
+            _isTestingGeminiConnection.value = true
+            val ping = GeminiApiService.testConnection(rawKey, model)
+            apiKeyManager.updateTestStatus(ping.success, ping.message)
+            _isTestingGeminiConnection.value = false
+        }
+    }
+
     fun sendChatMessage(userText: String) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty()) return
 
         val userMsg = ChatMessage(senderIsUser = true, text = trimmed)
+        _chatMessages.value = _chatMessages.value + userMsg
+
         val snapshot = currentSnapshot.value
         val cats = categories.value
         val wage = settingsState.value.hourlyWage
+        val vault = geminiVaultState.value
 
-        val replyText = SmartFinanceEngine.answerUserQuery(
-            rawQuery = trimmed,
-            snapshot = snapshot,
-            categories = cats,
-            hourlyWage = wage
-        )
-        val aiMsg = ChatMessage(senderIsUser = false, text = replyText)
-        _chatMessages.value = _chatMessages.value + userMsg + aiMsg
+        viewModelScope.launch {
+            _isAiThinking.value = true
+            val reply = if (FeatureGate.isGeminiCloudVisionUnlocked() && vault.hasApiKey) {
+                GeminiApiService.askHybridCoach(
+                    userQuestion = trimmed,
+                    apiKey = vault.apiKey,
+                    model = vault.selectedModel,
+                    snapshot = snapshot,
+                    categories = cats,
+                    hourlyWage = wage
+                )
+            } else {
+                val localText = SmartFinanceEngine.answerUserQuery(
+                    rawQuery = trimmed,
+                    snapshot = snapshot,
+                    categories = cats,
+                    hourlyWage = wage
+                )
+                de.smartfinance.app.domain.HybridCoachReply(
+                    text = localText,
+                    usedCloudGemini = false,
+                    modelUsed = "Lokale SmartFinanceEngine"
+                )
+            }
+            _isAiThinking.value = false
+            val aiMsg = ChatMessage(senderIsUser = false, text = reply.text)
+            _chatMessages.value = _chatMessages.value + aiMsg
+        }
     }
 
-    suspend fun scanReceiptFromUri(context: Context, uri: Uri): Result<OcrReceiptResult> {
-        return withContext(Dispatchers.IO) {
-            ReceiptOcrParser.recognizeFromImageUri(context, uri, categories.value)
+    suspend fun scanReceiptFromUri(context: Context, uri: Uri): Result<GeminiVisionScanResult> {
+        val vault = geminiVaultState.value
+        val effectiveKey = if (FeatureGate.isGeminiCloudVisionUnlocked()) vault.apiKey else ""
+        return GeminiApiService.analyzeDocumentVisionOrFallback(
+            context = context,
+            imageUri = uri,
+            apiKey = effectiveKey,
+            model = vault.selectedModel,
+            categories = categories.value
+        )
+    }
+
+    fun bookSplitReceiptItems(items: List<ReceiptSplitItem>, date: LocalDate) {
+        if (items.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            items.forEach { split ->
+                repository.addTransaction(
+                    TransactionEntity(
+                        title = split.title,
+                        amount = split.amount,
+                        transactionType = TransactionType.EXPENSE,
+                        categoryId = split.categoryId,
+                        categoryName = split.categoryName,
+                        dateEpochDay = date.toEpochDay(),
+                        dueDayOfMonth = date.dayOfMonth,
+                        isFixedRecurring = false,
+                        billingInterval = BillingInterval.ONE_TIME,
+                        smoothOver12Months = false,
+                        note = "Erfasst per Gemini Vision Split-Scan"
+                    )
+                )
+            }
+            val sum = items.sumOf { it.amount }
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "Split-Buchung (${items.size} Positionen • ${SmartFinanceEngine.formatEuro(sum)}) gespeichert."
+            }
+        }
+    }
+
+    fun saveContractFromVisionScan(proposal: ContractScanProposal) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val today = LocalDate.now()
+            val noticeEpochDay = today.plusDays(proposal.cancellationNoticeDays.toLong()).toEpochDay()
+            val existingCat = categories.value.firstOrNull { it.id == proposal.categoryId }
+            val updatedCat = if (existingCat != null) {
+                existingCat.copy(
+                    categoryType = CategoryType.FIXED_EXPENSE,
+                    defaultAmount = proposal.amount,
+                    monthlyBudgetLimit = proposal.amount,
+                    dueDayOfMonth = proposal.dueDayOfMonth,
+                    cancellationNoticeEpochDay = noticeEpochDay,
+                    smoothAnnualOver12Months = proposal.billingInterval == BillingInterval.YEARLY
+                )
+            } else {
+                CategoryTabEntity(
+                    name = proposal.contractName,
+                    iconKey = "shield",
+                    categoryType = CategoryType.FIXED_EXPENSE,
+                    defaultAmount = proposal.amount,
+                    monthlyBudgetLimit = proposal.amount,
+                    dueDayOfMonth = proposal.dueDayOfMonth,
+                    cancellationNoticeEpochDay = noticeEpochDay,
+                    smoothAnnualOver12Months = proposal.billingInterval == BillingInterval.YEARLY
+                )
+            }
+            repository.saveCategoryTab(updatedCat)
+            repository.processDueRecurringBookings(today)
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "Vertrag '${proposal.contractName}' (${SmartFinanceEngine.formatEuro(proposal.amount)}) & Vertrags-Wecker gespeichert."
+            }
+        }
+    }
+
+    suspend fun parseVoiceCommand(spokenText: String): VoiceParseResult {
+        val vault = geminiVaultState.value
+        val effectiveKey = if (FeatureGate.isGeminiCloudVisionUnlocked()) vault.apiKey else ""
+        return GeminiApiService.parseVoiceBookings(
+            spokenText = spokenText,
+            apiKey = effectiveKey,
+            model = vault.selectedModel,
+            categories = categories.value
+        )
+    }
+
+    fun bookVoiceProposals(proposals: List<VoiceBookingProposal>) {
+        if (proposals.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val today = LocalDate.now()
+            proposals.forEach { prop ->
+                repository.addTransaction(
+                    TransactionEntity(
+                        title = prop.title,
+                        amount = prop.amount,
+                        transactionType = prop.transactionType,
+                        categoryId = prop.categoryId,
+                        categoryName = prop.categoryName,
+                        dateEpochDay = today.toEpochDay(),
+                        dueDayOfMonth = today.dayOfMonth,
+                        isFixedRecurring = false,
+                        billingInterval = BillingInterval.ONE_TIME,
+                        smoothOver12Months = false,
+                        note = "Erfasst per 1-Tap Sprach-Buchung (Smart Voice Entry)"
+                    )
+                )
+            }
+            val total = proposals.sumOf { it.amount }
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "${proposals.size} Sprach-Buchungen (${SmartFinanceEngine.formatEuro(total)}) gespeichert."
+            }
         }
     }
 

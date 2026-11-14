@@ -1,5 +1,10 @@
 package de.smartfinance.app.ui.components
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -16,15 +21,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -35,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,14 +61,18 @@ import de.smartfinance.app.data.local.CategoryType
 import de.smartfinance.app.data.local.QuickTemplateEntity
 import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.domain.SmartFinanceEngine
+import de.smartfinance.app.domain.VoiceBookingProposal
+import de.smartfinance.app.domain.VoiceParseResult
 import de.smartfinance.app.ui.theme.CategoryIconCatalog
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.Locale
 
 /**
  * Einhand-BottomSheet (geöffnet über den runden '+'-FloatingActionButton):
- * Enthält oben die 1-Tap-Schnellvorlagen für den Alltag und darunter den großen
- * Taschenrechner-Zahlenblock inkl. 1/12-Glätter & Fälligkeitstag.
+ * - 1-Tap Sprach-Buchung ("Smart Voice Entry" per Mikrofon + Mehrfach-Buchungs-Parser & "Alle buchen")
+ * - 1-Tap-Schnellvorlagen für den Alltag
+ * - Großer Taschenrechner-Zahlenblock inkl. 1/12-Glätter & Fälligkeitstag.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +82,8 @@ fun CalculatorNumpadSheet(
     activeTier: AppTier,
     onDismiss: () -> Unit,
     onExecuteQuickTemplate: (QuickTemplateEntity) -> Unit,
+    onParseVoiceCommand: suspend (String) -> VoiceParseResult,
+    onBookVoiceProposals: (List<VoiceBookingProposal>) -> Unit,
     onRequestProFeature: (String) -> Unit,
     onConfirmBooking: (
         title: String,
@@ -79,10 +96,35 @@ fun CalculatorNumpadSheet(
         smoothOver12Months: Boolean
     ) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var expression by remember { mutableStateOf("") }
     var titleText by remember { mutableStateOf("") }
     var selectedTxType by remember { mutableStateOf(TransactionType.EXPENSE) }
+
+    var voiceParseResult by remember { mutableStateOf<VoiceParseResult?>(null) }
+    var isParsingVoice by remember { mutableStateOf(false) }
+    var manualVoiceSentence by remember { mutableStateOf("") }
+    var showVoiceTextFallback by remember { mutableStateOf(false) }
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spoken = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.trim()
+                .orEmpty()
+            if (spoken.isNotEmpty()) {
+                scope.launch {
+                    isParsingVoice = true
+                    voiceParseResult = onParseVoiceCommand(spoken)
+                    isParsingVoice = false
+                }
+            }
+        }
+    }
 
     val defaultCategory = remember(categories, selectedTxType) {
         when (selectedTxType) {
@@ -113,7 +155,183 @@ fun CalculatorNumpadSheet(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // 1. 1-Tap-Schnellvorlagen direkt oben im Sheet
+            // 1. 1-Tap Sprach-Buchung ("Smart Voice Entry" per Mikrofon)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Individuelle Buchung & Sprach-Eingabe",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                FilledTonalButton(
+                    onClick = {
+                        if (!FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)) {
+                            onRequestProFeature("1-Tap Sprach-Buchung (Smart Voice Entry)")
+                            return@FilledTonalButton
+                        }
+                        runCatching {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(
+                                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                )
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
+                                putExtra(
+                                    RecognizerIntent.EXTRA_PROMPT,
+                                    "Sprich z. B.: 'Ich habe heute für 64 Euro getankt und beim Bäcker 4,80 Euro ausgegeben'"
+                                )
+                            }
+                            speechLauncher.launch(intent)
+                        }.onFailure {
+                            showVoiceTextFallback = !showVoiceTextFallback
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Sprach-Buchung per Mikrofon",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Sprach-Buchung")
+                }
+            }
+
+            if (showVoiceTextFallback) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = manualVoiceSentence,
+                        onValueChange = { manualVoiceSentence = it },
+                        label = { Text("Buchungssatz eingeben") },
+                        placeholder = { Text("z. B. 64 Euro getankt und beim Bäcker 4,80 Euro") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = {
+                            if (manualVoiceSentence.isNotBlank()) {
+                                scope.launch {
+                                    isParsingVoice = true
+                                    voiceParseResult = onParseVoiceCommand(manualVoiceSentence)
+                                    isParsingVoice = false
+                                }
+                            }
+                        }
+                    ) {
+                        Text("Analysieren")
+                    }
+                }
+            }
+
+            if (isParsingVoice) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(
+                        text = "Analysiere gesprochene Buchungen...",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            // Vorschau-Karte für erkannte Mehrfach-Sprachbuchungen ("Alle buchen")
+            voiceParseResult?.let { parsed ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (parsed.usedCloudGemini) {
+                                "Gemini Smart Voice: ${parsed.proposals.size} Buchungen erkannt"
+                            } else {
+                                "Smart Voice Parser: ${parsed.proposals.size} Buchungen erkannt"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = "\"${parsed.spokenText}\"",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                        )
+                        if (parsed.proposals.isEmpty()) {
+                            Text(
+                                text = "Kein Euro-Betrag im gesprochenen Satz erkannt.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            parsed.proposals.forEach { prop ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "• ${prop.title} -> ${prop.categoryName}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = SmartFinanceEngine.formatEuro(prop.amount),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { voiceParseResult = null },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Verwerfen")
+                                }
+                                Button(
+                                    onClick = {
+                                        onBookVoiceProposals(parsed.proposals)
+                                        voiceParseResult = null
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Alle buchen")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. 1-Tap-Schnellvorlagen direkt oben im Sheet (falls vom Nutzer angelegt)
             if (quickTemplates.isNotEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -171,12 +389,6 @@ fun CalculatorNumpadSheet(
 
                 HorizontalDivider(thickness = 0.5.dp)
             }
-
-            Text(
-                text = "Individuelle Buchung & Taschenrechner",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

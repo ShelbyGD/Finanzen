@@ -78,6 +78,7 @@ import de.smartfinance.app.ui.SmartFinanceViewModel
 import de.smartfinance.app.ui.components.AiChatBottomSheet
 import de.smartfinance.app.ui.components.AiCoachTabScreen
 import de.smartfinance.app.ui.components.CalculatorNumpadSheet
+import de.smartfinance.app.ui.components.GeminiApiKeyVaultSheet
 import de.smartfinance.app.ui.components.HelpDetailDialog
 import de.smartfinance.app.ui.components.NotificationsBottomSheet
 import de.smartfinance.app.ui.components.ProFeatureLockedDialog
@@ -141,6 +142,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
     val quickTemplates by viewModel.quickTemplates.collectAsStateWithLifecycle()
     val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
+    val geminiVaultState by viewModel.geminiVaultState.collectAsStateWithLifecycle()
     val activeTier by viewModel.activeTier.collectAsStateWithLifecycle()
     val currentSnapshot by viewModel.currentSnapshot.collectAsStateWithLifecycle()
 
@@ -148,6 +150,9 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val showAiChatSheet by viewModel.showAiChatSheet.collectAsStateWithLifecycle()
     val showReceiptScannerSheet by viewModel.showReceiptScannerSheet.collectAsStateWithLifecycle()
     val showNotificationsSheet by viewModel.showNotificationsSheet.collectAsStateWithLifecycle()
+    val showApiKeyVaultSheet by viewModel.showApiKeyVaultSheet.collectAsStateWithLifecycle()
+    val isTestingGeminiConnection by viewModel.isTestingGeminiConnection.collectAsStateWithLifecycle()
+    val isAiThinking by viewModel.isAiThinking.collectAsStateWithLifecycle()
     val selectedTransactionForAction by viewModel.selectedTransactionForAction.collectAsStateWithLifecycle()
     val activeHelpEntryModal by viewModel.activeHelpEntryModal.collectAsStateWithLifecycle()
     val proLockedFeatureDialog by viewModel.proLockedFeatureDialog.collectAsStateWithLifecycle()
@@ -506,7 +511,12 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                 AiCoachTabScreen(
                                     messages = chatMessages,
                                     hourlyWage = settingsState.hourlyWage,
+                                    vaultState = geminiVaultState,
+                                    isAiThinking = isAiThinking,
                                     onSendMessage = viewModel::sendChatMessage,
+                                    onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
+                                    onParseVoiceCommand = viewModel::parseVoiceCommand,
+                                    onBookVoiceProposals = viewModel::bookVoiceProposals,
                                     onOpenHelpId = viewModel::openHelpCardById
                                 )
                             }
@@ -571,8 +581,10 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         }
                         SettingsDemoScreen(
                             settingsState = settingsState,
+                            vaultState = geminiVaultState,
                             plannedMonthlyIncome = incomeCategory?.defaultAmount ?: 0.0,
                             plannedPayDay = incomeCategory?.dueDayOfMonth ?: 1,
+                            onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
                             onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                             onUpdateBillingDay = viewModel::updateBillingStartDay,
                             onUpdateHourlyWage = viewModel::updateHourlyWage,
@@ -605,6 +617,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             activeTier = activeTier,
             onDismiss = viewModel::closeCalculatorSheet,
             onExecuteQuickTemplate = viewModel::executeQuickTemplate,
+            onParseVoiceCommand = viewModel::parseVoiceCommand,
+            onBookVoiceProposals = viewModel::bookVoiceProposals,
             onRequestProFeature = { title ->
                 viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
             },
@@ -627,7 +641,12 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         AiChatBottomSheet(
             messages = chatMessages,
             hourlyWage = settingsState.hourlyWage,
+            vaultState = geminiVaultState,
+            isAiThinking = isAiThinking,
             onSendMessage = viewModel::sendChatMessage,
+            onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
+            onParseVoiceCommand = viewModel::parseVoiceCommand,
+            onBookVoiceProposals = viewModel::bookVoiceProposals,
             onOpenHelpId = viewModel::openHelpCardById,
             onDismiss = viewModel::closeAiChatSheet
         )
@@ -636,6 +655,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     if (showReceiptScannerSheet) {
         ReceiptScannerSheet(
             categories = categories,
+            vaultState = geminiVaultState,
+            onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
             onScanUri = { uri -> viewModel.scanReceiptFromUri(context, uri) },
             onBookScannedReceipt = { title, amount, category, date ->
                 viewModel.addBooking(
@@ -645,10 +666,24 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                     category = category,
                     date = date,
                     dueDayOfMonth = date.dayOfMonth,
-                    note = "Erfasst per Offline Beleg-Scanner (ML Kit OCR)"
+                    note = "Erfasst per Beleg-Scanner"
                 )
             },
+            onBookSplitItems = viewModel::bookSplitReceiptItems,
+            onSaveContractFromScan = viewModel::saveContractFromVisionScan,
             onDismiss = viewModel::closeReceiptScannerSheet
+        )
+    }
+
+    if (showApiKeyVaultSheet) {
+        GeminiApiKeyVaultSheet(
+            vaultState = geminiVaultState,
+            isTestingConnection = isTestingGeminiConnection,
+            onSaveApiKey = viewModel::saveGeminiApiKey,
+            onClearApiKey = viewModel::clearGeminiApiKey,
+            onSelectModel = viewModel::selectGeminiModel,
+            onTestConnection = viewModel::testGeminiConnection,
+            onDismiss = viewModel::closeApiKeyVaultSheet
         )
     }
 

@@ -89,9 +89,9 @@ fun LiteProOverviewScreen(
                     }
                     Text(
                         text = if (activeTier == AppTier.PRO_FULL) {
-                            "Standardmäßig ist die Entwickler-Vollversion (AppTier.PRO_FULL) ab Tag 1 aktiv – alle 13 Module sind komplett freigeschaltet."
+                            "Standardmäßig ist die Entwickler-Vollversion (AppTier.PRO_FULL) ab Tag 1 aktiv – alle 14 Module (inkl. Gemini Cloud-KI & Vision-Split) sind komplett freigeschaltet."
                         } else {
-                            "Lite-Simulator aktiv (AppTier.LITE_FREE): PRO-Funktionen sind markiert und öffnen beim Antippen den PRO-Info-Dialog."
+                            "Lite-Simulator aktiv (AppTier.LITE_FREE): PRO-Funktionen sind mit PRO-Schloss markiert und öffnen beim Antippen den PRO-Info-Dialog."
                         },
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -134,7 +134,7 @@ fun LiteProOverviewScreen(
             }
         }
 
-        // 2. Vergleichstabelle aller 13 Kernmodule (Lite vs. Pro)
+        // 2. Vergleichstabelle aller 14 Kernmodule (Lite vs. Pro)
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -144,7 +144,7 @@ fun LiteProOverviewScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "Vergleichstabelle aller 13 Module (Lite vs. Pro)",
+                        text = "Vergleichstabelle aller 14 Module (Lite vs. Pro)",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -220,12 +220,23 @@ fun LiteProOverviewScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                         } else {
-                            Icon(
-                                imageVector = Icons.Outlined.Lock,
-                                contentDescription = "PRO-Modul",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Lock,
+                                    contentDescription = "PRO",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "PRO",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                     Text(
