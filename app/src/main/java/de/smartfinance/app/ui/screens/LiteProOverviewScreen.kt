@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import de.smartfinance.app.core.AppHelpRegistry
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.core.FeatureGate
-import de.smartfinance.app.ui.theme.FinanceEmerald
+import de.smartfinance.app.ui.theme.BudgetRingGreen
 
 /**
  * Lite vs. Pro Übersicht Screen:
@@ -216,7 +216,7 @@ fun LiteProOverviewScreen(
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = "In Lite enthalten",
-                                tint = FinanceEmerald,
+                                tint = BudgetRingGreen,
                                 modifier = Modifier.size(18.dp)
                             )
                         } else {

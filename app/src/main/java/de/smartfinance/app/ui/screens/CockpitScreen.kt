@@ -73,20 +73,22 @@ import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
 import de.smartfinance.app.data.local.TransactionEntity
 import de.smartfinance.app.data.local.TransactionType
-import de.smartfinance.app.domain.MonthlyFinancialSnapshot
+import de.smartfinance.app.domain.DashboardAnalysisSnapshot
 import de.smartfinance.app.domain.SavingsGoalProgress
 import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.ui.components.CashflowWaveChart
+import de.smartfinance.app.ui.theme.BudgetRingGreen
+import de.smartfinance.app.ui.theme.BudgetRingOrange
+import de.smartfinance.app.ui.theme.BudgetRingRed
 import de.smartfinance.app.ui.theme.CategoryIconCatalog
-import de.smartfinance.app.ui.theme.FinanceAlertRed
-import de.smartfinance.app.ui.theme.FinanceAmber
-import de.smartfinance.app.ui.theme.FinanceEmerald
 import de.smartfinance.app.ui.theme.HeroTurquoiseAccent
 import de.smartfinance.app.ui.theme.HeroVioletEnd
 import de.smartfinance.app.ui.theme.HeroVioletStart
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -100,7 +102,7 @@ import kotlin.math.roundToInt
 fun CockpitScreen(
     selectedMonthPage: Int,
     totalMonthPages: Int,
-    snapshotForPage: (Int) -> MonthlyFinancialSnapshot,
+    snapshotForPage: (Int) -> DashboardAnalysisSnapshot,
     categories: List<CategoryTabEntity>,
     allTransactions: List<TransactionEntity>,
     selectedCategoryId: Long?,
@@ -156,7 +158,7 @@ fun CockpitScreen(
 
 @Composable
 private fun OverviewMonthContent(
-    snapshot: MonthlyFinancialSnapshot,
+    snapshot: DashboardAnalysisSnapshot,
     categories: List<CategoryTabEntity>,
     allTransactions: List<TransactionEntity>,
     selectedCategoryId: Long?,
@@ -168,11 +170,10 @@ private fun OverviewMonthContent(
     onDismissUpdateBanner: () -> Unit,
     onClickUpdateBanner: () -> Unit
 ) {
-    val periodTransactions = remember(allTransactions, snapshot.periodStart, snapshot.periodEnd, selectedCategoryId) {
+    val periodTransactions = remember(allTransactions, snapshot.selectedYearMonth, selectedCategoryId) {
         allTransactions
             .filter { tx ->
-                val d = LocalDate.ofEpochDay(tx.dateEpochDay)
-                !d.isBefore(snapshot.periodStart) && !d.isAfter(snapshot.periodEnd)
+                YearMonth.from(LocalDate.ofEpochDay(tx.dateEpochDay)) == snapshot.selectedYearMonth
             }
             .filter { tx ->
                 selectedCategoryId == null || tx.categoryId == selectedCategoryId
@@ -181,16 +182,6 @@ private fun OverviewMonthContent(
                 compareByDescending<TransactionEntity> { it.dateEpochDay }
                     .thenByDescending { it.id }
             )
-    }
-
-    // Ausgaben pro Kategorie im aktuellen Zeitraum für die Budget-Kreisringe berechnen
-    val spentPerCategory = remember(allTransactions, snapshot.periodStart, snapshot.periodEnd) {
-        val monthTxs = allTransactions.filter { tx ->
-            val d = LocalDate.ofEpochDay(tx.dateEpochDay)
-            !d.isBefore(snapshot.periodStart) && !d.isAfter(snapshot.periodEnd) &&
-                tx.transactionType != TransactionType.INCOME
-        }
-        monthTxs.groupBy { it.categoryId }.mapValues { (_, list) -> list.sumOf { it.amount } }
     }
 
     val budgetCategories = remember(categories) {
@@ -228,7 +219,7 @@ private fun OverviewMonthContent(
         item {
             CircularBudgetsCard(
                 categories = budgetCategories,
-                spentPerCategory = spentPerCategory,
+                spentPerCategory = snapshot.categoryTotalsThisMonth,
                 selectedCategoryId = selectedCategoryId,
                 onSelectCategory = { catId ->
                     onSelectCategoryFilter(if (selectedCategoryId == catId) null else catId)
@@ -319,12 +310,11 @@ private fun CleanUpdateBannerCard(
  */
 @Composable
 private fun VioletHeroBudgetCard(
-    snapshot: MonthlyFinancialSnapshot,
+    snapshot: DashboardAnalysisSnapshot,
     onClickHero: () -> Unit
 ) {
-    val totalIncomePool = (snapshot.effectiveTotalIncome + snapshot.previousMonthRollover.coerceAtLeast(0.0))
-        .coerceAtLeast(1.0)
-    val availableRatio = (snapshot.remainingFreeBudgetMonth / totalIncomePool)
+    val effectiveIncome = max(snapshot.actualIncome, snapshot.targetIncome).coerceAtLeast(1.0)
+    val availableRatio = (snapshot.remainingFreeBudgetMonth / effectiveIncome)
         .toFloat()
         .coerceIn(0.05f, 1f)
 
@@ -429,7 +419,7 @@ private fun VioletHeroBudgetCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Einnahmen: ${SmartFinanceEngine.formatEuroWhole(snapshot.effectiveTotalIncome)}",
+                            text = "Einnahmen: ${SmartFinanceEngine.formatEuroWhole(effectiveIncome)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.75f)
                         )
@@ -456,7 +446,7 @@ private fun VioletHeroBudgetCard(
 @Composable
 private fun CircularBudgetsCard(
     categories: List<CategoryTabEntity>,
-    spentPerCategory: Map<Long?, Double>,
+    spentPerCategory: Map<Long, Double>,
     selectedCategoryId: Long?,
     onSelectCategory: (Long) -> Unit,
     onShowAllOrAddCategory: () -> Unit
@@ -508,9 +498,9 @@ private fun CircularBudgetsCard(
                     val limit = category.monthlyBudgetLimit ?: category.defaultAmount ?: 200.0
                     val ratio = if (limit > 0.0) (spent / limit).toFloat() else 0f
                     val ringColor = when {
-                        ratio > 1.0f -> FinanceAlertRed
-                        ratio >= 0.75f -> FinanceAmber
-                        else -> FinanceEmerald
+                        ratio > 1.0f -> BudgetRingRed
+                        ratio >= 0.75f -> BudgetRingOrange
+                        else -> BudgetRingGreen
                     }
                     val isSelected = selectedCategoryId == category.id
 
@@ -637,7 +627,7 @@ private fun CircularBudgetsCard(
  */
 @Composable
 private fun UpcomingDebitsGroupedSection(
-    snapshot: MonthlyFinancialSnapshot,
+    snapshot: DashboardAnalysisSnapshot,
     onOpenWaveAnalytics: () -> Unit
 ) {
     val nextItems = remember(snapshot.upcomingDebits) {
@@ -661,7 +651,7 @@ private fun UpcomingDebitsGroupedSection(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Offen: ${SmartFinanceEngine.formatEuro(snapshot.upcomingFixedRemainingTotal)}",
+                text = "Offen: ${SmartFinanceEngine.formatEuro(snapshot.openUpcomingFixedTotal)}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -689,11 +679,10 @@ private fun UpcomingDebitsGroupedSection(
                     }
                 } else {
                     nextItems.forEachIndexed { index, debit ->
-                        val dateFormatted = debit.dueDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
                         val daysText = when (debit.daysUntilDue) {
-                            0 -> "Heute ($dateFormatted)"
-                            1 -> "Morgen ($dateFormatted)"
-                            else -> "In ${debit.daysUntilDue} Tagen ($dateFormatted)"
+                            0 -> "Heute (${debit.dueDateFormatted})"
+                            1 -> "Morgen (${debit.dueDateFormatted})"
+                            else -> "In ${debit.daysUntilDue} Tagen (${debit.dueDateFormatted})"
                         }
 
                         Row(
@@ -870,7 +859,7 @@ private fun RecentBookingsGroupedSection(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     val visibleTransactions = transactions.take(25)
                     visibleTransactions.forEachIndexed { index, tx ->
-                        val cat = tx.categoryId?.let { categoryById[it] }
+                        val cat = categoryById[tx.categoryId]
                         val iconKey = cat?.iconKey ?: when (tx.transactionType) {
                             TransactionType.INCOME -> "salary"
                             TransactionType.SAVINGS -> "savings"
@@ -882,12 +871,12 @@ private fun RecentBookingsGroupedSection(
                             .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
 
                         val circleColor = when {
-                            isIncome -> FinanceEmerald.copy(alpha = 0.14f)
+                            isIncome -> BudgetRingGreen.copy(alpha = 0.14f)
                             isSavings -> MaterialTheme.colorScheme.secondaryContainer
                             else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
                         }
                         val iconTint = when {
-                            isIncome -> FinanceEmerald
+                            isIncome -> BudgetRingGreen
                             isSavings -> MaterialTheme.colorScheme.secondary
                             else -> MaterialTheme.colorScheme.primary
                         }
@@ -933,7 +922,7 @@ private fun RecentBookingsGroupedSection(
                                     val subLabel = buildString {
                                         append(dateStr)
                                         append(" • ")
-                                        append(tx.categoryNameSnapshot)
+                                        append(tx.categoryName)
                                         if (tx.smoothOver12Months) append(" • 1/12")
                                     }
                                     Text(
@@ -946,7 +935,7 @@ private fun RecentBookingsGroupedSection(
 
                             val prefix = if (isIncome) "+" else "-"
                             val amountColor = if (isIncome) {
-                                FinanceEmerald
+                                BudgetRingGreen
                             } else {
                                 MaterialTheme.colorScheme.onSurface
                             }
@@ -980,7 +969,7 @@ private fun RecentBookingsGroupedSection(
  */
 @Composable
 fun AnalyticsTabScreen(
-    snapshot: MonthlyFinancialSnapshot,
+    snapshot: DashboardAnalysisSnapshot,
     settingsState: UserSettingsState,
     activeTier: AppTier,
     onChangeAvgWindow: (Int) -> Unit,
@@ -1032,10 +1021,10 @@ fun AnalyticsTabScreen(
                     }
 
                     CashflowWaveChart(
-                        dailyTimeline = snapshot.dailyTimeline,
-                        phaseBeginningTotal = snapshot.phaseBeginningTotal,
-                        phaseMiddleTotal = snapshot.phaseMiddleTotal,
-                        phaseEndTotal = snapshot.phaseEndTotal
+                        dayPoints = snapshot.dayLoadPoints,
+                        loadStartThird = snapshot.loadStartThird,
+                        loadMiddleThird = snapshot.loadMiddleThird,
+                        loadEndThird = snapshot.loadEndThird
                     )
                 }
             }
@@ -1043,6 +1032,10 @@ fun AnalyticsTabScreen(
 
         // 2. Einnahmen/Ausgaben Soll/Ist & 3M/6M/12M-Durchschnitte
         item {
+            val effectiveIncome = max(snapshot.actualIncome, snapshot.targetIncome)
+            val totalExpenses = snapshot.effectiveOperatingExpenses + snapshot.openUpcomingFixedTotal
+            val rolloverPrefix = if (snapshot.rolloverDeltaPerDay >= 0.0) "+" else ""
+
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1059,7 +1052,7 @@ fun AnalyticsTabScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Soll/Ist & Historischer Durchschnitt",
+                            text = "Soll/Ist & Durchschnitt",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -1088,7 +1081,7 @@ fun AnalyticsTabScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = FinanceEmerald.copy(alpha = 0.12f),
+                            color = BudgetRingGreen.copy(alpha = 0.12f),
                             modifier = Modifier.weight(1f)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -1098,13 +1091,13 @@ fun AnalyticsTabScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = SmartFinanceEngine.formatEuro(snapshot.effectiveTotalIncome),
+                                    text = SmartFinanceEngine.formatEuro(effectiveIncome),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = FinanceEmerald
+                                    color = BudgetRingGreen
                                 )
                                 Text(
-                                    text = "${snapshot.averageWindowMonths}M-Ø: ${SmartFinanceEngine.formatEuro(snapshot.historicalAverageIncome)}",
+                                    text = "${snapshot.avgWindowMonths}M-Ø: ${SmartFinanceEngine.formatEuro(snapshot.historicalAvgIncome)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1113,7 +1106,7 @@ fun AnalyticsTabScreen(
 
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = FinanceAmber.copy(alpha = 0.14f),
+                            color = BudgetRingOrange.copy(alpha = 0.14f),
                             modifier = Modifier.weight(1f)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -1123,18 +1116,13 @@ fun AnalyticsTabScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = SmartFinanceEngine.formatEuro(
-                                        snapshot.actualVariableExpensesToDate +
-                                            snapshot.actualFixedExpensesPaidToDate +
-                                            snapshot.upcomingFixedRemainingTotal +
-                                            snapshot.smoothedYearlyMonthlyShareTotal
-                                    ),
+                                    text = SmartFinanceEngine.formatEuro(totalExpenses),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = FinanceAmber
+                                    color = BudgetRingOrange
                                 )
                                 Text(
-                                    text = "${snapshot.averageWindowMonths}M-Ø: ${SmartFinanceEngine.formatEuro(snapshot.historicalAverageExpense)}",
+                                    text = "${snapshot.avgWindowMonths}M-Ø: ${SmartFinanceEngine.formatEuro(snapshot.historicalAvgExpense)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1147,15 +1135,15 @@ fun AnalyticsTabScreen(
                     AnalyticsKeyValueRow(
                         label = "Monatsend-Prognose (Freier Puffer)",
                         value = SmartFinanceEngine.formatEuro(snapshot.projectedEndOfMonthBalance),
-                        highlightColor = if (snapshot.projectedEndOfMonthBalance >= 0) FinanceEmerald else FinanceAlertRed
+                        highlightColor = if (snapshot.projectedEndOfMonthBalance >= 0) BudgetRingGreen else BudgetRingRed
                     )
                     AnalyticsKeyValueRow(
-                        label = "Übertrag aus Vormonat (Rollover)",
-                        value = SmartFinanceEngine.formatEuroSigned(snapshot.previousMonthRollover)
+                        label = "Täglicher Rollover-Effekt vs. Basis",
+                        value = "$rolloverPrefix${SmartFinanceEngine.formatEuro(snapshot.rolloverDeltaPerDay)} / Tag"
                     )
                     AnalyticsKeyValueRow(
                         label = "Dauer-Sparrate im Monat",
-                        value = "-${SmartFinanceEngine.formatEuro(snapshot.plannedSavingsContribution)}"
+                        value = "-${SmartFinanceEngine.formatEuro(snapshot.savingsThisMonth)}"
                     )
                     AnalyticsKeyValueRow(
                         label = "Dynamisches Tagesbudget (${snapshot.remainingDaysInMonth} Resttage)",
@@ -1226,7 +1214,7 @@ fun AnalyticsTabScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "${SmartFinanceEngine.formatEuro(snapshot.smoothedYearlyMonthlyShareTotal)} / Monat",
+                                text = "${SmartFinanceEngine.formatEuro(snapshot.smoothedMonthlyReserveTotal)} / Monat",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary
@@ -1476,7 +1464,8 @@ fun SavingsBoosterTabScreen(
                         )
                     } else {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            savingsBookings.take(15).forEachIndexed { idx, tx ->
+                            val visibleSavings = savingsBookings.take(15)
+                            visibleSavings.forEachIndexed { idx, tx ->
                                 val dateStr = LocalDate.ofEpochDay(tx.dateEpochDay)
                                     .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
                                 Row(
@@ -1489,14 +1478,14 @@ fun SavingsBoosterTabScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Surface(
                                             shape = CircleShape,
-                                            color = FinanceEmerald.copy(alpha = 0.14f),
+                                            color = BudgetRingGreen.copy(alpha = 0.14f),
                                             modifier = Modifier.size(38.dp)
                                         ) {
                                             Box(contentAlignment = Alignment.Center) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Savings,
                                                     contentDescription = null,
-                                                    tint = FinanceEmerald,
+                                                    tint = BudgetRingGreen,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -1520,10 +1509,10 @@ fun SavingsBoosterTabScreen(
                                         text = "+${SmartFinanceEngine.formatEuro(tx.amount)}",
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = FinanceEmerald
+                                        color = BudgetRingGreen
                                     )
                                 }
-                                if (idx < savingsBookings.take(15).lastIndex) {
+                                if (idx < visibleSavings.lastIndex) {
                                     HorizontalDivider(
                                         thickness = 0.5.dp,
                                         color = MaterialTheme.colorScheme.outlineVariant,

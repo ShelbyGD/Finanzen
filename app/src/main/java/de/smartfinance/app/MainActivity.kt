@@ -478,7 +478,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     settingsState = settingsState,
                                     onSelectMonthPage = viewModel::setSelectedMonthPage,
                                     onSelectCategoryFilter = viewModel::selectCategoryFilter,
-                                    onSelectTransaction = viewModel::selectTransactionForAction,
+                                    onSelectTransaction = viewModel::openTransactionActionSheet,
                                     onNavigateToAnalytics = {
                                         viewModel.selectBottomTab(BottomNavTab.ANALYTICS)
                                     },
@@ -529,19 +529,22 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             BottomNavTab.SAVINGS_BOOSTER -> {
                                 val savingsCategory = remember(categories) {
                                     categories.firstOrNull { it.name.contains("Sparen", ignoreCase = true) }
+                                        ?: categories.firstOrNull()
                                 }
                                 SavingsBoosterTabScreen(
                                     savingsProgress = currentSnapshot.savingsProgress,
                                     allTransactions = allTransactions,
                                     onUpdateSavingsGoal = viewModel::updateSavingsGoal,
                                     onAddExtraSavingsBoost = { amount ->
-                                        viewModel.addBooking(
-                                            title = "Extra-Sparbooster Einzahlung",
-                                            amount = amount,
-                                            transactionType = TransactionType.SAVINGS,
-                                            category = savingsCategory,
-                                            dueDayOfMonth = java.time.LocalDate.now().dayOfMonth
-                                        )
+                                        savingsCategory?.let { cat ->
+                                            viewModel.addBooking(
+                                                title = "Extra-Sparbooster Einzahlung",
+                                                amount = amount,
+                                                transactionType = TransactionType.SAVINGS,
+                                                category = cat,
+                                                dueDayOfMonth = java.time.LocalDate.now().dayOfMonth
+                                            )
+                                        }
                                     },
                                     onOpenHelpId = viewModel::openHelpCardById
                                 )
@@ -665,30 +668,25 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         NotificationsBottomSheet(
             contractAlerts = currentSnapshot.contractAlerts,
             radarAlerts = currentSnapshot.radarAlerts,
-            onDismiss = viewModel::closeNotificationsSheet,
-            onNavigateToContracts = {
+            onSelectCategory = { catId ->
+                viewModel.closeNotificationsSheet()
+                viewModel.selectCategoryFilter(catId)
+                viewModel.selectBottomTab(BottomNavTab.OVERVIEW)
+            },
+            onOpenContractsTab = {
                 viewModel.closeNotificationsSheet()
                 viewModel.selectBottomTab(BottomNavTab.CONTRACTS)
-            }
+            },
+            onDismiss = viewModel::closeNotificationsSheet
         )
     }
 
     selectedTransactionForAction?.let { selectedTx ->
         TransactionActionBottomSheet(
             transaction = selectedTx,
-            onUpdateTransaction = { newTitle, newAmount, newDueDay ->
-                viewModel.updateExistingTransaction(
-                    existing = selectedTx,
-                    newTitle = newTitle,
-                    newAmount = newAmount,
-                    newDueDay = newDueDay
-                )
-            },
-            onDeleteTransaction = {
-                viewModel.deleteTransaction(selectedTx)
-                viewModel.selectTransactionForAction(null)
-            },
-            onDismiss = { viewModel.selectTransactionForAction(null) }
+            onUpdateTransaction = viewModel::updateExistingTransaction,
+            onDeleteTransaction = viewModel::deleteTransaction,
+            onDismiss = viewModel::closeTransactionActionSheet
         )
     }
 
