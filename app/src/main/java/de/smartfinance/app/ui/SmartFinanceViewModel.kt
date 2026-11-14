@@ -71,7 +71,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     private val database = SmartFinanceDatabase.getInstance(application)
     private val dao = database.smartFinanceDao()
     val preferences = AppPreferences(application)
-    val repository = FinanceRepository(dao, preferences)
+    val repository = FinanceRepository(dao)
     val vaultManager = DataVaultManager(dao, preferences)
 
     private val _currentDestination = MutableStateFlow(DrawerDestination.COCKPIT)

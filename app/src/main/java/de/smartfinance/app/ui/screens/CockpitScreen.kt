@@ -664,7 +664,8 @@ private fun CircularBudgetsCard(
 @Composable
 private fun UpcomingDebitsGroupedSection(
     snapshot: DashboardAnalysisSnapshot,
-    onOpenWaveAnalytics: () -> Unit
+    onOpenWaveAnalytics: () -> Unit,
+    onEmptyClick: () -> Unit
 ) {
     val nextItems = remember(snapshot.upcomingDebits) {
         snapshot.upcomingDebits.take(3)
@@ -704,11 +705,19 @@ private fun UpcomingDebitsGroupedSection(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .clickable { onEmptyClick() }
+                            .padding(horizontal = 16.dp, vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                         Text(
-                            text = "Aktuell stehen keine offenen Fixkosten-Abbuchungen für diesen Monat an.",
+                            text = "Noch keine Einträge vorhanden – tippe hier oder auf +, um deine eigenen Werte einzutragen",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -831,7 +840,8 @@ private fun RecentBookingsGroupedSection(
     categoryById: Map<Long, CategoryTabEntity>,
     selectedCategoryName: String?,
     onClearFilter: () -> Unit,
-    onSelectTransaction: (TransactionEntity) -> Unit
+    onSelectTransaction: (TransactionEntity) -> Unit,
+    onEmptyClick: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -878,23 +888,24 @@ private fun RecentBookingsGroupedSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             if (transactions.isEmpty()) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .clickable { onEmptyClick() }
+                        .padding(horizontal = 16.dp, vertical = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "Noch keine Buchungen vorhanden (0,00 €).",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Tippe auf den '+' Button für deine ersten echten Einnahmen/Ausgaben oder lade im Hamburger-Menü unter 'Beispieldaten & Test-Labor' ein 6-Monats-Testszenario.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
+                        text = "Noch keine Einträge vorhanden – tippe hier oder auf +, um deine eigenen Werte einzutragen",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {

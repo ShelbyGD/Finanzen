@@ -571,7 +571,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         }
                         SettingsDemoScreen(
                             settingsState = settingsState,
-                            plannedMonthlyIncome = incomeCategory?.monthlyBudget ?: 0.0,
+                            plannedMonthlyIncome = incomeCategory?.defaultAmount ?: 0.0,
                             plannedPayDay = incomeCategory?.dueDayOfMonth ?: 1,
                             onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                             onUpdateBillingDay = viewModel::updateBillingStartDay,
