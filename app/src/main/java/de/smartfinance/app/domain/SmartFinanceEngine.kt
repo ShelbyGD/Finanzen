@@ -324,17 +324,16 @@ object SmartFinanceEngine {
         if (nextDebit != null) {
             val dayLabel = when (nextDebit.daysUntilDue) {
                 0 -> "Heute (${nextDebit.dueDateFormatted})"
-                1 -> "Morgen (${nextDebit.dueDateFormatted})"
+                1 -> "In 1 Tag (${nextDebit.dueDateFormatted})"
                 else -> "In ${nextDebit.daysUntilDue} Tagen (${nextDebit.dueDateFormatted})"
             }
-            nextDebitHeadline = "Nächste Abbuchung: $dayLabel – ${nextDebit.title} (${formatEuro(nextDebit.amount)})"
-            nextDebitSubline = "Noch offen diesen Monat: ${formatEuro(openUpcomingFixedTotal)} (${upcomingDebits.size} Posten)"
+            nextDebitHeadline = "🛡️ Nächste Zahlung: $dayLabel – ${nextDebit.title} (${formatEuro(nextDebit.amount)})"
+            nextDebitSubline = "Noch offen: ${formatEuro(openUpcomingFixedTotal)} (${upcomingDebits.size} Posten)"
         } else {
-            // Alle Abbuchungen im laufenden Monat sind bereits erledigt -> Vorschau auf den 1. des Folgemonats
             val nextMonthFirst = selectedYearMonth.plusMonths(1).atDay(1)
             val daysToNextFirst = ChronoUnit.DAYS.between(today, nextMonthFirst).toInt().coerceAtLeast(1)
-            nextDebitHeadline = "Alle Fixkosten für diesen Monat sind bereits abgebucht! ✅"
-            nextDebitSubline = "Nächster Abrechnungszyklus startet in $daysToNextFirst Tagen (${nextMonthFirst.format(dayMonthFormatter)}) | Noch offen: 0,00 €"
+            nextDebitHeadline = "🛡️ Nächste Zahlung: In $daysToNextFirst Tagen (${nextMonthFirst.format(dayMonthFormatter)}) – Monatsstart"
+            nextDebitSubline = "Noch offen: 0,00 € (0 Posten – alles für diesen Monat erledigt ✅)"
         }
 
         // 10. Kategorien-Summen & 3-Monats-Schnitt pro Kategorie + Schleichende-Kosten-Radar

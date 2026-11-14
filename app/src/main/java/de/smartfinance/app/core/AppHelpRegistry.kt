@@ -56,17 +56,17 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_TIMELINE_HEADER,
             moduleNumber = 1,
-            title = "1. Monats-Zeitstrahl & Soll/Ist-Header",
+            title = "1. Monats-Zeitstrahl & Hero-Budget-Header (Progressive Disclosure)",
             category = "Cockpit & Übersicht",
-            shortSummary = "Horizontale Wisch-Ansicht durch vergangene und zukünftige Monate, Einnahmen/Ausgaben-Durchschnitt (3/6/12 Monate) und flexibler Abrechnungstag (1., 15. oder 28.).",
+            shortSummary = "Aufgeräumte Hero-Budget-Karte mit Fokus auf 'Heute frei', linearem Restmonat-Balken, klaren Einnahmen/Ausgaben-Pillen und aufklappbarer Experten-Detailansicht (3/6/12M-Ø, Prognose & 1/12-Glätter).",
             stepByStepGuide = listOf(
-                "Wische im Cockpit horizontal nach links, um vergangene Abrechnungsmonate zu analysieren, oder nach rechts für den aktuellen Monat und zukünftige Prognose-Monate.",
-                "Tippe im Soll/Ist-Header oben rechts auf die Chips '3M', '6M' oder '12M', um den historischen Durchschnitt deiner Einnahmen und Ausgaben über 3, 6 oder 12 Monate direkt mit dem laufenden Monat zu vergleichen.",
-                "Stelle unter 'Einstellungen & Demo-Daten' deinen persönlichen Gehalts-Abrechnungstag auf den 1., 15. oder 28. des Monats ein."
+                "Wische im Cockpit horizontal nach links (vergangene Monate) oder rechts (aktueller Monat & Prognose-Monate) oder nutze oben zentriert den Monats-Umschalter '< Monat >'.",
+                "In der Kompakt-Ansicht siehst du sofort 'Heute frei: XX,XX €', den Fortschrittsbalken ('Restmonat: X.XXX € frei') sowie die zwei klaren Pillen '🟢 Einnahmen' und '🟠 Ausgaben'.",
+                "Tippe auf 'Details, Ø-Schnitt & Glätter anzeigen ⌄', um den Experten-Bereich mit den Auswahl-Chips ('3M-Ø', '6M-Ø', '12M-Ø'), der Monatsend-Prognose, der Rollover-Formel und dem 1/12-Jahreskosten-Glätter aufzuklappen."
             ),
             exampleTips = listOf(
-                "Tipp: Kommt dein Gehalt am 28. des Vormonats, stelle den Abrechnungstag auf den 28. ein – der Zeitstrahl berechnet dein Monatsbudget dann exakt vom 28. bis zum 27. des Folgemonats.",
-                "Über den Button 'Heute' im Monats-Header springst du aus jedem Monat sofort zurück in die Gegenwart."
+                "Tipp: Kommt dein Gehalt am 28. des Vormonats, stelle den Abrechnungstag unter 'Einstellungen' auf den 28. ein.",
+                "Über den kleinen 'Heute'-Button neben dem Monatsnamen springst du aus jedem Monat sofort zurück in den aktuellen Monat."
             ),
             requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.0.1"
@@ -80,7 +80,7 @@ object AppHelpRegistry {
             stepByStepGuide = listOf(
                 "Vom monatlichen Gesamteinkommen werden zuerst alle Fixkosten (inkl. noch kommender Abbuchungen), deine Dauer-Sparrate sowie 1/12-Jahresrücklagen abgezogen.",
                 "Das verbleibende freie Monatsbudget wird nach Abzug deiner bisherigen variablen Ausgaben durch die verbleibenden Kalendertage des Monats (inkl. heute) geteilt.",
-                "Gibst du heute weniger aus als dein Tagesbudget, steigt dein Tagessatz für alle restlichen Tage des Monats automatisch an (positiver Rollover)."
+                "Gibst du heute weniger aus als dein Tagesbudget, steigt dein Tagessatz für alle restlichen Tage des Monats automatisch an (positiver Rollover – einsehbar im aufklappbaren Detail-Bereich der Hero-Karte)."
             ),
             exampleTips = listOf(
                 "Formel: Freies Tagesbudget = (Einnahmen - Fixkosten gesamt - 1/12-Rücklagen - Sparrate - Variable Ausgaben bisher) ÷ Resttage im Monat.",
@@ -92,17 +92,17 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_DEBIT_GUARDIAN_WAVE,
             moduleNumber = 3,
-            title = "3. Abbuchungs-Wächter & Grafische Monats-Belastungswelle",
+            title = "3. Abbuchungs-Wächter & Aufklappbare Monats-Belastungswelle",
             category = "Cashflow & Schutz",
-            shortSummary = "Countdown für die nächste anstehende Abbuchung plus hochauflösendes Canvas-Wellendiagramm (Tag 1–31) mit Belastungs-Peaks und vertikaler 'Heute'-Trennlinie.",
+            shortSummary = "Kompakte Wächter-Zeile für die nächste anstehende Zahlung + per Tap auf '📈 Grafik ⌄' aufklappbares Canvas-Wellendiagramm (Tag 1–31) mit Peaks und 'Heute'-Linie.",
             stepByStepGuide = listOf(
-                "Jede Fixkosten-Kategorie und jeder Dauerauftrag speichert seinen genauen Abbuchungstag im Monat (Tag 1 bis 31).",
-                "Das Wächter-Widget direkt unter dem Header zählt die Tage bis zur nächsten Abbuchung herunter und zeigt die Summe aller in diesem Monat noch offenen Lastschriften.",
-                "Im Canvas-Diagramm darunter siehst du Tag 1 bis 31 aufgeteilt in Monatsanfang (1–10), Mitte (11–20) und Ende (21–31): Erledigte Tage links der 'Heute'-Linie sind grün, kommende Abbuchungsspitzen (Peaks) leuchten bernsteinfarben/rot."
+                "Standardmäßig zeigt der Abbuchungs-Wächter platzsparend nur die wichtigste Info: '🛡️ Nächste Zahlung: In X Tagen (Datum) – Name (Betrag)' sowie 'Noch offen: X.XXX € (Y Posten)'.",
+                "Tippe rechts auf den Chip '📈 Grafik ⌄', um die grafische Monats-Belastungswelle (Tag 1–31) sanft per AnimatedVisibility aufzuklappen.",
+                "Im ausgeklappten Diagramm siehst du die Legende, die 3 Phasen-Kacheln ('Anfang 1.–10.', 'Mitte 11.–20.', 'Ende 21.–31.'), die vertikale 'Heute'-Trennlinie und kannst jeden Tag im Diagramm antippen."
             ),
             exampleTips = listOf(
-                "Beispiel: 'Nächste Abbuchung: In 1 Tag (15.11.) – Handyvertrag (29,99 €) | Noch offen diesen Monat: 134,89 €'.",
-                "So vermeidest du Rücklastschriften, weil du schon am 10. des Monats siehst, welche großen Brocken am 15. und 28. noch vom Konto abgehen."
+                "Beispiel: '🛡️ Nächste Zahlung: In 1 Tag (15.11.) – Handyvertrag (29,99 €) | Noch offen: 119,89 € (2 Posten)'.",
+                "Durch das standardmäßig eingeklappte Diagramm hast du deine 1-Tap-Schnellvorlagen und Kategorien-Tabs sofort ohne Scrollen im Blick!"
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -112,14 +112,14 @@ object AppHelpRegistry {
             moduleNumber = 4,
             title = "4. Dynamische Kategorien-Tabs & Vertrags-Wecker",
             category = "Kategorien & Verträge",
-            shortSummary = "Vorinstallierte Tabs (Versicherung, Handy, Kfz, Lebensmittel, Fixkosten, Sparen), frei erweiterbar um eigene Tabs inkl. 30-Tage-Vorwarnung vor Vertragsende.",
+            shortSummary = "Vorinstallierte Tabs (Versicherung, Handy, Kfz, Lebensmittel, Fixkosten, Sparen), frei erweiterbar um eigene Tabs inkl. wegklickbarer 30-Tage-Vorwarnung vor Vertragsende.",
             stepByStepGuide = listOf(
-                "Tippe im Cockpit auf die horizontal scrollbaren Filter-Chips, um Buchungen und Statistiken sofort nach einem Tab zu filtern.",
+                "Tippe im Cockpit auf die horizontal scrollbaren Filter-Chips, um die Buchungsliste darunter sofort nach einem Tab zu filtern.",
                 "Tippe ganz rechts auf '+ Tab hinzufügen' oder öffne im Menü 'Kategorien, Sparziele & Verträge', um eigene Tabs mit Icon, Monatslimit und Fälligkeitstag (1–31) anzulegen.",
-                "Hinterlege bei Verträgen (z. B. Handyvertrag, Strom, Kfz-Versicherung) das Vertragsende- bzw. Kündigungs-Stichtagsdatum – der Vertrags-Wecker warnt dich automatisch ab 30 Tage vorher!"
+                "Hinterlege bei Verträgen das Vertragsende-Stichtagsdatum – der Vertrags-Wecker warnt dich ab 30 Tage vorher (gelesene Warnungen lassen sich über das '✕'-Icon für die aktuelle Sitzung ausblenden)."
             ),
             exampleTips = listOf(
-                "Beispiel: Läuft dein Handyvertrag am 30.11. aus, erscheint im Cockpit automatisch das Warn-Badge '⏰ Vertrags-Wecker: Handyvertrag endet in 16 Tagen – jetzt Tarif vergleichen!'.",
+                "Beispiel: Läuft deine Kfz-Versicherung oder dein Handyvertrag in 16 Tagen aus, erscheint oben ein kompaktes Warn-Banner mit direktem Absprung und '✕'-Schließen-Button.",
                 "Du kannst jeden Tab jederzeit bearbeiten oder eigene Kategorien wie 'Haustier', 'Fitnessstudio' oder 'Kinder' ergänzen."
             ),
             requiredTier = AppTier.PRO_FULL,
@@ -130,14 +130,14 @@ object AppHelpRegistry {
             moduleNumber = 5,
             title = "5. Schleichende-Kosten-Radar & Budget-Überschreitungs-Warner",
             category = "KI-Anomalie-Erkennung",
-            shortSummary = "Automatische Frühwarnung im Dashboard, sobald eine Kategorie ihr Monatslimit überschreitet oder mehr als 20 % über dem historischen 3-Monats-Schnitt liegt.",
+            shortSummary = "Automatische, wegklickbare Frühwarnung im Dashboard, sobald eine Kategorie ihr Monatslimit überschreitet oder mehr als 20 % über dem historischen 3-Monats-Schnitt liegt.",
             stepByStepGuide = listOf(
                 "Die lokale Finanz-Engine vergleicht bei jeder Buchung die aktuellen Monatsausgaben jeder Kategorie mit dem Durchschnitt der letzten 3 Monate.",
-                "Steigt eine Kategorie um mehr als 20 % über ihren 3-Monats-Schnitt (oder über ihr festgesetztes Tab-Budgetlimit), blendet das Cockpit sofort das gelb/rote Radar-Banner ein.",
-                "Tippe auf das Warn-Banner, um die betroffene Kategorie direkt zu filtern und die Preistreiber-Buchungen zu prüfen."
+                "Steigt eine Kategorie um mehr als 20 % über ihren 3-Monats-Schnitt (oder über ihr festgesetztes Tab-Budgetlimit), blendet das Cockpit ein Warn-Banner ein.",
+                "Tippe auf das Banner zum direkten Filtern der Kategorie oder blende es nach dem Lesen über das '✕'-Icon rechts aus."
             ),
             exampleTips = listOf(
-                "Beispiel: '⚠️ Schleichende Kosten erkannt: Lebensmittel liegt aktuell +28 % über deinem 3-Monats-Schnitt (460 € statt Ø 360 €).'",
+                "Beispiel: '⚠️ Schleichende Kosten erkannt: Lebensmittel liegt aktuell +28 % über deinem 3-Monats-Schnitt.'",
                 "Auch schleichende Preiserhöhungen bei Versicherungen oder Streaming-Abos fallen sofort auf."
             ),
             requiredTier = AppTier.PRO_FULL,
@@ -148,15 +148,15 @@ object AppHelpRegistry {
             moduleNumber = 6,
             title = "6. 1/12-Jahreskosten-Glätter",
             category = "Budget-Glättung",
-            shortSummary = "Legt jährliche oder vierteljährliche Großrechnungen (z. B. Kfz-Versicherung, GEZ, Jahresbeiträge) virtuell auf 12 Monate um, damit kein Monat ins Minus rutscht.",
+            shortSummary = "Legt jährliche oder vierteljährliche Großrechnungen (z. B. Kfz-Versicherung, GEZ, Jahresbeiträge) virtuell auf 12 Monate um – integriert im Detail-Bereich der Hero-Budget-Karte.",
             stepByStepGuide = listOf(
                 "Aktiviere beim Anlegen oder Bearbeiten einer Buchung bzw. eines Dauerauftrags mit jährlichem/vierteljährlichem Turnus den Schalter 'Auf 12 Monate glätten (1/12-Rücklage)'.",
                 "SmartFinance zieht jeden Monat automatisch exakt 1/12 (bei Jahreszahlung) bzw. 1/3 (bei Quartalszahlung) als virtuelle Rücklage von deinem freien Budget ab.",
-                "Im Cockpit siehst du in der Karte '1/12-Jahreskosten-Glätter' jederzeit transparent, wie viel Euro monatlich für deine Jahresrechnungen reserviert werden."
+                "Klappe oben in der Hero-Budget-Karte den Bereich 'Details, Ø-Schnitt & Glätter anzeigen ⌄' auf, um jederzeit die reservierte 1/12-Monatsrücklage und das '?'-Hilfe-Icon einzusehen."
             ),
             exampleTips = listOf(
                 "Beispiel: Deine Kfz-Versicherung kostet 660,00 € einmal im Jahr. Mit aktivem 1/12-Glätter werden jeden Monat sanfte 55,00 € vom freien Budget reserviert statt eines 660-€-Schocks im November!",
-                "Tippe auf das '?'-Icon direkt an der 1/12-Glätter-Karte im Cockpit, um diese Erklärung jederzeit nachzulesen."
+                "Tippe im aufgeklappten Hero-Detailbereich auf das '?'-Icon neben dem 1/12-Glätter, um diese Erklärung jederzeit nachzulesen."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -299,8 +299,20 @@ object AppHelpRegistry {
             buildNumber = BuildConfig.BUILD_NUMBER,
             date = "14.11.2026",
             newFeatures = listOf(
-                "Vollständiges Release von SmartFinance 2026 (v${BuildConfig.VERSION_NAME}, Build #${BuildConfig.BUILD_NUMBER}) mit deterministischer In-Place-Update-Signatur und striktem Room-Datenschutz.",
-                "Monats-Zeitstrahl (HorizontalPager) mit Soll/Ist-Kompakt-Header, 3/6/12-Monats-Durchschnitt und dynamischem Tagesbudget-Rollover.",
+                "UI/UX-Update (Build #${BuildConfig.BUILD_NUMBER}): Aufgeräumtes 3-Zonen-Cockpit nach dem 'Progressive Disclosure'-Prinzip (Material 3 AnimatedVisibility) ohne Funktionsverlust.",
+                "Hero-Budget-Karte entschlackt: Fokus auf 'Heute frei: XX,XX €', linearen Fortschrittsbalken ('Restmonat: X.XXX € frei') sowie zwei klare Pillen ('🟢 Einnahmen' & '🟠 Ausgaben').",
+                "Aufklappbare Experten-Detailansicht ('Details, Ø-Schnitt & Glätter anzeigen ⌄'): Enthält die 3M/6M/12M-Ø-Chips, Monatsend-Prognose, Rollover-Formel und den integrierten 1/12-Jahreskosten-Glätter.",
+                "Abbuchungs-Wächter standardmäßig eingeklappt: Kompakte Wächter-Zeile mit '📈 Grafik ⌄'-Button zum bedarfsweisen Aufklappen der 31-Tage-Belastungswelle.",
+                "Wegklickbare Warn-Banner ('✕') für Vertrags-Wecker & Schleichende-Kosten-Radar sowie direkter Alltags-Fokus auf 1-Tap-Schnelleingabe und Kategorien-Tabs ohne Scrollen."
+            )
+        ),
+        ChangelogEntry(
+            versionName = "1.0.1",
+            buildNumber = 1,
+            date = "14.11.2026",
+            newFeatures = listOf(
+                "Initiales Voll-Release von SmartFinance 2026 (v1.0.1, Build #1) mit deterministischer In-Place-Update-Signatur und striktem Room-Datenschutz.",
+                "Monats-Zeitstrahl (HorizontalPager) mit Soll/Ist-Header, 3/6/12-Monats-Durchschnitt und dynamischem Tagesbudget-Rollover.",
                 "Abbuchungs-Wächter mit Countdown und grafischer Monats-Belastungswelle (Canvas Tag 1–31 inkl. Peaks und 'Heute'-Markierungslinie).",
                 "Dynamische Kategorien-Tabs inkl. Vertrags-Wecker (30-Tage-Vorwarnung), Schleichende-Kosten-Radar (>20 % Abweichung) und 1/12-Jahreskosten-Glätter.",
                 "Etappen-Sparziel-Tracker (3.000-€-Etappe) mit automatischer KI-Zieldatum-Prognose.",
