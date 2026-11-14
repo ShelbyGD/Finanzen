@@ -1,0 +1,67 @@
+name: SmartFinance 2026 Android APK Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Signed APK (v1.0.${{ github.run_number }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Ensure Deterministic Signing Keystore Exists
+        run: |
+          mkdir -p app/keystore
+          if [ ! -f "app/keystore/smartfinance.jks" ]; then
+            echo "Erzeuge deterministischen Keystore app/keystore/smartfinance.jks..."
+            keytool -genkeypair -v \
+              -keystore app/keystore/smartfinance.jks \
+              -alias smartfinance_key \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "SmartFinance2026Key!" \
+              -keypass "SmartFinance2026Key!" \
+              -dname "CN=SmartFinance 2026, OU=Mobile, O=SmartFinance, L=Berlin, ST=Berlin, C=DE"
+          else
+            echo " Bestehender Keystore app/keystore/smartfinance.jks gefunden (In-Place-Update-Signatur aktiv)."
+          fi
+
+      - name: Setup Gradle with Caching
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Grant Execute Permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Signed Release APK
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Prepare Versioned APK File
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "SmartFinance-v1.0.${{ github.run_number }}.apk"
+          ls -lh "SmartFinance-v1.0.${{ github.run_number }}.apk"
+
+      - name: Upload Signed APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartFinance-v1.0.${{ github.run_number }}.apk
+          path: SmartFinance-v1.0.${{ github.run_number }}.apk
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,22 @@
+# Gradle & Build Outputs
+.gradle/
+build/
+app/build/
+local.properties
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+.cxx/
+captures/
+.externalNativeBuild/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# WICHTIG: app/keystore/smartfinance.jks und gradle/wrapper/gradle-wrapper.jar
+# werden ABSICHTLICH NICHT ignoriert, damit GitHub Actions Builds immer
+# dieselbe APK-Signatur für nahtlose In-Place-Updates behalten!
+!app/keystore/smartfinance.jks
+!gradle/wrapper/gradle-wrapper.jar

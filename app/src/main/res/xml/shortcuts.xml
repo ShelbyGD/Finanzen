@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="quick_expense"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_quick_expense_short"
+        android:shortcutLongLabel="@string/shortcut_quick_expense_long">
+        <intent
+            android:action="de.smartfinance.app.ACTION_QUICK_EXPENSE"
+            android:targetPackage="de.smartfinance.app"
+            android:targetClass="de.smartfinance.app.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="scan_receipt"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutShortLabel="@string/shortcut_scan_receipt_short"
+        android:shortcutLongLabel="@string/shortcut_scan_receipt_long">
+        <intent
+            android:action="de.smartfinance.app.ACTION_SCAN_RECEIPT"
+            android:targetPackage="de.smartfinance.app"
+            android:targetClass="de.smartfinance.app.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="ai_check"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_ai"
+        android:shortcutShortLabel="@string/shortcut_ai_check_short"
+        android:shortcutLongLabel="@string/shortcut_ai_check_long">
+        <intent
+            android:action="de.smartfinance.app.ACTION_AI_CHAT"
+            android:targetPackage="de.smartfinance.app"
+            android:targetClass="de.smartfinance.app.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+</shortcuts>
