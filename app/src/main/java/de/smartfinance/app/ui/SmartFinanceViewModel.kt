@@ -597,19 +597,22 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     defaultAmount = proposal.amount,
                     monthlyBudgetLimit = proposal.amount,
                     dueDayOfMonth = proposal.dueDayOfMonth,
-                    cancellationNoticeEpochDay = noticeEpochDay,
-                    smoothAnnualOver12Months = proposal.billingInterval == BillingInterval.YEARLY
+                    billingInterval = proposal.billingInterval,
+                    contractEndDateEpochDay = noticeEpochDay,
+                    smoothOver12Months = proposal.billingInterval == BillingInterval.YEARLY
                 )
             } else {
                 CategoryTabEntity(
                     name = proposal.contractName,
                     iconKey = "shield",
+                    colorHex = 0xFF6366F1L,
                     categoryType = CategoryType.FIXED_EXPENSE,
                     defaultAmount = proposal.amount,
                     monthlyBudgetLimit = proposal.amount,
                     dueDayOfMonth = proposal.dueDayOfMonth,
-                    cancellationNoticeEpochDay = noticeEpochDay,
-                    smoothAnnualOver12Months = proposal.billingInterval == BillingInterval.YEARLY
+                    billingInterval = proposal.billingInterval,
+                    contractEndDateEpochDay = noticeEpochDay,
+                    smoothOver12Months = proposal.billingInterval == BillingInterval.YEARLY
                 )
             }
             repository.saveCategoryTab(updatedCat)

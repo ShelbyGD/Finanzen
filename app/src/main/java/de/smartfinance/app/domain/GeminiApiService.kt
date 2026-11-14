@@ -195,17 +195,24 @@ object GeminiApiService {
             }
         }
 
+        val sp = snapshot.savingsProgress
+        val savingsTitle = sp?.goal?.title ?: "Mein Sparziel"
+        val savingsSaved = sp?.totalSaved ?: 0.0
+        val savingsTarget = sp?.targetAmount ?: 0.0
+        val savingsPct = ((sp?.progressFraction ?: 0f) * 100f).roundToInt()
+        val savingsMonthlyRate = sp?.effectiveMonthlyRate ?: 0.0
+
         val lines = listOf(
             "1. Abrechnungsmonat: ${snapshot.monthTitleFormatted} (Verbleibende Tage bis Monatsende: ${snapshot.remainingDaysInMonth})",
             "2. Gesamteinnahmen Monat: Ist ${SmartFinanceEngine.formatEuro(snapshot.actualIncome)} | Geplant/Soll ${SmartFinanceEngine.formatEuro(snapshot.targetIncome)}",
-            "3. Gesamtausgaben Monat bisher: ${SmartFinanceEngine.formatEuro(snapshot.totalExpensesThisMonth)} (Variabel: ${SmartFinanceEngine.formatEuro(snapshot.variableSpentAlready)}, Fixkosten bezahlt: ${SmartFinanceEngine.formatEuro(snapshot.fixedPaidAlready)})",
-            "4. Verfügbares Restbudget Monat: ${SmartFinanceEngine.formatEuro(snapshot.remainingFreeBudgetMonth)} (inkl. 1/12-Jahresrücklage: ${SmartFinanceEngine.formatEuro(snapshot.virtualMonthlySmootherReserve)})",
+            "3. Gesamtausgaben Monat bisher: ${SmartFinanceEngine.formatEuro(snapshot.actualExpensesRaw)} (Variabel: ${SmartFinanceEngine.formatEuro(snapshot.variableExpensesSoFar)}, Fixkosten bezahlt: ${SmartFinanceEngine.formatEuro(snapshot.bookedFixedExpenses)})",
+            "4. Verfügbares Restbudget Monat: ${SmartFinanceEngine.formatEuro(snapshot.remainingFreeBudgetMonth)} (inkl. 1/12-Jahresrücklage: ${SmartFinanceEngine.formatEuro(snapshot.smoothedMonthlyReserveTotal)})",
             "5. Heute frei (Dynamischer Tagessatz inkl. Rollover): ${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag",
             "6. Noch offene Fixkosten bis Monatsende: ${SmartFinanceEngine.formatEuro(snapshot.openUpcomingFixedTotal)} (${snapshot.upcomingDebits.size} offene Posten)",
             "7. Nächste anstehende Fixkosten-Abbuchungen: $upcomingSummary",
             "8. Kategorie-Summen & Limits: $categorySummary",
-            "9. Sparziel-Stand: '${snapshot.savingsProgress.title}' – ${SmartFinanceEngine.formatEuro(snapshot.savingsProgress.currentSaved)} von ${SmartFinanceEngine.formatEuro(snapshot.savingsProgress.targetAmount)} (${snapshot.savingsProgress.progressPercent} %, Dauer-Sparrate: ${SmartFinanceEngine.formatEuro(snapshot.savingsProgress.monthlyRate)}/Monat)",
-            "10. Netto-Stundenlohn: ${SmartFinanceEngine.formatEuro(hourlyWage)}/Std. | Burn-Rate Werktag: ${SmartFinanceEngine.formatEuro(snapshot.weekdayAvgSpend)}/Tag, Wochenende: ${SmartFinanceEngine.formatEuro(snapshot.weekendAvgSpend)}/Tag"
+            "9. Sparziel-Stand: '$savingsTitle' – ${SmartFinanceEngine.formatEuro(savingsSaved)} von ${SmartFinanceEngine.formatEuro(savingsTarget)} ($savingsPct %, Dauer-Sparrate: ${SmartFinanceEngine.formatEuro(savingsMonthlyRate)}/Monat)",
+            "10. Netto-Stundenlohn: ${SmartFinanceEngine.formatEuro(hourlyWage)}/Std. | Burn-Rate Werktag: ${SmartFinanceEngine.formatEuro(snapshot.weekdayBurnRate)}/Tag, Wochenende: ${SmartFinanceEngine.formatEuro(snapshot.weekendBurnRate)}/Tag"
         )
         return lines.joinToString("\n")
     }
@@ -550,6 +557,7 @@ object GeminiApiService {
             id = 1L,
             name = "Lebensmittel",
             iconKey = "cart",
+            colorHex = 0xFF10B981L,
             categoryType = CategoryType.VARIABLE_EXPENSE
         )
         if (txType == TransactionType.INCOME) {
@@ -751,6 +759,7 @@ object GeminiApiService {
             id = 1L,
             name = "Lebensmittel",
             iconKey = "cart",
+            colorHex = 0xFF10B981L,
             categoryType = CategoryType.VARIABLE_EXPENSE
         )
         val clean = queryName.trim()
