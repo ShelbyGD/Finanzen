@@ -27,6 +27,11 @@ import de.smartfinance.app.domain.ContractScanProposal
 import de.smartfinance.app.domain.DashboardAnalysisSnapshot
 import de.smartfinance.app.domain.GeminiApiService
 import de.smartfinance.app.domain.GeminiVisionScanResult
+import de.smartfinance.app.domain.AiAction
+import de.smartfinance.app.domain.AiActionResult
+import de.smartfinance.app.domain.PdfBitmapConverter
+import org.json.JSONObject
+import de.smartfinance.app.domain.ReceiptOcrParser
 import de.smartfinance.app.domain.ReceiptSplitItem
 import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.domain.VoiceBookingProposal
@@ -69,7 +74,8 @@ data class ChatMessage(
     val id: Long = System.nanoTime(),
     val senderIsUser: Boolean,
     val text: String,
-    val timestamp: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+    val timestamp: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+    val executedActions: List<AiActionResult> = emptyList()
 )
 
 class SmartFinanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -538,7 +544,10 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
         val snapshot = currentSnapshot.value
         val cats = categories.value
+        val contracts = cats.filter { it.categoryType == CategoryType.FIXED_EXPENSE }
+        val goal = savingsGoals.value.firstOrNull()
         val wage = settingsState.value.hourlyWage
+        val userSettings = settingsState.value
         val vault = geminiVaultState.value
 
         viewModelScope.launch {
@@ -551,26 +560,434 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     snapshot = snapshot,
                     categories = cats,
                     hourlyWage = wage,
+                    contracts = contracts,
+                    savingsGoal = goal,
+                    settings = userSettings,
                     onAutoSwitchModel = { newModel ->
                         apiKeyManager.setSelectedModel(newModel)
                     }
                 )
             } else {
-                val localText = SmartFinanceEngine.answerUserQuery(
-                    rawQuery = trimmed,
+                GeminiApiService.askHybridCoach(
+                    userQuestion = trimmed,
+                    apiKey = "",
+                    model = "",
                     snapshot = snapshot,
                     categories = cats,
-                    hourlyWage = wage
-                )
-                de.smartfinance.app.domain.HybridCoachReply(
-                    text = localText,
-                    usedCloudGemini = false,
-                    modelUsed = "Lokale SmartFinanceEngine"
+                    hourlyWage = wage,
+                    contracts = contracts,
+                    savingsGoal = goal,
+                    settings = userSettings
                 )
             }
+
+            val executedResults = if (reply.actions.isNotEmpty()) {
+                executeAiActions(reply.actions)
+            } else emptyList()
+
             _isAiThinking.value = false
-            val aiMsg = ChatMessage(senderIsUser = false, text = reply.text)
+            val aiMsg = ChatMessage(
+                senderIsUser = false,
+                text = reply.text,
+                executedActions = executedResults
+            )
             _chatMessages.value = _chatMessages.value + aiMsg
+        }
+    }
+
+    fun uploadDocumentAndAnalyze(context: Context, uri: Uri) {
+        val userMsg = ChatMessage(
+            senderIsUser = true,
+            text = "📎 [Dokument hochgeladen] Bitte analysiere dieses Dokument und trage alle erkannten Daten automatisch ein."
+        )
+        _chatMessages.value = _chatMessages.value + userMsg
+
+        val snapshot = currentSnapshot.value
+        val cats = categories.value
+        val contracts = cats.filter { it.categoryType == CategoryType.FIXED_EXPENSE }
+        val goal = savingsGoals.value.firstOrNull()
+        val wage = settingsState.value.hourlyWage
+        val userSettings = settingsState.value
+        val vault = geminiVaultState.value
+
+        viewModelScope.launch {
+            _isAiThinking.value = true
+            val bitmap = withContext(Dispatchers.IO) {
+                PdfBitmapConverter.convertUriToBitmap(context, uri, maxDimension = 1200)
+            }
+            if (bitmap == null) {
+                _isAiThinking.value = false
+                _chatMessages.value = _chatMessages.value + ChatMessage(
+                    senderIsUser = false,
+                    text = "Das Dokument konnte nicht geladen oder gerendert werden. Bitte wähle eine gültige PDF- oder Bilddatei."
+                )
+                return@launch
+            }
+
+            val base64Jpeg = withContext(Dispatchers.IO) {
+                PdfBitmapConverter.bitmapToBase64Jpeg(bitmap)
+            }
+
+            val reply = if (FeatureGate.isGeminiCloudVisionUnlocked() && vault.hasApiKey) {
+                GeminiApiService.askHybridCoach(
+                    userQuestion = "Analysiere dieses hochgeladene Dokument (Rechnung, Beleg, Vertrag, Gehaltsabrechnung oder Kontoauszug) vollständig, fasse das Ergebnis auf Deutsch zusammen und trage alle erkannten Buchungen, Fixkosten-Verträge, Budgets oder Einstellungen direkt über den JSON-Aktionsblock ein.",
+                    apiKey = vault.apiKey,
+                    model = vault.selectedModel.ifBlank { "gemini-3.5-flash-lite" },
+                    snapshot = snapshot,
+                    categories = cats,
+                    hourlyWage = wage,
+                    contracts = contracts,
+                    savingsGoal = goal,
+                    settings = userSettings,
+                    base64ImageJpeg = base64Jpeg,
+                    onAutoSwitchModel = { newModel -> apiKeyManager.setSelectedModel(newModel) }
+                )
+            } else {
+                val ocrResult = withContext(Dispatchers.IO) {
+                    ReceiptOcrParser.recognizeFromImageUri(context, uri, cats)
+                }
+                if (ocrResult.isSuccess) {
+                    val ocr = ocrResult.getOrThrow()
+                    val localAction = if (ocr.detectedAmount > 0.0) {
+                        listOf(
+                            AiAction.AddTransaction(
+                                title = ocr.detectedMerchantTitle.ifBlank { "Beleg-Scan" },
+                                amount = ocr.detectedAmount,
+                                categoryName = ocr.suggestedCategoryName.ifBlank { "Sonstiges" },
+                                transactionType = TransactionType.EXPENSE
+                            )
+                        )
+                    } else emptyList()
+                    de.smartfinance.app.domain.HybridCoachReply(
+                        text = "Lokale Beleg-Erkennung (Google ML Kit):\n" +
+                            "• Händler: ${ocr.detectedMerchantTitle}\n" +
+                            "• Betrag: ${SmartFinanceEngine.formatEuro(ocr.detectedAmount)}\n" +
+                            "• Kategorie: ${ocr.suggestedCategoryName}\n\n" +
+                            "[Tipp: Hinterlege deinen kostenlosen Gemini API-Key für KI-Gehaltsabrechnungen, Vertrags-Scans & PDF-Analyse]",
+                        usedCloudGemini = false,
+                        modelUsed = "Lokales ML Kit OCR",
+                        actions = localAction
+                    )
+                } else {
+                    de.smartfinance.app.domain.HybridCoachReply(
+                        text = "Das Dokument konnte lokal nicht gelesen werden. Bitte hinterlege einen Gemini API-Key für Cloud-Vision-Analyse.",
+                        usedCloudGemini = false,
+                        modelUsed = "Lokales OCR"
+                    )
+                }
+            }
+
+            val executedResults = if (reply.actions.isNotEmpty()) {
+                executeAiActions(reply.actions)
+            } else emptyList()
+
+            _isAiThinking.value = false
+            val aiMsg = ChatMessage(
+                senderIsUser = false,
+                text = reply.text,
+                executedActions = executedResults
+            )
+            _chatMessages.value = _chatMessages.value + aiMsg
+        }
+    }
+
+    suspend fun executeAiActions(actions: List<AiAction>): List<AiActionResult> = withContext(Dispatchers.IO) {
+        val results = mutableListOf<AiActionResult>()
+        val today = LocalDate.now()
+
+        for (action in actions) {
+            when (action) {
+                is AiAction.AddTransaction -> {
+                    val matchedCat = categories.value.firstOrNull { it.name.equals(action.categoryName, ignoreCase = true) }
+                        ?: categories.value.firstOrNull { action.categoryName.contains(it.name, ignoreCase = true) }
+                        ?: categories.value.firstOrNull { it.categoryType == action.transactionType }
+                        ?: categories.value.firstOrNull()
+                        ?: CategoryTabEntity(
+                            name = action.categoryName,
+                            iconKey = "receipt_long",
+                            colorHex = 0xFF4F46E5L,
+                            categoryType = action.transactionType
+                        ).also { repository.saveCategoryTab(it) }
+
+                    val date = runCatching {
+                        action.dateIso?.let { LocalDate.parse(it) }
+                    }.getOrNull() ?: today
+
+                    val tx = TransactionEntity(
+                        title = action.title,
+                        amount = action.amount,
+                        transactionType = action.transactionType,
+                        categoryId = matchedCat.id,
+                        categoryName = matchedCat.name,
+                        dateEpochDay = date.toEpochDay(),
+                        dueDayOfMonth = date.dayOfMonth,
+                        isFixedRecurring = false,
+                        billingInterval = BillingInterval.ONE_TIME,
+                        smoothOver12Months = false,
+                        note = "Automatisch per KI-Agent gebucht"
+                    )
+                    val newId = repository.addTransaction(tx)
+                    val typeLabel = if (action.transactionType == TransactionType.INCOME) "Einnahme" else "Ausgabe"
+                    results.add(
+                        AiActionResult(
+                            actionType = "ADD_TRANSACTION",
+                            details = "$typeLabel '${action.title}' (${SmartFinanceEngine.formatEuro(action.amount)}) in '${matchedCat.name}'",
+                            targetId = newId
+                        )
+                    )
+                }
+
+                is AiAction.UpsertContract -> {
+                    val existing = categories.value.firstOrNull {
+                        it.name.equals(action.name, ignoreCase = true) || (it.categoryType == CategoryType.FIXED_EXPENSE && action.name.contains(it.name, ignoreCase = true))
+                    }
+                    val noticeEpochDay = runCatching {
+                        action.cancellationDateIso?.let { LocalDate.parse(it).toEpochDay() }
+                    }.getOrNull() ?: today.plusDays(30).toEpochDay()
+
+                    val previousJson = existing?.let {
+                        JSONObject().apply {
+                            put("id", it.id)
+                            put("name", it.name)
+                            put("defaultAmount", it.defaultAmount ?: 0.0)
+                            put("monthlyBudgetLimit", it.monthlyBudgetLimit ?: 0.0)
+                            put("dueDayOfMonth", it.dueDayOfMonth ?: 1)
+                            put("billingInterval", it.billingInterval)
+                            put("smoothOver12Months", it.smoothOver12Months)
+                            put("contractEndDateEpochDay", it.contractEndDateEpochDay ?: 0L)
+                        }.toString()
+                    }
+
+                    val contractCat = if (existing != null) {
+                        existing.copy(
+                            categoryType = CategoryType.FIXED_EXPENSE,
+                            defaultAmount = action.amount,
+                            monthlyBudgetLimit = action.amount,
+                            dueDayOfMonth = action.dueDayOfMonth,
+                            billingInterval = action.billingInterval,
+                            contractEndDateEpochDay = noticeEpochDay,
+                            smoothOver12Months = action.smooth12Months || action.billingInterval == BillingInterval.YEARLY
+                        )
+                    } else {
+                        CategoryTabEntity(
+                            name = action.name,
+                            iconKey = "shield",
+                            colorHex = 0xFF6366F1L,
+                            categoryType = CategoryType.FIXED_EXPENSE,
+                            defaultAmount = action.amount,
+                            monthlyBudgetLimit = action.amount,
+                            dueDayOfMonth = action.dueDayOfMonth,
+                            billingInterval = action.billingInterval,
+                            contractEndDateEpochDay = noticeEpochDay,
+                            smoothOver12Months = action.smooth12Months || action.billingInterval == BillingInterval.YEARLY
+                        )
+                    }
+                    repository.saveCategoryTab(contractCat)
+                    repository.processDueRecurringBookings(today)
+                    results.add(
+                        AiActionResult(
+                            actionType = "UPSERT_CONTRACT",
+                            details = "Vertrag '${action.name}' (${SmartFinanceEngine.formatEuro(action.amount)}/${action.billingInterval}, fällig am ${action.dueDayOfMonth}.)",
+                            targetId = contractCat.id,
+                            previousData = previousJson
+                        )
+                    )
+                }
+
+                is AiAction.UpdateCategoryBudget -> {
+                    val existing = categories.value.firstOrNull { it.name.equals(action.categoryName, ignoreCase = true) }
+                    val prevLimit = existing?.monthlyBudgetLimit ?: existing?.defaultAmount ?: 0.0
+                    val targetCat = existing?.copy(monthlyBudgetLimit = action.monthlyBudgetLimit)
+                        ?: CategoryTabEntity(
+                            name = action.categoryName,
+                            iconKey = "label",
+                            colorHex = 0xFF0D9488L,
+                            categoryType = CategoryType.VARIABLE_EXPENSE,
+                            monthlyBudgetLimit = action.monthlyBudgetLimit,
+                            defaultAmount = action.monthlyBudgetLimit
+                        )
+                    repository.saveCategoryTab(targetCat)
+                    results.add(
+                        AiActionResult(
+                            actionType = "UPDATE_CATEGORY_BUDGET",
+                            details = "Budget für '${targetCat.name}' auf ${SmartFinanceEngine.formatEuro(action.monthlyBudgetLimit)}",
+                            targetId = targetCat.id,
+                            previousData = prevLimit.toString()
+                        )
+                    )
+                }
+
+                is AiAction.UpdateSavingsGoal -> {
+                    val current = savingsGoals.value.firstOrNull()
+                    val prevJson = current?.let {
+                        JSONObject().apply {
+                            put("title", it.title)
+                            put("targetAmount", it.targetAmount)
+                            put("initialSavedAmount", it.initialSavedAmount)
+                            put("monthlyContributionGoal", it.monthlyContributionGoal)
+                            put("dueDayOfMonth", it.dueDayOfMonth)
+                        }.toString()
+                    }
+                    val newTitle = action.title ?: current?.title ?: "Mein Sparziel"
+                    val newTarget = action.targetAmount ?: current?.targetAmount ?: 1000.0
+                    val newSaved = action.savedAmount ?: current?.initialSavedAmount ?: 0.0
+                    val newRate = action.monthlyRate ?: current?.monthlyContributionGoal ?: 50.0
+
+                    val updatedGoal = if (current != null) {
+                        current.copy(
+                            title = newTitle,
+                            targetAmount = newTarget,
+                            initialSavedAmount = newSaved,
+                            monthlyContributionGoal = newRate
+                        )
+                    } else {
+                        SavingsGoalEntity(
+                            title = newTitle,
+                            targetAmount = newTarget,
+                            initialSavedAmount = newSaved,
+                            monthlyContributionGoal = newRate,
+                            dueDayOfMonth = 1
+                        )
+                    }
+                    repository.updateSavingsGoal(updatedGoal)
+                    results.add(
+                        AiActionResult(
+                            actionType = "UPDATE_SAVINGS_GOAL",
+                            details = "Sparziel '$newTitle': Ziel ${SmartFinanceEngine.formatEuro(newTarget)}, Rate ${SmartFinanceEngine.formatEuro(newRate)}/Monat",
+                            targetId = updatedGoal.id,
+                            previousData = prevJson
+                        )
+                    )
+                }
+
+                is AiAction.UpdateSettings -> {
+                    val prevWage = settingsState.value.hourlyWage
+                    val prevDay = settingsState.value.billingStartDay
+                    val prevJson = JSONObject().apply {
+                        put("hourlyWage", prevWage)
+                        put("billingStartDay", prevDay)
+                    }.toString()
+
+                    val detailsList = mutableListOf<String>()
+                    action.hourlyWage?.let { wage ->
+                        preferences.setHourlyWage(wage)
+                        detailsList.add("Stundenlohn: ${SmartFinanceEngine.formatEuro(wage)}/Std.")
+                    }
+                    action.billingStartDay?.let { day ->
+                        preferences.setBillingStartDay(day)
+                        detailsList.add("Abrechnungstag: $day.")
+                    }
+                    action.baseBudget?.let { budget ->
+                        repository.updatePlannedMonthlyIncome(budget, 1)
+                        detailsList.add("Monatseinnahmen: ${SmartFinanceEngine.formatEuro(budget)}")
+                    }
+                    results.add(
+                        AiActionResult(
+                            actionType = "UPDATE_SETTINGS",
+                            details = detailsList.joinToString(", ").ifEmpty { "Einstellungen angepasst" },
+                            previousData = prevJson
+                        )
+                    )
+                }
+
+                is AiAction.DeleteEntry -> {
+                    val tx = allTransactions.value.firstOrNull { it.title.contains(action.title, ignoreCase = true) }
+                    if (tx != null) {
+                        repository.deleteTransaction(tx)
+                        results.add(
+                            AiActionResult(
+                                actionType = "DELETE_ENTRY",
+                                details = "Buchung '${tx.title}' (${SmartFinanceEngine.formatEuro(tx.amount)}) gelöscht",
+                                targetId = tx.id
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        results
+    }
+
+    fun undoAiAction(messageId: Long, action: AiActionResult) {
+        viewModelScope.launch(Dispatchers.IO) {
+            when (action.actionType) {
+                "ADD_TRANSACTION" -> {
+                    if (action.targetId != 0L) {
+                        repository.deleteTransactionById(action.targetId)
+                    }
+                }
+                "UPSERT_CONTRACT" -> {
+                    if (action.previousData != null) {
+                        runCatching {
+                            val prev = JSONObject(action.previousData)
+                            val existing = categories.value.firstOrNull { it.id == action.targetId }
+                            if (existing != null) {
+                                repository.saveCategoryTab(
+                                    existing.copy(
+                                        defaultAmount = prev.optDouble("defaultAmount"),
+                                        monthlyBudgetLimit = prev.optDouble("monthlyBudgetLimit"),
+                                        dueDayOfMonth = prev.optInt("dueDayOfMonth"),
+                                        billingInterval = prev.optString("billingInterval"),
+                                        smoothOver12Months = prev.optBoolean("smoothOver12Months")
+                                    )
+                                )
+                            }
+                        }
+                    } else if (action.targetId != 0L) {
+                        val cat = categories.value.firstOrNull { it.id == action.targetId }
+                        if (cat != null) repository.deleteCategoryTab(cat)
+                    }
+                }
+                "UPDATE_CATEGORY_BUDGET" -> {
+                    val prevLimit = action.previousData?.toDoubleOrNull()
+                    val cat = categories.value.firstOrNull { it.id == action.targetId }
+                    if (cat != null && prevLimit != null) {
+                        repository.saveCategoryTab(cat.copy(monthlyBudgetLimit = prevLimit))
+                    }
+                }
+                "UPDATE_SAVINGS_GOAL" -> {
+                    if (action.previousData != null) {
+                        runCatching {
+                            val prev = JSONObject(action.previousData)
+                            val goal = SavingsGoalEntity(
+                                id = action.targetId,
+                                title = prev.optString("title"),
+                                targetAmount = prev.optDouble("targetAmount"),
+                                initialSavedAmount = prev.optDouble("initialSavedAmount"),
+                                monthlyContributionGoal = prev.optDouble("monthlyContributionGoal"),
+                                dueDayOfMonth = prev.optInt("dueDayOfMonth")
+                            )
+                            repository.updateSavingsGoal(goal)
+                        }
+                    }
+                }
+                "UPDATE_SETTINGS" -> {
+                    if (action.previousData != null) {
+                        runCatching {
+                            val prev = JSONObject(action.previousData)
+                            val wage = prev.optDouble("hourlyWage")
+                            val day = prev.optInt("billingStartDay")
+                            preferences.setHourlyWage(wage)
+                            preferences.setBillingStartDay(day)
+                        }
+                    }
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                _chatMessages.value = _chatMessages.value.map { msg ->
+                    if (msg.id == messageId) {
+                        msg.copy(
+                            executedActions = msg.executedActions.map {
+                                if (it.id == action.id) it.copy(isUndone = true) else it
+                            }
+                        )
+                    } else {
+                        msg
+                    }
+                }
+                _snackbarMessage.value = "Aktion rückgängig gemacht."
+            }
         }
     }
 

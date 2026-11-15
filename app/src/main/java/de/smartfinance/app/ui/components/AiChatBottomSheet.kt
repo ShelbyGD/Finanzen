@@ -2,9 +2,16 @@ package de.smartfinance.app.ui.components
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -14,11 +21,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
@@ -43,6 +54,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -63,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.smartfinance.app.core.AppHelpRegistry
 import de.smartfinance.app.core.GeminiVaultState
+import de.smartfinance.app.domain.AiActionResult
 import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.domain.VoiceBookingProposal
 import de.smartfinance.app.domain.VoiceParseResult
@@ -79,6 +92,7 @@ import java.util.Locale
  * - Integriertes Mikrofon-Icon (`Icons.Default.Mic`) für 1-Tap Sprach-Buchung ("Smart Voice Entry")
  *   und gesprochene Finanz-Fragen.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AiCoachTabScreen(
     messages: List<ChatMessage>,
@@ -90,6 +104,8 @@ fun AiCoachTabScreen(
     onParseVoiceCommand: suspend (String) -> VoiceParseResult,
     onBookVoiceProposals: (List<VoiceBookingProposal>) -> Unit,
     onOpenHelpId: (String) -> Unit,
+    onPickDocument: (Uri) -> Unit = {},
+    onUndoAction: (Long, AiActionResult) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -97,6 +113,15 @@ fun AiCoachTabScreen(
     var voiceResult by remember { mutableStateOf<VoiceParseResult?>(null) }
     var isParsingVoice by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val isKeyboardOpen = WindowInsets.isImeVisible
+
+    val documentPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onPickDocument(uri)
+        }
+    }
 
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -140,14 +165,21 @@ fun AiCoachTabScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth()
+        // Große Header-Karte bei geöffneter Tastatur automatisch einklappen
+        AnimatedVisibility(
+            visible = !isKeyboardOpen,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
         ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 1.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
             Column(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -253,6 +285,7 @@ fun AiCoachTabScreen(
                 }
             }
         }
+    }
 
         // Vorschau-Karte für 1-Tap Sprach-Buchung (falls mehrere/einzelne Buchungen eingesprochen wurden)
         voiceResult?.let { parsed ->
@@ -338,7 +371,10 @@ fun AiCoachTabScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
-                ChatBubbleItem(message = msg)
+                ChatBubbleItem(
+                    message = msg,
+                    onUndoAction = { action -> onUndoAction(msg.id, action) }
+                )
             }
             if (isAiThinking || isParsingVoice) {
                 item {
@@ -362,22 +398,35 @@ fun AiCoachTabScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Surface(
             shape = RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Büroklammer-Button (📎) für PDF & Bilder
+                IconButton(
+                    onClick = {
+                        documentPickerLauncher.launch(
+                            arrayOf("application/pdf", "image/*")
+                        )
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AttachFile,
+                        contentDescription = "PDF oder Bild im Chat hochladen",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
                 // Mikrofon-Button für 1-Tap Sprach-Buchung ("Smart Voice Entry")
                 IconButton(
                     onClick = {
@@ -473,6 +522,8 @@ fun AiChatBottomSheet(
     onParseVoiceCommand: suspend (String) -> VoiceParseResult,
     onBookVoiceProposals: (List<VoiceBookingProposal>) -> Unit,
     onOpenHelpId: (String) -> Unit,
+    onPickDocument: (Uri) -> Unit = {},
+    onUndoAction: (Long, AiActionResult) -> Unit = { _, _ -> },
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -490,13 +541,18 @@ fun AiChatBottomSheet(
             onParseVoiceCommand = onParseVoiceCommand,
             onBookVoiceProposals = onBookVoiceProposals,
             onOpenHelpId = onOpenHelpId,
+            onPickDocument = onPickDocument,
+            onUndoAction = onUndoAction,
             modifier = Modifier.heightIn(min = 420.dp, max = 640.dp)
         )
     }
 }
 
 @Composable
-private fun ChatBubbleItem(message: ChatMessage) {
+private fun ChatBubbleItem(
+    message: ChatMessage,
+    onUndoAction: (AiActionResult) -> Unit = {}
+) {
     val isUser = message.senderIsUser
     val containerColor = if (isUser) {
         MaterialTheme.colorScheme.primary
@@ -509,9 +565,9 @@ private fun ChatBubbleItem(message: ChatMessage) {
         MaterialTheme.colorScheme.onSurface
     }
 
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         Surface(
             shape = RoundedCornerShape(
@@ -547,6 +603,60 @@ private fun ChatBubbleItem(message: ChatMessage) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = contentColor
                 )
+            }
+        }
+
+        // Grüne Bestätigungs-Kachel für automatisch ausgeführte Aktionen mit "Rückgängig"-Button
+        if (!isUser && message.executedActions.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .padding(top = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                message.executedActions.forEach { action ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (action.isUndone) {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        } else {
+                            BudgetRingGreen.copy(alpha = 0.15f)
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            if (action.isUndone) {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            } else {
+                                BudgetRingGreen.copy(alpha = 0.4f)
+                            }
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = if (action.isUndone) "↩️ Rückgängig gemacht" else "✅ Automatisch eingetragen:\n${action.details}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (action.isUndone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (!action.isUndone) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                OutlinedButton(
+                                    onClick = { onUndoAction(action) },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Rückgängig", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

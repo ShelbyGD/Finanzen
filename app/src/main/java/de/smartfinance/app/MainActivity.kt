@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -125,7 +128,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val context = LocalContext.current
@@ -257,6 +260,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             }
         }
     ) {
+        val isKeyboardOpen = WindowInsets.isImeVisible
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -385,38 +389,40 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 )
             },
             bottomBar = {
-                // 5. SCHLANKE 5er BOTTOM-NAVIGATION-BAR (Unten)
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 4.dp
-                ) {
-                    BottomNavTab.entries.forEach { tab ->
-                        val isSelected = currentDestination == DrawerDestination.COCKPIT && selectedBottomTab == tab
-                        val icon = when (tab) {
-                            BottomNavTab.OVERVIEW -> Icons.Outlined.Home
-                            BottomNavTab.CONTRACTS -> Icons.Outlined.Description
-                            BottomNavTab.ANALYTICS -> Icons.Outlined.BarChart
-                            BottomNavTab.AI_COACH -> Icons.Outlined.AutoAwesome
-                            BottomNavTab.SAVINGS_BOOSTER -> Icons.Outlined.Savings
-                        }
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = { viewModel.selectBottomTab(tab) },
-                            icon = {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = tab.label
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = tab.label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    maxLines = 1
-                                )
+                // 5. SCHLANKE 5er BOTTOM-NAVIGATION-BAR (Unten) - bei Tastatur ausblenden
+                if (!isKeyboardOpen && currentDestination == DrawerDestination.COCKPIT) {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 4.dp
+                    ) {
+                        BottomNavTab.entries.forEach { tab ->
+                            val isSelected = currentDestination == DrawerDestination.COCKPIT && selectedBottomTab == tab
+                            val icon = when (tab) {
+                                BottomNavTab.OVERVIEW -> Icons.Outlined.Home
+                                BottomNavTab.CONTRACTS -> Icons.Outlined.Description
+                                BottomNavTab.ANALYTICS -> Icons.Outlined.BarChart
+                                BottomNavTab.AI_COACH -> Icons.Outlined.AutoAwesome
+                                BottomNavTab.SAVINGS_BOOSTER -> Icons.Outlined.Savings
                             }
-                        )
+                            NavigationBarItem(
+                                selected = isSelected,
+                                onClick = { viewModel.selectBottomTab(tab) },
+                                icon = {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = tab.label
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = tab.label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        maxLines = 1
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             },
@@ -445,7 +451,13 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
+                    .then(
+                        if (isKeyboardOpen) {
+                            Modifier.padding(top = innerPadding.calculateTopPadding())
+                        } else {
+                            Modifier.padding(innerPadding)
+                        }
+                    )
             ) {
                 when (currentDestination) {
                     DrawerDestination.COCKPIT -> {
@@ -509,6 +521,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             }
 
                             BottomNavTab.AI_COACH -> {
+                                val context = LocalContext.current
                                 AiCoachTabScreen(
                                     messages = chatMessages,
                                     hourlyWage = settingsState.hourlyWage,
@@ -518,7 +531,9 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
                                     onParseVoiceCommand = viewModel::parseVoiceCommand,
                                     onBookVoiceProposals = viewModel::bookVoiceProposals,
-                                    onOpenHelpId = viewModel::openHelpCardById
+                                    onOpenHelpId = viewModel::openHelpCardById,
+                                    onPickDocument = { uri -> viewModel.uploadDocumentAndAnalyze(context, uri) },
+                                    onUndoAction = viewModel::undoAiAction
                                 )
                             }
 
@@ -639,6 +654,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     }
 
     if (showAiChatSheet) {
+        val context = LocalContext.current
         AiChatBottomSheet(
             messages = chatMessages,
             hourlyWage = settingsState.hourlyWage,
@@ -649,6 +665,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             onParseVoiceCommand = viewModel::parseVoiceCommand,
             onBookVoiceProposals = viewModel::bookVoiceProposals,
             onOpenHelpId = viewModel::openHelpCardById,
+            onPickDocument = { uri -> viewModel.uploadDocumentAndAnalyze(context, uri) },
+            onUndoAction = viewModel::undoAiAction,
             onDismiss = viewModel::closeAiChatSheet
         )
     }

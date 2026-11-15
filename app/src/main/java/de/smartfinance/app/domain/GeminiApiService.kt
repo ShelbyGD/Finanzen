@@ -10,6 +10,8 @@ import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
 import de.smartfinance.app.data.local.TransactionType
+import de.smartfinance.app.core.UserSettingsState
+import de.smartfinance.app.data.local.SavingsGoalEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -41,7 +43,8 @@ data class HybridCoachReply(
     val text: String,
     val usedCloudGemini: Boolean,
     val modelUsed: String,
-    val fallbackNote: String? = null
+    val fallbackNote: String? = null,
+    val actions: List<AiAction> = emptyList()
 )
 
 data class ReceiptSplitItem(
@@ -377,7 +380,7 @@ object GeminiApiService {
     }
 
     /**
-     * 2.2 Hybrid KI-Finanzcoach mit 100 % Rechengenauigkeit & automatischem Offline-/429-Fallback.
+     * 2.2 Autonomer KI-App-Agent & Hybrid-Coach (voller Lese- und Schreibzugriff auf Room-DB per JSON Action-Engine).
      */
     suspend fun askHybridCoach(
         userQuestion: String,
@@ -386,6 +389,10 @@ object GeminiApiService {
         snapshot: DashboardAnalysisSnapshot,
         categories: List<CategoryTabEntity>,
         hourlyWage: Double,
+        contracts: List<CategoryTabEntity> = emptyList(),
+        savingsGoal: SavingsGoalEntity? = null,
+        settings: UserSettingsState? = null,
+        base64ImageJpeg: String? = null,
         onAutoSwitchModel: ((String) -> Unit)? = null
     ): HybridCoachReply = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim()
@@ -396,24 +403,110 @@ object GeminiApiService {
             hourlyWage = hourlyWage
         )
 
+        // Lokaler Fallback bei leerem API-Key
         if (cleanKey.isEmpty()) {
+            val localVoice = parseVoiceBookingsLocally(userQuestion, categories)
+            val fallbackActions = if (localVoice.isNotEmpty()) {
+                localVoice.map { p ->
+                    AiAction.AddTransaction(
+                        title = p.title,
+                        amount = p.amount,
+                        categoryName = p.categoryName,
+                        transactionType = TransactionType.EXPENSE
+                    )
+                }
+            } else emptyList()
+
             return@withContext HybridCoachReply(
                 text = localAnswer,
                 usedCloudGemini = false,
-                modelUsed = "Lokale SmartFinanceEngine"
+                modelUsed = "Lokale SmartFinanceEngine",
+                actions = fallbackActions
             )
         }
 
-        val tenLineContext = buildAnonymizedTenLineContext(snapshot, categories, hourlyWage)
+        val categoryDetails = if (categories.isEmpty()) {
+            "Keine Kategorien vorhanden"
+        } else {
+            categories.filter { it.categoryType != CategoryType.FIXED_EXPENSE }.joinToString("; ") { cat ->
+                val spent = snapshot.categoryTotalsThisMonth[cat.id] ?: 0.0
+                val limit = cat.monthlyBudgetLimit ?: cat.defaultAmount ?: 0.0
+                "${cat.name} (Typ: ${cat.categoryType}, Ist: ${SmartFinanceEngine.formatEuro(spent)}, Limit: ${SmartFinanceEngine.formatEuro(limit)})"
+            }
+        }
+
+        val contractDetails = if (contracts.isEmpty()) {
+            "Keine aktiven Verträge vorhanden"
+        } else {
+            contracts.joinToString("; ") { c ->
+                val endNote = if (c.contractEndDateEpochDay != null && c.contractEndDateEpochDay > 0) {
+                    ", Kündigungsfrist: ${LocalDate.ofEpochDay(c.contractEndDateEpochDay)}"
+                } else ""
+                "${c.name}: ${SmartFinanceEngine.formatEuro(c.defaultAmount ?: 0.0)}/${c.billingInterval} (Fällig am ${c.dueDayOfMonth}. des Monats$endNote)"
+            }
+        }
+
+        val savingsDetails = if (savingsGoal != null) {
+            "'${savingsGoal.title}': Ziel ${SmartFinanceEngine.formatEuro(savingsGoal.targetAmount)}, Angespart ${SmartFinanceEngine.formatEuro(savingsGoal.initialSavedAmount)}, Sparrate ${SmartFinanceEngine.formatEuro(savingsGoal.monthlyContributionGoal)}/Monat"
+        } else {
+            "Kein Sparziel hinterlegt"
+        }
+
+        val settingsDetails = if (settings != null) {
+            "Abrechnungstag: ${settings.billingStartDay}. des Monats | Stundenlohn: ${SmartFinanceEngine.formatEuro(settings.hourlyWage)}/Std."
+        } else {
+            "Stundenlohn: ${SmartFinanceEngine.formatEuro(hourlyWage)}/Std."
+        }
+
         val systemPrompt = buildString {
-            appendLine("Du bist der persönliche SmartFinance-Coach. Antworte präzise, motivierend und auf den Punkt auf Deutsch. Rechnest du Beträge oder Arbeitsstunden vor, nutze AUSSCHLIESSLICH die übergebenen exakten Datenbank-Werte!")
-            appendLine("WICHTIG: Verwende in deiner Antwort niemals Markdown-Sternchen (**) und keine bunten Text-Emojis, sondern klare Absätze und Aufzählungspunkte (•).")
+            appendLine("Du bist der persönliche SmartFinance-Coach und autonome KI-App-Agent.")
+            appendLine("Du hast VOLLEN LESE- UND SCHREIBZUGRIFF auf die Room-Datenbank der gesamten Finanz-App.")
+            appendLine("Antworte präzise, motivierend und auf den Punkt auf Deutsch. Rechnest du Beträge oder Arbeitsstunden vor, nutze AUSSCHLIESSLICH die übergebenen exakten Datenbank-Werte!")
+            appendLine("WICHTIG: Verwende in deiner Text-Antwort niemals Markdown-Sternchen (**) und keine bunten Text-Emojis, sondern klare Absätze und Aufzählungspunkte (•).")
             appendLine()
-            appendLine("EXAKTER 10-ZEILEN-FINANZKONTEXT AUS DER LOKALEN ROOM-DATENBANK:")
-            appendLine(tenLineContext)
+            appendLine("KOMPLETTER AKTUELLER APP- & DATENBANK-ZUSTAND:")
+            appendLine("• Monats-Finanzkennzahlen: ${snapshot.monthTitleFormatted} | Einnahmen Ist ${SmartFinanceEngine.formatEuro(snapshot.actualIncome)} (Soll ${SmartFinanceEngine.formatEuro(snapshot.targetIncome)}) | Ausgaben bisher ${SmartFinanceEngine.formatEuro(snapshot.actualExpensesRaw)} | Frei ${SmartFinanceEngine.formatEuro(snapshot.remainingFreeBudgetMonth)} | Heute frei: ${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)}")
+            appendLine("• Kategorien & Budgets: $categoryDetails")
+            appendLine("• Fixkosten-Verträge: $contractDetails")
+            appendLine("• Sparbooster-Sparziel: $savingsDetails")
+            appendLine("• Einstellungen: $settingsDetails")
             appendLine()
-            appendLine("LOKALE REFERENZ-BERECHNUNG DER ENGINE FÜR DIESE FRAGE:")
+            appendLine("LOKALE REFERENZ-BERECHNUNG DER ENGINE:")
             appendLine(localAnswer)
+            appendLine()
+            appendLine("JSON ACTION-ENGINE INSTRUKTIONEN:")
+            appendLine("Wenn der Nutzer Buchungen erfassen, Verträge eintragen/ändern, Budgets oder Sparziele anpassen, Einstellungen ändern oder Einträge löschen möchte (oder wenn ein Dokument, Kassenbon, Rechnung oder Gehaltsabrechnung hochgeladen wurde):")
+            appendLine("Fasse kurz auf Deutsch zusammen, was du getan hast, und hänge AM ENDE deiner Antwort zwingend einen validen JSON-Codeblock an:")
+            appendLine("```json")
+            appendLine("{\"actions\": [")
+            appendLine("  {\"type\": \"ADD_TRANSACTION\", \"title\": \"Titel\", \"amount\": 0.00, \"categoryName\": \"Kategorie\", \"transactionType\": \"EXPENSE\" oder \"INCOME\", \"dateIso\": \"YYYY-MM-DD\"},")
+            appendLine("  {\"type\": \"UPSERT_CONTRACT\", \"name\": \"Vertrag\", \"amount\": 0.00, \"dueDayOfMonth\": 1, \"categoryName\": \"Kategorie\", \"smooth12Months\": false, \"billingInterval\": \"MONTHLY\", \"cancellationDateIso\": \"YYYY-MM-DD\"},")
+            appendLine("  {\"type\": \"UPDATE_CATEGORY_BUDGET\", \"categoryName\": \"Kategorie\", \"monthlyBudgetLimit\": 0.00},")
+            appendLine("  {\"type\": \"UPDATE_SAVINGS_GOAL\", \"title\": \"Sparziel\", \"targetAmount\": 0.00, \"savedAmount\": 0.00, \"monthlyRate\": 0.00},")
+            appendLine("  {\"type\": \"UPDATE_SETTINGS\", \"hourlyWage\": 0.00, \"billingStartDay\": 1, \"baseBudget\": 0.00},")
+            appendLine("  {\"type\": \"DELETE_ENTRY\", \"targetType\": \"TRANSACTION\", \"title\": \"Titel\"}")
+            appendLine("]}")
+            appendLine("```")
+            appendLine("WICHTIGE REGELN:")
+            appendLine("- Bei Kassenbons: Ziehe Pfand ab und trage die Ausgaben ein.")
+            appendLine("- Bei Gehaltsabrechnungen: Trage das Netto-Gehalt als Einnahme (ADD_TRANSACTION mit transactionType: INCOME) ein.")
+            appendLine("- Bei Versicherungs-/Vertragsbriefen: Lege den Vertrag via UPSERT_CONTRACT an (dueDayOfMonth 1..31).")
+            appendLine("- Wenn die Frage eine reine Wissens- oder Analysefrage ist und nichts geändert werden soll, gib KEINEN JSON-Codeblock aus.")
+        }
+
+        val partsArray = JSONArray().apply {
+            put(JSONObject().put("text", userQuestion))
+            if (!base64ImageJpeg.isNullOrBlank()) {
+                put(
+                    JSONObject().put(
+                        "inline_data",
+                        JSONObject().apply {
+                            put("mime_type", "image/jpeg")
+                            put("data", base64ImageJpeg)
+                        }
+                    )
+                )
+            }
         }
 
         val payload = JSONObject().apply {
@@ -429,35 +522,43 @@ object GeminiApiService {
                 JSONArray().put(
                     JSONObject().apply {
                         put("role", "user")
-                        put("parts", JSONArray().put(JSONObject().put("text", userQuestion)))
+                        put("parts", partsArray)
                     }
                 )
             )
             put(
                 "generationConfig",
                 JSONObject().apply {
-                    put("temperature", 0.25)
-                    put("maxOutputTokens", 700)
+                    put("temperature", 0.2)
+                    put("maxOutputTokens", 1200)
                 }
             )
         }
 
+        val requestedModel = if (!base64ImageJpeg.isNullOrBlank()) {
+            if (model.isNotBlank()) model else "gemini-3.5-flash-lite"
+        } else {
+            if (model.isNotBlank()) model else ApiKeyManager.MODEL_GEMINI_3_8_FLASH
+        }
+
         val response = executePostJson(
-            model = model,
+            model = requestedModel,
             apiKey = cleanKey,
             body = payload,
             onAutoSwitchModel = onAutoSwitchModel
         )
         if (response.httpCode in 200..299 && !response.extractedText.isNullOrBlank()) {
-            val cleanReply = response.extractedText
+            val (cleanReply, actions) = AiActionEngine.parseActionsAndCleanText(response.extractedText)
+            val formattedReply = cleanReply
                 .replace("**", "")
                 .replace("###", "")
                 .replace("##", "")
                 .trim()
             return@withContext HybridCoachReply(
-                text = cleanReply,
+                text = formattedReply,
                 usedCloudGemini = true,
-                modelUsed = response.usedModel
+                modelUsed = response.usedModel,
+                actions = actions
             )
         }
 
@@ -466,11 +567,25 @@ object GeminiApiService {
             0 -> "Offline-Modus – automatisch lokal berechnet"
             else -> "Cloud-Fallback (HTTP ${response.httpCode}) – automatisch lokal berechnet"
         }
+
+        val localVoice = parseVoiceBookingsLocally(userQuestion, categories)
+        val fallbackActions = if (localVoice.isNotEmpty()) {
+            localVoice.map { p ->
+                AiAction.AddTransaction(
+                    title = p.title,
+                    amount = p.amount,
+                    categoryName = p.categoryName,
+                    transactionType = TransactionType.EXPENSE
+                )
+            }
+        } else emptyList()
+
         return@withContext HybridCoachReply(
             text = "$localAnswer\n\n[Hinweis: $reason]",
             usedCloudGemini = false,
             modelUsed = "Lokale SmartFinanceEngine",
-            fallbackNote = reason
+            fallbackNote = reason,
+            actions = fallbackActions
         )
     }
 

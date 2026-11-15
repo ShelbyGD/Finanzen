@@ -181,22 +181,23 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_HYBRID_AI_CHAT,
             moduleNumber = 8,
-            title = "8. KI-Coach: Lokale Smart Finance Hybrid-KI & Q&A-Chat",
-            category = "Lokale KI & Prognose",
-            shortSummary = "Eigener 'KI-Coach'-Tab mit 100 % lokalem deutschen Finanz-Assistenten, Werktags-/Wochenend-Burn-Rate und Echtzeit-Q&A-Chat.",
+            title = "8. KI-Coach: Autonomer App-Agent (Room-Vollzugriff, PDF-Upload & Rückgängig-Netz)",
+            category = "Autonomer KI-Agent & Prognose",
+            shortSummary = "Vollwertiger autonomer KI-Agent mit Lese- und Schreibzugriff auf alle Room-Tabellen: Trägt Buchungen, Verträge, Budgets, Sparziele und Einstellungen selbstständig ein – inkl. PDF-/Bild-Upload und 1-Tap-Rückgängig-Kachel.",
             stepByStepGuide = listOf(
                 "Tippe unten in der Navigationsleiste auf den Tab 'KI-Coach'.",
-                "Tippe auf einen der Schnell-Frage-Chips oder gib deine Frage auf Deutsch ein.",
-                "Die Engine analysiert in Millisekunden deine lokale Room-Datenbank ohne Internetverbindung und liefert präzise Antworten in klarem Text."
+                "Sprich oder schreibe deine Wünsche (z. B. 'Trage 50 € für Tanken ein', 'Neuer Stromvertrag 65 € am 1. des Monats' oder 'Setze mein Sparziel auf 5.000 €').",
+                "Tippe links neben der Eingabe auf das Büroklammer-Icon (📎), um Kassenbons, Rechnungen, Gehaltsabrechnungen oder Verträge als PDF oder Foto direkt im Chat hochzuladen. Die App konvertiert PDFs lokal mit PdfRenderer und lässt die KI alle Daten automatisch buchen.",
+                "Sicherheits-Netz: Jede Aktion wird transparent mit einer grünen Kachel ('✅ Automatisch eingetragen: ...') bestätigt und kann mit einem Tap auf 'Rückgängig' sofort revidiert werden."
             ),
             exampleTips = listOf(
-                "Unterstützte deutsche Beispiel-Fragen im KI-Coach:",
-                "- 'Wie viel habe ich heute/diesen Monat noch frei?'",
-                "- 'Wann geht die nächste Zahlung ab?' / 'Was wird diese Woche noch abgebucht?'",
-                "- 'Wann geht im Monat am meisten ab?'",
-                "- 'Was gebe ich im Schnitt für Versicherungen / Handyvertrag aus?'",
-                "- 'Reicht mein Geld bis Monatsende?' / 'Wann erreiche ich mein Sparziel?'",
-                "- 'Was kannst du alles?' oder 'Hilfe'"
+                "Unterstützte Sprach-/Text-Aktionen des KI-Agenten:",
+                "- 'Trage 45 € für Tanken bei Shell ein' (ADD_TRANSACTION)",
+                "- 'Neuer Vertrag: Fitnessstudio 29,90 € monatlich am 15.' (UPSERT_CONTRACT)",
+                "- 'Erhöhe mein Monatsbudget für Lebensmittel auf 500 €' (UPDATE_CATEGORY_BUDGET)",
+                "- 'Mein neues Sparziel ist Notgroschen mit 3.000 €' (UPDATE_SAVINGS_GOAL)",
+                "- 'Setze meinen Stundenlohn auf 19,50 €' (UPDATE_SETTINGS)",
+                "- 'Lösche die Buchung Tanken' (DELETE_ENTRY)"
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -319,6 +320,17 @@ object AppHelpRegistry {
                 "Zukunftssicheres editierbares Modell-Textfeld ('Aktiver Modell-Name') sowie Live-Abfrage 'Verfügbare Modelle laden' (GET /v1beta/models) mit automatischer Auswahl des neuesten freigeschalteten Flash-Modells.",
                 "Selbstheilender Auto-Fallback im GeminiApiService.kt: Erkennt Hinweise wie 'Please update your code to use models/...' automatisch per Regex, speichert das empfohlene Modell im ApiKeyManager und wiederholt den Request sofort nahtlos im Hintergrund.",
                 "Hybrid KI-Finanzcoach (10-Zeilen-Room-Kontext), multimodaler Vision-Scanner (Kassenbon-Splitting & Vertragsbrief-Erkennung) und 1-Tap Sprach-Buchung ('Smart Voice Entry')."
+            )
+        ),
+        ChangelogEntry(
+            versionName = "1.2.0",
+            buildNumber = 9,
+            date = "15.11.2026",
+            newFeatures = listOf(
+                "Vollautomatischer KI-Agent im Chat (JSON Action-Engine): Vollzugriff auf alle Room-Tabellen. Trägt Buchungen, Fixkosten-Verträge, Budgets, Sparziele und Einstellungen autonom direkt in die Datenbank ein.",
+                "Sicherheits-Netz im Chat mit 1-Tap 'Rückgängig': Jede automatisch ausgeführte KI-Aktion wird transparent mit grüner Bestätigungs-Kachel und 'Rückgängig'-Button unter der Chat-Antwort angezeigt.",
+                "Dokumenten-, PDF- & Screenshot-Upload direkt im Chat (📎-Button): Wähle PDF-Dateien oder Fotos aus; der native Android PdfRenderer rendert PDFs lokal und die KI erfasst alle Buchungen, Gehälter oder Verträge vollautomatisch.",
+                "Keyboard-Fix & Auto-Collapse Header: Kein doppelter Abstand über Gboard mehr (bündig sitzende Eingabeleiste) und automatisches Einklappen der oberen Info-Karte beim Tippen für maximalen Chat-Fokus."
             )
         ),
         ChangelogEntry(

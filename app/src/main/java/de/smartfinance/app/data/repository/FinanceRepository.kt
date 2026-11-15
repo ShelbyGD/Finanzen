@@ -278,12 +278,16 @@ class FinanceRepository(
         seedCleanCategories()
     }
 
-    suspend fun addTransaction(transaction: TransactionEntity) {
-        dao.insertTransaction(transaction)
+    suspend fun addTransaction(transaction: TransactionEntity): Long {
+        return dao.insertTransaction(transaction)
     }
 
     suspend fun deleteTransaction(transaction: TransactionEntity) {
         dao.deleteTransaction(transaction)
+    }
+
+    suspend fun deleteTransactionById(id: Long) {
+        dao.deleteTransactionById(id)
     }
 
     suspend fun saveCategoryTab(tab: CategoryTabEntity) {
