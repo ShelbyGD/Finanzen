@@ -292,16 +292,16 @@ object AppHelpRegistry {
             moduleNumber = 14,
             title = "14. Google Gemini Cloud-KI, Vision-Split & Sprach-Buchung",
             category = "Hybrid Cloud-KI & Vision (PRO)",
-            shortSummary = "BYOK API-Key-Tresor (gemini-2.5-flash / gemini-2.5-pro) mit Verbindungs-Test, 10-Zeilen-Kontext-Finanzcoach, Vision-Kassenbon-Splitting & Vertragsbrief-Scan sowie 1-Tap Sprach-Buchung per Mikrofon.",
+            shortSummary = "BYOK API-Key-Tresor (Standard: gemini-3.8-flash + Live-Modell-Abfrage & Auto-Switch), 10-Zeilen-Kontext-Finanzcoach, Vision-Kassenbon-Splitting & Vertragsbrief-Scan sowie 1-Tap Sprach-Buchung per Mikrofon.",
             stepByStepGuide = listOf(
                 "Schritt 1 (Kostenlosen API-Key auf aistudio.google.com erstellen): Öffne im Browser https://aistudio.google.com/apikey, melde dich mit deinem Google-Konto an, tippe auf 'Create API Key' und kopiere den Schlüssel in die Zwischenablage.",
-                "Schritt 2 (Key in SmartFinance eintragen & testen): Tippe im Tab 'KI-Coach' oben auf das Status-Badge ('Lokal-Modus – Tippe für kostenlosen Gemini API-Key') oder öffne 'Einstellungen'. Tippe auf 'Aus Zwischenablage einfügen', wähle 'gemini-2.5-flash' (Standard) oder 'gemini-2.5-pro' und tippe auf 'Verbindung testen'.",
-                "Schritt 3 (Hybrid KI-Finanzcoach): Stelle beliebige Fragen im 'KI-Coach'. Die App berechnet vorab lokal einen anonymisierten 10-Zeilen-Finanzkontext aus deiner Room-Datenbank und übergibt die exakten Euro-Zahlen an Gemini. Ohne Key, offline oder bei HTTP 429 antwortet automatisch die lokale SmartFinanceEngine.",
-                "Schritt 4 (Multimodaler Vision-Scanner): Tippe oben rechts auf das Kamera-Icon. Fotografiere einen Kassenbon (Pfand wird automatisch abgezogen + optionaler 1-Tap Split-Buchungs-Vorschlag, z. B. Lebensmittel + Freizeit) oder einen Versicherungs-/Vertragsbrief ('Als Vertrag speichern & Vertrags-Wecker setzen').",
+                "Schritt 2 (Key eintragen, Modell wählen & Verbindung testen): Tippe im Tab 'KI-Coach' oben auf das Status-Badge oder öffne 'Einstellungen'. Tippe auf 'Aus Zwischenablage einfügen'. Standardmäßig ist 'gemini-3.8-flash (Standard)' aktiv (alternativ 'gemini-3.8-pro', 'gemini-flash-latest', 'gemini-2.5-flash', freie Eingabe im Feld 'Aktiver Modell-Name' oder Live-Abruf über 'Verfügbare Modelle laden').",
+                "Schritt 3 (Selbstheilender Auto-Switch): Empfiehlt der Google-Server ein neueres Modell (z. B. 'Please update your code to use models/...'), erkennt die App den Modellnamen automatisch per Regex, speichert ihn im Tresor und wiederholt die Anfrage sofort im Hintergrund.",
+                "Schritt 4 (Hybrid KI-Finanzcoach & Vision-Scanner): Stelle Fragen im 'KI-Coach' (mit anonymisiertem 10-Zeilen-Kontext aus deiner Room-DB) oder fotografiere Kassenbons (inkl. Pfand-Abzug & Split-Buchung) und Versicherungs-/Vertragsbriefe.",
                 "Schritt 5 (1-Tap Sprach-Buchung per Mikrofon): Tippe im '+'-Buchungs-Sheet oder im 'KI-Coach' auf das Mikrofon-Icon und sprich z. B.: 'Ich habe heute für 64 Euro getankt und beim Bäcker 4,80 Euro ausgegeben'. Mit einem Tap auf 'Alle buchen' werden beide Buchungen sofort gespeichert."
             ),
             exampleTips = listOf(
-                "Maximale Sicherheit: Dein Google AI Studio API-Key wird ausschließlich lokal auf deinem Smartphone gespeichert und niemals im Quellcode oder auf fremden Servern hinterlegt.",
+                "Zukunftssicher ohne App-Neubau: Über den Button 'Verfügbare Modelle laden' ruft die App live GET /v1beta/models ab und wählt automatisch das neueste freigeschaltete Flash-Modell für deinen API-Key aus.",
                 "Ausfallsicherer Hybrid-Betrieb: Selbst ohne API-Key oder ohne Internet funktionieren KI-Coach, Beleg-Scanner (per Google ML Kit) und der Mehrfach-Sprachbuchungs-Parser nahtlos weiter."
             ),
             requiredTier = AppTier.PRO_FULL,
@@ -313,13 +313,12 @@ object AppHelpRegistry {
         ChangelogEntry(
             versionName = BuildConfig.VERSION_NAME,
             buildNumber = BuildConfig.BUILD_NUMBER,
-            date = "14.11.2026",
+            date = "15.11.2026",
             newFeatures = listOf(
-                "Sicherer BYOK API-Key-Tresor (ApiKeyManager.kt): Lokale Speicherung des Google AI Studio API-Keys, Modell-Umschalter ('gemini-2.5-flash' / 'gemini-2.5-pro'), Zwischenablage-Import und Live-'Verbindung testen'-Ping.",
-                "Hybrid KI-Finanzcoach (GeminiApiService.kt): Anonymisierter 10-Zeilen-Kontext-Generator aus der Room-Datenbank für 100 % Rechengenauigkeit mit natürlicher Beratung sowie automatischem Offline- & HTTP-429-Fallback auf die lokale SmartFinanceEngine.",
-                "Multimodaler Vision-Scanner (max. 1024px JPEG Base64): Kassenbon-Analyse mit automatischem Pfand-Abzug und 1-Tap Split-Buchungs-Vorschlag sowie Vertrags-/Versicherungsbrief-Erkennung inkl. 1-Tap 'Als Vertrag speichern & Vertrags-Wecker setzen' (+ nahtloser ML-Kit-Fallback).",
-                "1-Tap Sprach-Buchung ('Smart Voice Entry'): Mikrofon-Button im '+'-Buchungs-Sheet und im KI-Coach erkennt gesprochene Mehrfach-Buchungen (z. B. Tanken + Bäcker) und speichert alle Vorschläge mit 1 Tap auf 'Alle buchen'.",
-                "Neues Hilfe-Modul #14 ('Google Gemini Cloud-KI, Vision-Split & Sprach-Buchung') mit Schritt-für-Schritt-Anleitung für aistudio.google.com sowie PRO-Integration in FeatureGate.kt."
+                "Neues Standard-Modell 'gemini-3.8-flash' & 4 Schnellwahl-Chips ('gemini-3.8-flash (Standard)', 'gemini-3.8-pro', 'gemini-flash-latest', 'gemini-2.5-flash') im API-Key-Tresor.",
+                "Zukunftssicheres editierbares Modell-Textfeld ('Aktiver Modell-Name') sowie Live-Abfrage 'Verfügbare Modelle laden' (GET /v1beta/models) mit automatischer Auswahl des neuesten freigeschalteten Flash-Modells.",
+                "Selbstheilender Auto-Fallback im GeminiApiService.kt: Erkennt Hinweise wie 'Please update your code to use models/...' automatisch per Regex, speichert das empfohlene Modell im ApiKeyManager und wiederholt den Request sofort nahtlos im Hintergrund.",
+                "Hybrid KI-Finanzcoach (10-Zeilen-Room-Kontext), multimodaler Vision-Scanner (Kassenbon-Splitting & Vertragsbrief-Erkennung) und 1-Tap Sprach-Buchung ('Smart Voice Entry')."
             )
         ),
         ChangelogEntry(

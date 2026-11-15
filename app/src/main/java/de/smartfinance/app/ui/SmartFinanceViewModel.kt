@@ -113,6 +113,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     private val _isTestingGeminiConnection = MutableStateFlow(false)
     val isTestingGeminiConnection: StateFlow<Boolean> = _isTestingGeminiConnection.asStateFlow()
 
+    private val _isLoadingGeminiModels = MutableStateFlow(false)
+    val isLoadingGeminiModels: StateFlow<Boolean> = _isLoadingGeminiModels.asStateFlow()
+
     private val _isAiThinking = MutableStateFlow(false)
     val isAiThinking: StateFlow<Boolean> = _isAiThinking.asStateFlow()
 
@@ -496,10 +499,31 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         apiKeyManager.setSelectedModel(model)
     }
 
+    fun fetchAvailableGeminiModels(rawKey: String) {
+        viewModelScope.launch {
+            _isLoadingGeminiModels.value = true
+            val result = GeminiApiService.fetchAvailableModels(rawKey)
+            if (result.success) {
+                apiKeyManager.updateDiscoveredModels(
+                    models = result.models,
+                    autoSelectedModel = result.autoSelectedModel
+                )
+            }
+            apiKeyManager.updateTestStatus(result.success, result.message)
+            _isLoadingGeminiModels.value = false
+        }
+    }
+
     fun testGeminiConnection(rawKey: String, model: String) {
         viewModelScope.launch {
             _isTestingGeminiConnection.value = true
-            val ping = GeminiApiService.testConnection(rawKey, model)
+            val ping = GeminiApiService.testConnection(
+                apiKey = rawKey,
+                model = model,
+                onAutoSwitchModel = { newModel ->
+                    apiKeyManager.setSelectedModel(newModel)
+                }
+            )
             apiKeyManager.updateTestStatus(ping.success, ping.message)
             _isTestingGeminiConnection.value = false
         }
@@ -526,7 +550,10 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     model = vault.selectedModel,
                     snapshot = snapshot,
                     categories = cats,
-                    hourlyWage = wage
+                    hourlyWage = wage,
+                    onAutoSwitchModel = { newModel ->
+                        apiKeyManager.setSelectedModel(newModel)
+                    }
                 )
             } else {
                 val localText = SmartFinanceEngine.answerUserQuery(
@@ -555,7 +582,10 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             imageUri = uri,
             apiKey = effectiveKey,
             model = vault.selectedModel,
-            categories = categories.value
+            categories = categories.value,
+            onAutoSwitchModel = { newModel ->
+                apiKeyManager.setSelectedModel(newModel)
+            }
         )
     }
 
@@ -630,7 +660,10 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             spokenText = spokenText,
             apiKey = effectiveKey,
             model = vault.selectedModel,
-            categories = categories.value
+            categories = categories.value,
+            onAutoSwitchModel = { newModel ->
+                apiKeyManager.setSelectedModel(newModel)
+            }
         )
     }
 

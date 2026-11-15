@@ -8,7 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class GeminiVaultState(
     val apiKey: String = "",
-    val selectedModel: String = ApiKeyManager.MODEL_GEMINI_FLASH,
+    val selectedModel: String = ApiKeyManager.MODEL_GEMINI_3_8_FLASH,
+    val availableModels: List<String> = ApiKeyManager.DEFAULT_PRESET_MODELS,
     val lastTestMessage: String? = null,
     val lastTestSuccess: Boolean? = null
 ) {
@@ -24,16 +25,19 @@ data class GeminiVaultState(
         }
 
     val modelDisplayName: String
-        get() = when (selectedModel) {
-            ApiKeyManager.MODEL_GEMINI_PRO -> "Gemini 2.5 Pro"
-            else -> "Gemini 2.5 Flash"
+        get() = when (selectedModel.trim()) {
+            ApiKeyManager.MODEL_GEMINI_3_8_FLASH -> "Gemini 3.8 Flash"
+            ApiKeyManager.MODEL_GEMINI_3_8_PRO -> "Gemini 3.8 Pro"
+            ApiKeyManager.MODEL_GEMINI_FLASH_LATEST -> "Gemini Flash Latest"
+            ApiKeyManager.MODEL_GEMINI_2_5_FLASH -> "Gemini 2.5 Flash"
+            else -> selectedModel.trim().ifEmpty { ApiKeyManager.MODEL_GEMINI_3_8_FLASH }
         }
 }
 
 /**
  * Sicherer lokaler API-Key-Tresor (Bring-Your-Own-Key) für das Google Gemini Hybrid-Modul.
- * Speichert den vom Nutzer eingegebenen Google AI Studio API-Key ausschließlich lokal
- * in SharedPreferences auf dem Gerät (niemals hartcodiert im Quellcode).
+ * Standard-Modell ist fest auf "gemini-3.8-flash" gesetzt, erlaubt beliebige manuelle Modell-Namen
+ * sowie automatisches Selbstheilungs-Switching (Auto-Switch), falls Google ein neueres Modell empfiehlt.
  */
 class ApiKeyManager(context: Context) {
 
@@ -45,10 +49,29 @@ class ApiKeyManager(context: Context) {
 
     private fun loadState(): GeminiVaultState {
         val storedKey = prefs.getString(KEY_GEMINI_API_KEY, "")?.trim().orEmpty()
-        val storedModel = prefs.getString(KEY_GEMINI_MODEL, MODEL_GEMINI_FLASH) ?: MODEL_GEMINI_FLASH
+        val migratedTo38 = prefs.getBoolean(KEY_MIGRATED_DEFAULT_3_8, false)
+        val rawStoredModel = prefs.getString(KEY_GEMINI_MODEL, MODEL_GEMINI_3_8_FLASH)
+            ?.trim()
+            ?.removePrefix("models/")
+            .orEmpty()
+
+        val effectiveModel = if (!migratedTo38 && (rawStoredModel.isEmpty() || rawStoredModel == MODEL_GEMINI_2_5_FLASH)) {
+            prefs.edit()
+                .putString(KEY_GEMINI_MODEL, MODEL_GEMINI_3_8_FLASH)
+                .putBoolean(KEY_MIGRATED_DEFAULT_3_8, true)
+                .apply()
+            MODEL_GEMINI_3_8_FLASH
+        } else {
+            if (!migratedTo38) {
+                prefs.edit().putBoolean(KEY_MIGRATED_DEFAULT_3_8, true).apply()
+            }
+            rawStoredModel.ifEmpty { MODEL_GEMINI_3_8_FLASH }
+        }
+
         return GeminiVaultState(
             apiKey = storedKey,
-            selectedModel = if (storedModel == MODEL_GEMINI_PRO) MODEL_GEMINI_PRO else MODEL_GEMINI_FLASH
+            selectedModel = effectiveModel,
+            availableModels = DEFAULT_PRESET_MODELS
         )
     }
 
@@ -57,8 +80,8 @@ class ApiKeyManager(context: Context) {
         prefs.edit().putString(KEY_GEMINI_API_KEY, clean).apply()
         _vaultState.value = _vaultState.value.copy(
             apiKey = clean,
-            lastTestMessage = if (clean.isEmpty()) "API-Key entfernt – Lokal-Modus aktiv." else null,
-            lastTestSuccess = null
+            lastTestMessage = if (clean.isEmpty()) "API-Key entfernt – Lokal-Modus aktiv." else _vaultState.value.lastTestMessage,
+            lastTestSuccess = if (clean.isEmpty()) null else _vaultState.value.lastTestSuccess
         )
     }
 
@@ -72,12 +95,27 @@ class ApiKeyManager(context: Context) {
     }
 
     fun setSelectedModel(model: String) {
-        val validModel = if (model == MODEL_GEMINI_PRO) MODEL_GEMINI_PRO else MODEL_GEMINI_FLASH
-        prefs.edit().putString(KEY_GEMINI_MODEL, validModel).apply()
+        val cleanModel = model.trim().removePrefix("models/").ifEmpty { MODEL_GEMINI_3_8_FLASH }
+        prefs.edit()
+            .putString(KEY_GEMINI_MODEL, cleanModel)
+            .putBoolean(KEY_MIGRATED_DEFAULT_3_8, true)
+            .apply()
         _vaultState.value = _vaultState.value.copy(
-            selectedModel = validModel,
-            lastTestMessage = null,
-            lastTestSuccess = null
+            selectedModel = cleanModel
+        )
+    }
+
+    fun updateDiscoveredModels(models: List<String>, autoSelectedModel: String?) {
+        val merged = (DEFAULT_PRESET_MODELS + models)
+            .map { it.trim().removePrefix("models/") }
+            .filter { it.isNotEmpty() }
+            .distinct()
+        val chosen = autoSelectedModel?.trim()?.removePrefix("models/")?.takeIf { it.isNotEmpty() }
+            ?: _vaultState.value.selectedModel
+        prefs.edit().putString(KEY_GEMINI_MODEL, chosen).apply()
+        _vaultState.value = _vaultState.value.copy(
+            selectedModel = chosen,
+            availableModels = merged
         )
     }
 
@@ -92,8 +130,18 @@ class ApiKeyManager(context: Context) {
         private const val PREFS_NAME = "smartfinance_gemini_vault_prefs"
         private const val KEY_GEMINI_API_KEY = "gemini_api_key"
         private const val KEY_GEMINI_MODEL = "gemini_selected_model"
+        private const val KEY_MIGRATED_DEFAULT_3_8 = "migrated_default_gemini_3_8"
 
-        const val MODEL_GEMINI_FLASH = "gemini-2.5-flash"
-        const val MODEL_GEMINI_PRO = "gemini-2.5-pro"
+        const val MODEL_GEMINI_3_8_FLASH = "gemini-3.8-flash"
+        const val MODEL_GEMINI_3_8_PRO = "gemini-3.8-pro"
+        const val MODEL_GEMINI_FLASH_LATEST = "gemini-flash-latest"
+        const val MODEL_GEMINI_2_5_FLASH = "gemini-2.5-flash"
+
+        val DEFAULT_PRESET_MODELS = listOf(
+            MODEL_GEMINI_3_8_FLASH,
+            MODEL_GEMINI_3_8_PRO,
+            MODEL_GEMINI_FLASH_LATEST,
+            MODEL_GEMINI_2_5_FLASH
+        )
     }
 }

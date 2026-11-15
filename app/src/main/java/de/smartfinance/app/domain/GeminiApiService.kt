@@ -25,6 +25,15 @@ import kotlin.math.roundToInt
 data class GeminiPingResult(
     val success: Boolean,
     val httpCode: Int,
+    val message: String,
+    val actualModelUsed: String = ApiKeyManager.MODEL_GEMINI_3_8_FLASH,
+    val autoSwitchedModel: String? = null
+)
+
+data class GeminiModelListResult(
+    val success: Boolean,
+    val models: List<String>,
+    val autoSelectedModel: String?,
     val message: String
 )
 
@@ -87,7 +96,7 @@ data class VoiceParseResult(
  *
  * Verbindet die exakte Rechengenauigkeit der lokalen Room-Datenbank (`SmartFinanceEngine`)
  * mit der natürlichen Beratung, Vision-Beleg-Splitting, Vertragsbrief-Analyse und
- * Mehrfach-Sprachbuchung von Google Gemini (`gemini-2.5-flash` / `gemini-2.5-pro`).
+ * Mehrfach-Sprachbuchung von Google Gemini (`gemini-3.8-flash` / `gemini-3.8-pro` + Auto-Switch).
  */
 object GeminiApiService {
 
@@ -96,11 +105,12 @@ object GeminiApiService {
     private const val READ_TIMEOUT_MS = 22_000
 
     /**
-     * 1. Verbindungs-Test (Ping-Request an die Gemini API)
+     * 1. Verbindungs-Test (Ping-Request an die Gemini API inkl. Selbstheilungs-Auto-Switch)
      */
     suspend fun testConnection(
         apiKey: String,
-        model: String = ApiKeyManager.MODEL_GEMINI_FLASH
+        model: String = ApiKeyManager.MODEL_GEMINI_3_8_FLASH,
+        onAutoSwitchModel: ((String) -> Unit)? = null
     ): GeminiPingResult = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim()
         if (cleanKey.isEmpty()) {
@@ -111,7 +121,7 @@ object GeminiApiService {
             )
         }
 
-        val modelLabel = if (model == ApiKeyManager.MODEL_GEMINI_PRO) "Gemini 2.5 Pro" else "Gemini 2.5 Flash"
+        val requestedModel = model.trim().removePrefix("models/").ifEmpty { ApiKeyManager.MODEL_GEMINI_3_8_FLASH }
         val payload = JSONObject().apply {
             put(
                 "contents",
@@ -136,37 +146,186 @@ object GeminiApiService {
             )
         }
 
-        val httpResult = executePostJson(model = model, apiKey = cleanKey, body = payload)
+        val httpResult = executePostJson(
+            model = requestedModel,
+            apiKey = cleanKey,
+            body = payload,
+            onAutoSwitchModel = onAutoSwitchModel
+        )
+        val effectiveModel = httpResult.usedModel
+        val switchedNote = if (httpResult.autoSwitchedFrom != null) {
+            " – Auto-Switch von ${httpResult.autoSwitchedFrom} auf $effectiveModel durchgeführt"
+        } else {
+            ""
+        }
+
         return@withContext when {
             httpResult.httpCode in 200..299 -> {
                 GeminiPingResult(
                     success = true,
                     httpCode = httpResult.httpCode,
-                    message = "Verbindung erfolgreich ($modelLabel bereit)"
+                    message = "Verbindung erfolgreich ($effectiveModel bereit$switchedNote)",
+                    actualModelUsed = effectiveModel,
+                    autoSwitchedModel = if (httpResult.autoSwitchedFrom != null) effectiveModel else null
                 )
             }
             httpResult.httpCode == 429 -> {
                 GeminiPingResult(
                     success = false,
                     httpCode = 429,
-                    message = "HTTP 429 Quota Exceeded (Rate-Limit erreicht – lokaler KI-Fallback greift automatisch)"
+                    message = "HTTP 429 Quota Exceeded (Rate-Limit erreicht – lokaler KI-Fallback greift automatisch)",
+                    actualModelUsed = effectiveModel
                 )
             }
-            httpResult.httpCode in listOf(400, 401, 403) -> {
+            httpResult.httpCode in listOf(400, 401, 403, 404) -> {
+                val detail = httpResult.errorDetail?.takeIf { it.isNotBlank() }
                 GeminiPingResult(
                     success = false,
                     httpCode = httpResult.httpCode,
-                    message = "API-Key ungültig oder abgelehnt (HTTP ${httpResult.httpCode}). Bitte Key aus aistudio.google.com prüfen."
+                    message = detail ?: "Anfrage abgelehnt (HTTP ${httpResult.httpCode}). Bitte API-Key oder Modellnamen prüfen.",
+                    actualModelUsed = effectiveModel
                 )
             }
             else -> {
                 GeminiPingResult(
                     success = false,
                     httpCode = httpResult.httpCode,
-                    message = "Verbindungsfehler: ${httpResult.errorDetail ?: "Keine Internetverbindung"}"
+                    message = "Verbindungsfehler: ${httpResult.errorDetail ?: "Keine Internetverbindung"}",
+                    actualModelUsed = effectiveModel
                 )
             }
         }
+    }
+
+    /**
+     * 1.2 Live-Abfrage aller für diesen API-Key freigeschalteten `generateContent`-Modelle (`GET /v1beta/models`).
+     * Bevorzugt moderne `-flash`-Modelle und wählt automatisch das neueste funktionierende Flash-Modell aus.
+     */
+    suspend fun fetchAvailableModels(
+        apiKey: String
+    ): GeminiModelListResult = withContext(Dispatchers.IO) {
+        val cleanKey = apiKey.trim()
+        if (cleanKey.isEmpty()) {
+            return@withContext GeminiModelListResult(
+                success = false,
+                models = emptyList(),
+                autoSelectedModel = null,
+                message = "Bitte gib zuerst deinen Google AI Studio API-Key ein."
+            )
+        }
+
+        var connection: HttpsURLConnection? = null
+        try {
+            val url = URL("$BASE_ENDPOINT?key=$cleanKey")
+            connection = (url.openConnection() as HttpsURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = CONNECT_TIMEOUT_MS
+                readTimeout = READ_TIMEOUT_MS
+                doInput = true
+                setRequestProperty("Accept", "application/json")
+            }
+
+            val code = connection.responseCode
+            if (code in 200..299) {
+                val responseBody = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val root = JSONObject(responseBody)
+                val modelsArr = root.optJSONArray("models") ?: JSONArray()
+                val discovered = mutableListOf<String>()
+
+                for (i in 0 until modelsArr.length()) {
+                    val mObj = modelsArr.optJSONObject(i) ?: continue
+                    val rawName = mObj.optString("name", "").removePrefix("models/").trim()
+                    if (!rawName.startsWith("gemini", ignoreCase = true)) continue
+
+                    val methodsArr = mObj.optJSONArray("supportedGenerationMethods")
+                    var supportsGenerateContent = false
+                    if (methodsArr != null) {
+                        for (j in 0 until methodsArr.length()) {
+                            if (methodsArr.optString(j) == "generateContent") {
+                                supportsGenerateContent = true
+                                break
+                            }
+                        }
+                    }
+                    if (supportsGenerateContent) {
+                        discovered.add(rawName)
+                    }
+                }
+
+                val sortedModels = discovered
+                    .distinct()
+                    .sortedWith(
+                        compareByDescending<String> { scoreModelPriority(it) }
+                            .thenByDescending { it }
+                    )
+
+                val bestFlash = sortedModels.firstOrNull {
+                    it.contains("flash", ignoreCase = true) && !it.contains("8b", ignoreCase = true)
+                } ?: sortedModels.firstOrNull {
+                    it.contains("flash", ignoreCase = true)
+                } ?: sortedModels.firstOrNull()
+
+                if (sortedModels.isNotEmpty()) {
+                    GeminiModelListResult(
+                        success = true,
+                        models = sortedModels,
+                        autoSelectedModel = bestFlash,
+                        message = "${sortedModels.size} verfügbare Gemini-Modelle geladen. Aktiv ausgewählt: ${bestFlash ?: ApiKeyManager.MODEL_GEMINI_3_8_FLASH}"
+                    )
+                } else {
+                    GeminiModelListResult(
+                        success = false,
+                        models = emptyList(),
+                        autoSelectedModel = null,
+                        message = "Keine generateContent-Modelle in der Server-Antwort gefunden."
+                    )
+                }
+            } else {
+                val errBody = runCatching {
+                    connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                }.getOrNull().orEmpty()
+                val errMsg = runCatching {
+                    JSONObject(errBody).optJSONObject("error")?.optString("message")
+                }.getOrNull()
+                GeminiModelListResult(
+                    success = false,
+                    models = emptyList(),
+                    autoSelectedModel = null,
+                    message = errMsg ?: "Modelle konnten nicht geladen werden (HTTP $code)."
+                )
+            }
+        } catch (e: Exception) {
+            GeminiModelListResult(
+                success = false,
+                models = emptyList(),
+                autoSelectedModel = null,
+                message = "Netzwerkfehler beim Laden der Modelle: ${e.localizedMessage ?: "Unbekannt"}"
+            )
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private fun scoreModelPriority(modelName: String): Int {
+        val lower = modelName.lowercase(Locale.ROOT)
+        val versionRegex = Regex("gemini-(\\d+)\\.(\\d+)")
+        val vMatch = versionRegex.find(lower)
+        val major = vMatch?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+        val minor = vMatch?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
+        val versionScore = major * 100 + minor * 10
+
+        val isFlash = lower.contains("flash")
+        val isLiteOr8b = lower.contains("lite") || lower.contains("8b")
+        val isPreviewOrExp = lower.contains("exp") || lower.contains("preview")
+        val isExactStandard = lower == ApiKeyManager.MODEL_GEMINI_3_8_FLASH
+
+        var total = versionScore
+        if (isExactStandard) total += 2000
+        if (isFlash && !isLiteOr8b) total += 500
+        else if (isFlash) total += 250
+        if (!isPreviewOrExp) total += 40
+        if (lower == ApiKeyManager.MODEL_GEMINI_FLASH_LATEST) total += 350
+        return total
     }
 
     /**
@@ -226,7 +385,8 @@ object GeminiApiService {
         model: String,
         snapshot: DashboardAnalysisSnapshot,
         categories: List<CategoryTabEntity>,
-        hourlyWage: Double
+        hourlyWage: Double,
+        onAutoSwitchModel: ((String) -> Unit)? = null
     ): HybridCoachReply = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim()
         val localAnswer = SmartFinanceEngine.answerUserQuery(
@@ -282,7 +442,12 @@ object GeminiApiService {
             )
         }
 
-        val response = executePostJson(model = model, apiKey = cleanKey, body = payload)
+        val response = executePostJson(
+            model = model,
+            apiKey = cleanKey,
+            body = payload,
+            onAutoSwitchModel = onAutoSwitchModel
+        )
         if (response.httpCode in 200..299 && !response.extractedText.isNullOrBlank()) {
             val cleanReply = response.extractedText
                 .replace("**", "")
@@ -292,7 +457,7 @@ object GeminiApiService {
             return@withContext HybridCoachReply(
                 text = cleanReply,
                 usedCloudGemini = true,
-                modelUsed = model
+                modelUsed = response.usedModel
             )
         }
 
@@ -317,7 +482,8 @@ object GeminiApiService {
         imageUri: Uri,
         apiKey: String,
         model: String,
-        categories: List<CategoryTabEntity>
+        categories: List<CategoryTabEntity>,
+        onAutoSwitchModel: ((String) -> Unit)? = null
     ): Result<GeminiVisionScanResult> = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim()
         if (cleanKey.isNotEmpty()) {
@@ -388,8 +554,13 @@ object GeminiApiService {
                     )
                 }
 
-                val visionModel = if (model.isNotBlank()) model else ApiKeyManager.MODEL_GEMINI_FLASH
-                val response = executePostJson(model = visionModel, apiKey = cleanKey, body = payload)
+                val visionModel = if (model.isNotBlank()) model else ApiKeyManager.MODEL_GEMINI_3_8_FLASH
+                val response = executePostJson(
+                    model = visionModel,
+                    apiKey = cleanKey,
+                    body = payload,
+                    onAutoSwitchModel = onAutoSwitchModel
+                )
                 if (response.httpCode in 200..299 && !response.extractedText.isNullOrBlank()) {
                     val parsedVision = parseVisionJsonResponse(response.extractedText, categories)
                     if (parsedVision != null) {
@@ -427,7 +598,8 @@ object GeminiApiService {
         spokenText: String,
         apiKey: String,
         model: String,
-        categories: List<CategoryTabEntity>
+        categories: List<CategoryTabEntity>,
+        onAutoSwitchModel: ((String) -> Unit)? = null
     ): VoiceParseResult = withContext(Dispatchers.IO) {
         val cleanText = spokenText.trim()
         if (cleanText.isEmpty()) {
@@ -472,7 +644,12 @@ object GeminiApiService {
                 )
             }
 
-            val response = executePostJson(model = model, apiKey = cleanKey, body = payload)
+            val response = executePostJson(
+                model = model,
+                apiKey = cleanKey,
+                body = payload,
+                onAutoSwitchModel = onAutoSwitchModel
+            )
             if (response.httpCode in 200..299 && !response.extractedText.isNullOrBlank()) {
                 val cloudProposals = parseVoiceJsonProposals(response.extractedText, categories)
                 if (cloudProposals.isNotEmpty()) {
@@ -837,17 +1014,106 @@ object GeminiApiService {
     private data class RawHttpResponse(
         val httpCode: Int,
         val extractedText: String?,
-        val errorDetail: String?
+        val errorDetail: String?,
+        val usedModel: String,
+        val autoSwitchedFrom: String? = null
     )
 
+    /**
+     * Selbstheilender HTTP-POST-Aufruf:
+     * Falls Google eine Modell-Abschaltung meldet (z. B. "Please update your code to use models/gemini-3.8-flash"),
+     * wird der empfohlene Modellname per Regex extrahiert, sofort als neues Standard-Modell im ApiKeyManager
+     * gespeichert und der Request im Hintergrund nahtlos wiederholt.
+     */
     private fun executePostJson(
         model: String,
+        apiKey: String,
+        body: JSONObject,
+        onAutoSwitchModel: ((String) -> Unit)? = null
+    ): RawHttpResponse {
+        val safeModel = model.trim().removePrefix("models/").ifEmpty { ApiKeyManager.MODEL_GEMINI_3_8_FLASH }
+        val firstAttempt = executePostJsonSingle(safeModel, apiKey, body)
+        if (firstAttempt.httpCode in 200..299) {
+            return firstAttempt
+        }
+
+        val recommendedModel = extractRecommendedModelFromError(
+            errorMessage = firstAttempt.errorDetail,
+            failedModel = safeModel
+        )
+        if (recommendedModel != null && !recommendedModel.equals(safeModel, ignoreCase = true)) {
+            onAutoSwitchModel?.invoke(recommendedModel)
+            val retryResponse = executePostJsonSingle(recommendedModel, apiKey, body)
+            return retryResponse.copy(
+                usedModel = recommendedModel,
+                autoSwitchedFrom = safeModel
+            )
+        }
+
+        // Falls ein älteres/manuelles Modell mit 404 / "no longer available" abgelehnt wurde ohne explizite Nennung,
+        // versuche einmalig das Standard-Modell gemini-3.8-flash bzw. gemini-flash-latest.
+        val errLower = firstAttempt.errorDetail.orEmpty().lowercase(Locale.ROOT)
+        val isModelUnavailableError = firstAttempt.httpCode == 404 ||
+            errLower.contains("no longer available") ||
+            errLower.contains("not found") ||
+            errLower.contains("not supported")
+
+        if (isModelUnavailableError) {
+            val fallbackCandidate = if (!safeModel.equals(ApiKeyManager.MODEL_GEMINI_3_8_FLASH, ignoreCase = true)) {
+                ApiKeyManager.MODEL_GEMINI_3_8_FLASH
+            } else {
+                ApiKeyManager.MODEL_GEMINI_FLASH_LATEST
+            }
+            val fallbackAttempt = executePostJsonSingle(fallbackCandidate, apiKey, body)
+            if (fallbackAttempt.httpCode in 200..299) {
+                onAutoSwitchModel?.invoke(fallbackCandidate)
+                return fallbackAttempt.copy(
+                    usedModel = fallbackCandidate,
+                    autoSwitchedFrom = safeModel
+                )
+            }
+        }
+
+        return firstAttempt
+    }
+
+    private fun extractRecommendedModelFromError(
+        errorMessage: String?,
+        failedModel: String
+    ): String? {
+        if (errorMessage.isNullOrBlank()) return null
+
+        // 1. Gezielte Prüfung auf "Please update your code to use models/([a-zA-Z0-9.-]+)"
+        val explicitUpdateRegex = Regex(
+            "(?:Please update your code to use|update your code to use|use)\\s+models/([a-zA-Z0-9.-]+)",
+            RegexOption.IGNORE_CASE
+        )
+        val explicitMatch = explicitUpdateRegex.find(errorMessage)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim()
+            ?.trimEnd('.', ',', ';', ')', '"', '\'')
+        if (!explicitMatch.isNullOrEmpty() && !explicitMatch.equals(failedModel, ignoreCase = true)) {
+            return explicitMatch
+        }
+
+        // 2. Allgemeine Suche nach allen `models/([a-zA-Z0-9.-]+)` Vorkommen in der Fehlermeldung
+        val genericModelsRegex = Regex("models/([a-zA-Z0-9.-]+)")
+        val allMatches = genericModelsRegex.findAll(errorMessage)
+            .mapNotNull { it.groupValues.getOrNull(1)?.trim()?.trimEnd('.', ',', ';', ')', '"', '\'') }
+            .filter { it.isNotEmpty() && !it.equals(failedModel, ignoreCase = true) }
+            .toList()
+
+        return allMatches.lastOrNull()
+    }
+
+    private fun executePostJsonSingle(
+        safeModel: String,
         apiKey: String,
         body: JSONObject
     ): RawHttpResponse {
         var connection: HttpsURLConnection? = null
         return try {
-            val safeModel = model.trim().ifEmpty { ApiKeyManager.MODEL_GEMINI_FLASH }
             val endpointUrl = URL("$BASE_ENDPOINT/$safeModel:generateContent?key=$apiKey")
             connection = (endpointUrl.openConnection() as HttpsURLConnection).apply {
                 requestMethod = "POST"
@@ -884,7 +1150,8 @@ object GeminiApiService {
                 RawHttpResponse(
                     httpCode = code,
                     extractedText = sb.toString().trim(),
-                    errorDetail = null
+                    errorDetail = null,
+                    usedModel = safeModel
                 )
             } else {
                 val errBody = runCatching {
@@ -896,14 +1163,16 @@ object GeminiApiService {
                 RawHttpResponse(
                     httpCode = code,
                     extractedText = null,
-                    errorDetail = errMsg ?: "HTTP $code"
+                    errorDetail = errMsg ?: "HTTP $code",
+                    usedModel = safeModel
                 )
             }
         } catch (e: Exception) {
             RawHttpResponse(
                 httpCode = 0,
                 extractedText = null,
-                errorDetail = e.localizedMessage ?: "Netzwerkfehler"
+                errorDetail = e.localizedMessage ?: "Netzwerkfehler",
+                usedModel = safeModel
             )
         } finally {
             connection?.disconnect()

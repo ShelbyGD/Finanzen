@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -39,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.smartfinance.app.core.ApiKeyManager
 import de.smartfinance.app.core.GeminiVaultState
@@ -57,17 +60,20 @@ import de.smartfinance.app.ui.theme.BudgetRingGreen
 /**
  * Komfortables ModalBottomSheet für den sicheren BYOK API-Key-Tresor (Google AI Studio):
  * - Maskiertes Eingabefeld für den API-Key + "Aus Zwischenablage einfügen"-Button
- * - Modell-Auswahl ("gemini-2.5-flash" Standard, optional "gemini-2.5-pro")
- * - Button "Verbindung testen" mit Echtzeit-Ping an die Google Gemini API
+ * - 4 Schnellwahl-Chips ("gemini-3.8-flash (Standard)", "gemini-3.8-pro", "gemini-flash-latest", "gemini-2.5-flash")
+ * - Editierbares Textfeld "Aktiver Modell-Name" + Button "Verfügbare Modelle laden" (GET /v1beta/models)
+ * - Button "Verbindung testen" mit Echtzeit-Ping & automatischem Modell-Auto-Switch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeminiApiKeyVaultSheet(
     vaultState: GeminiVaultState,
     isTestingConnection: Boolean,
+    isLoadingModels: Boolean = false,
     onSaveApiKey: (String) -> Unit,
     onClearApiKey: () -> Unit,
     onSelectModel: (String) -> Unit,
+    onFetchAvailableModels: (String) -> Unit = {},
     onTestConnection: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -76,7 +82,13 @@ fun GeminiApiKeyVaultSheet(
 
     var keyInput by remember(vaultState.apiKey) { mutableStateOf(vaultState.apiKey) }
     var showRawKey by remember { mutableStateOf(false) }
-    var selectedModel by remember(vaultState.selectedModel) { mutableStateOf(vaultState.selectedModel) }
+    var selectedModel by remember { mutableStateOf(vaultState.selectedModel) }
+
+    LaunchedEffect(vaultState.selectedModel) {
+        if (vaultState.selectedModel.isNotBlank() && vaultState.selectedModel != selectedModel) {
+            selectedModel = vaultState.selectedModel
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -208,36 +220,180 @@ fun GeminiApiKeyVaultSheet(
                 fontWeight = FontWeight.Bold
             )
 
+            // Reihe 1: gemini-3.8-flash (Standard) & gemini-3.8-pro
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
-                    selected = selectedModel == ApiKeyManager.MODEL_GEMINI_FLASH,
+                    selected = selectedModel.trim() == ApiKeyManager.MODEL_GEMINI_3_8_FLASH,
                     onClick = {
-                        selectedModel = ApiKeyManager.MODEL_GEMINI_FLASH
-                        onSelectModel(ApiKeyManager.MODEL_GEMINI_FLASH)
+                        selectedModel = ApiKeyManager.MODEL_GEMINI_3_8_FLASH
+                        onSelectModel(ApiKeyManager.MODEL_GEMINI_3_8_FLASH)
                     },
-                    label = { Text("gemini-2.5-flash (Standard)") },
+                    label = {
+                        Text(
+                            text = "gemini-3.8-flash (Standard)",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
-                    selected = selectedModel == ApiKeyManager.MODEL_GEMINI_PRO,
+                    selected = selectedModel.trim() == ApiKeyManager.MODEL_GEMINI_3_8_PRO,
                     onClick = {
-                        selectedModel = ApiKeyManager.MODEL_GEMINI_PRO
-                        onSelectModel(ApiKeyManager.MODEL_GEMINI_PRO)
+                        selectedModel = ApiKeyManager.MODEL_GEMINI_3_8_PRO
+                        onSelectModel(ApiKeyManager.MODEL_GEMINI_3_8_PRO)
                     },
-                    label = { Text("gemini-2.5-pro") },
+                    label = {
+                        Text(
+                            text = "gemini-3.8-pro",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            // Reihe 2: gemini-flash-latest & gemini-2.5-flash
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = selectedModel.trim() == ApiKeyManager.MODEL_GEMINI_FLASH_LATEST,
+                    onClick = {
+                        selectedModel = ApiKeyManager.MODEL_GEMINI_FLASH_LATEST
+                        onSelectModel(ApiKeyManager.MODEL_GEMINI_FLASH_LATEST)
+                    },
+                    label = {
+                        Text(
+                            text = "gemini-flash-latest",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = selectedModel.trim() == ApiKeyManager.MODEL_GEMINI_2_5_FLASH,
+                    onClick = {
+                        selectedModel = ApiKeyManager.MODEL_GEMINI_2_5_FLASH
+                        onSelectModel(ApiKeyManager.MODEL_GEMINI_2_5_FLASH)
+                    },
+                    label = {
+                        Text(
+                            text = "gemini-2.5-flash",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Zusätzlich vom Server abgerufene Modelle (falls vorhanden)
+            val extraDiscoveredModels = vaultState.availableModels.filterNot {
+                it in ApiKeyManager.DEFAULT_PRESET_MODELS
+            }
+            if (extraDiscoveredModels.isNotEmpty()) {
+                Text(
+                    text = "Weitere für deinen Key freigeschaltete Modelle:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                extraDiscoveredModels.chunked(2).forEach { rowModels ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowModels.forEach { dynModel ->
+                            FilterChip(
+                                selected = selectedModel.trim() == dynModel,
+                                onClick = {
+                                    selectedModel = dynModel
+                                    onSelectModel(dynModel)
+                                },
+                                label = {
+                                    Text(
+                                        text = dynModel,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowModels.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+            // Editierbares Modell-Textfeld ("Aktiver Modell-Name") + Button "Verfügbare Modelle laden"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = selectedModel,
+                    onValueChange = { updated ->
+                        selectedModel = updated.removePrefix("models/")
+                        onSelectModel(selectedModel)
+                    },
+                    label = { Text("Aktiver Modell-Name") },
+                    placeholder = { Text("gemini-3.8-flash") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1.15f)
+                )
+
+                FilledTonalButton(
+                    onClick = {
+                        val trimmedKey = keyInput.trim()
+                        onSaveApiKey(trimmedKey)
+                        onFetchAvailableModels(trimmedKey)
+                    },
+                    enabled = !isLoadingModels && keyInput.trim().isNotEmpty(),
+                    modifier = Modifier.weight(0.95f)
+                ) {
+                    if (isLoadingModels) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Lade...",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.CloudDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Verfügbare Modelle laden",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 2
+                        )
+                    }
+                }
             }
 
             // Verbindungs-Test Button + Status-Rückmeldung
             OutlinedButton(
                 onClick = {
+                    val cleanModel = selectedModel.trim().removePrefix("models/").ifEmpty { ApiKeyManager.MODEL_GEMINI_3_8_FLASH }
+                    selectedModel = cleanModel
                     onSaveApiKey(keyInput.trim())
-                    onSelectModel(selectedModel)
-                    onTestConnection(keyInput.trim(), selectedModel)
+                    onSelectModel(cleanModel)
+                    onTestConnection(keyInput.trim(), cleanModel)
                 },
                 enabled = !isTestingConnection && keyInput.trim().isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()

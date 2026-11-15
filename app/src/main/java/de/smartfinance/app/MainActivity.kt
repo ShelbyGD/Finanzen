@@ -152,6 +152,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val showNotificationsSheet by viewModel.showNotificationsSheet.collectAsStateWithLifecycle()
     val showApiKeyVaultSheet by viewModel.showApiKeyVaultSheet.collectAsStateWithLifecycle()
     val isTestingGeminiConnection by viewModel.isTestingGeminiConnection.collectAsStateWithLifecycle()
+    val isLoadingGeminiModels by viewModel.isLoadingGeminiModels.collectAsStateWithLifecycle()
     val isAiThinking by viewModel.isAiThinking.collectAsStateWithLifecycle()
     val selectedTransactionForAction by viewModel.selectedTransactionForAction.collectAsStateWithLifecycle()
     val activeHelpEntryModal by viewModel.activeHelpEntryModal.collectAsStateWithLifecycle()
@@ -679,9 +680,11 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         GeminiApiKeyVaultSheet(
             vaultState = geminiVaultState,
             isTestingConnection = isTestingGeminiConnection,
+            isLoadingModels = isLoadingGeminiModels,
             onSaveApiKey = viewModel::saveGeminiApiKey,
             onClearApiKey = viewModel::clearGeminiApiKey,
             onSelectModel = viewModel::selectGeminiModel,
+            onFetchAvailableModels = viewModel::fetchAvailableGeminiModels,
             onTestConnection = viewModel::testGeminiConnection,
             onDismiss = viewModel::closeApiKeyVaultSheet
         )
