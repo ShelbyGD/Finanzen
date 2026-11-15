@@ -353,12 +353,13 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         smoothOver12Months: Boolean = false,
         note: String = ""
     ) {
-        if (amount <= 0.0) return
+        val absAmount = kotlin.math.abs(amount)
+        if (absAmount <= 0.0) return
         viewModelScope.launch(Dispatchers.IO) {
             repository.addTransaction(
                 TransactionEntity(
                     title = title.ifBlank { category.name },
-                    amount = amount,
+                    amount = absAmount,
                     transactionType = transactionType,
                     categoryId = category.id,
                     categoryName = category.name,
@@ -370,8 +371,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     note = note
                 )
             )
+            val prefix = if (transactionType == TransactionType.INCOME) "+" else "-"
             withContext(Dispatchers.Main) {
-                _snackbarMessage.value = "Gebucht: ${title.ifBlank { category.name }} (${SmartFinanceEngine.formatEuro(amount)})"
+                _snackbarMessage.value = "Gebucht: ${title.ifBlank { category.name }} ($prefix${SmartFinanceEngine.formatEuro(absAmount)})"
             }
         }
     }
@@ -379,10 +381,11 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     fun executeQuickTemplate(template: QuickTemplateEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             val today = LocalDate.now()
+            val absAmount = kotlin.math.abs(template.amount)
             repository.addTransaction(
                 TransactionEntity(
                     title = template.label,
-                    amount = template.amount,
+                    amount = absAmount,
                     transactionType = template.transactionType,
                     categoryId = template.categoryId,
                     categoryName = template.categoryName,
@@ -715,7 +718,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
                     val tx = TransactionEntity(
                         title = action.title,
-                        amount = action.amount,
+                        amount = kotlin.math.abs(action.amount),
                         transactionType = action.transactionType,
                         categoryId = matchedCat.id,
                         categoryName = matchedCat.name,
@@ -1010,10 +1013,11 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         if (items.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             items.forEach { split ->
+                val absAmt = kotlin.math.abs(split.amount)
                 repository.addTransaction(
                     TransactionEntity(
                         title = split.title,
-                        amount = split.amount,
+                        amount = absAmt,
                         transactionType = TransactionType.EXPENSE,
                         categoryId = split.categoryId,
                         categoryName = split.categoryName,
@@ -1026,7 +1030,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     )
                 )
             }
-            val sum = items.sumOf { it.amount }
+            val sum = items.sumOf { kotlin.math.abs(it.amount) }
             withContext(Dispatchers.Main) {
                 _snackbarMessage.value = "Split-Buchung (${items.size} Positionen • ${SmartFinanceEngine.formatEuro(sum)}) gespeichert."
             }
@@ -1089,10 +1093,11 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch(Dispatchers.IO) {
             val today = LocalDate.now()
             proposals.forEach { prop ->
+                val absAmt = kotlin.math.abs(prop.amount)
                 repository.addTransaction(
                     TransactionEntity(
                         title = prop.title,
-                        amount = prop.amount,
+                        amount = absAmt,
                         transactionType = prop.transactionType,
                         categoryId = prop.categoryId,
                         categoryName = prop.categoryName,
@@ -1105,7 +1110,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     )
                 )
             }
-            val total = proposals.sumOf { it.amount }
+            val total = proposals.sumOf { kotlin.math.abs(it.amount) }
             withContext(Dispatchers.Main) {
                 _snackbarMessage.value = "${proposals.size} Sprach-Buchungen (${SmartFinanceEngine.formatEuro(total)}) gespeichert."
             }

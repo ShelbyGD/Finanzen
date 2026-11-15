@@ -262,6 +262,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     ) {
         val isKeyboardOpen = WindowInsets.isImeVisible
         Scaffold(
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
                 TopAppBar(
                     navigationIcon = {

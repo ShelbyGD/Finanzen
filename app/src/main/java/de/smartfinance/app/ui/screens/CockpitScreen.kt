@@ -939,16 +939,18 @@ private fun RecentBookingsGroupedSection(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f)
                             ) {
+                                val circleBg = if (isIncome) Color(0xFF00E676).copy(alpha = 0.20f) else accentColor.copy(alpha = 0.15f)
+                                val iconTint = if (isIncome) Color(0xFF00E676) else accentColor
                                 Surface(
                                     shape = CircleShape,
-                                    color = accentColor.copy(alpha = 0.15f),
+                                    color = circleBg,
                                     modifier = Modifier.size(40.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = CategoryIconCatalog.iconForKey(iconKey),
                                             contentDescription = tx.title,
-                                            tint = accentColor,
+                                            tint = iconTint,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -981,12 +983,12 @@ private fun RecentBookingsGroupedSection(
 
                             val prefix = if (isIncome) "+" else "-"
                             val amountColor = if (isIncome) {
-                                BudgetRingGreen
+                                Color(0xFF00E676)
                             } else {
                                 MaterialTheme.colorScheme.onSurface
                             }
                             Text(
-                                text = "$prefix${SmartFinanceEngine.formatEuro(tx.amount)}",
+                                text = "$prefix${SmartFinanceEngine.formatEuro(kotlin.math.abs(tx.amount))}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = amountColor
@@ -1127,7 +1129,7 @@ fun AnalyticsTabScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = BudgetRingGreen.copy(alpha = 0.12f),
+                            color = Color(0xFF00E676).copy(alpha = 0.14f),
                             modifier = Modifier.weight(1f)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -1137,10 +1139,10 @@ fun AnalyticsTabScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = SmartFinanceEngine.formatEuro(effectiveIncome),
+                                    text = "+${SmartFinanceEngine.formatEuro(effectiveIncome)}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = BudgetRingGreen
+                                    color = Color(0xFF00E676)
                                 )
                                 Text(
                                     text = "${snapshot.avgWindowMonths}M-Ø: ${SmartFinanceEngine.formatEuro(snapshot.historicalAvgIncome)}",
@@ -1162,7 +1164,7 @@ fun AnalyticsTabScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = SmartFinanceEngine.formatEuro(totalExpenses),
+                                    text = "-${SmartFinanceEngine.formatEuro(totalExpenses)}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = BudgetRingOrange

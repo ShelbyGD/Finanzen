@@ -176,35 +176,44 @@ object SmartFinanceEngine {
         val smoothedMonthlyReserveTotal = smoothedItems.sumOf { it.monthlyShare }
 
         val actualIncome = monthTransactions
-            .filter { it.transactionType == TransactionType.INCOME }
-            .sumOf { it.amount }
+            .filter { it.isIncome }
+            .sumOf { abs(it.amount) }
+
+        val hasSalaryBooking = monthTransactions.any { tx ->
+            tx.isIncome && (
+                tx.categoryName.contains("Gehalt", ignoreCase = true) ||
+                tx.title.contains("Gehalt", ignoreCase = true) ||
+                tx.title.contains("Lohn", ignoreCase = true) ||
+                tx.title.contains("Einkommen", ignoreCase = true)
+            )
+        }
         val plannedMonthlyIncome = categories
             .filter { it.categoryType == CategoryType.INCOME && (it.defaultAmount ?: 0.0) > 0.0 }
-            .sumOf { it.defaultAmount ?: 0.0 }
-        val targetIncome = max(actualIncome, plannedMonthlyIncome)
-        val effectiveIncome = if (isFutureMonth || actualIncome == 0.0) targetIncome else actualIncome
+            .sumOf { abs(it.defaultAmount ?: 0.0) }
+        val targetIncome = if (hasSalaryBooking) actualIncome else (actualIncome + plannedMonthlyIncome)
+        val effectiveIncome = targetIncome
 
-        val expenseTransactions = monthTransactions.filter { it.transactionType == TransactionType.EXPENSE }
+        val expenseTransactions = monthTransactions.filter { !it.isIncome && it.transactionType != TransactionType.SAVINGS }
         val savingsTransactions = monthTransactions.filter { it.transactionType == TransactionType.SAVINGS }
 
-        val actualExpensesRaw = expenseTransactions.sumOf { it.amount }
+        val actualExpensesRaw = expenseTransactions.sumOf { abs(it.amount) }
 
         val nonSmoothedExpenses = expenseTransactions
             .filter { !it.smoothOver12Months }
-            .sumOf { it.amount }
+            .sumOf { abs(it.amount) }
 
         val bookedFixedExpenses = expenseTransactions
             .filter { it.isFixedRecurring && !it.smoothOver12Months }
-            .sumOf { it.amount }
+            .sumOf { abs(it.amount) }
 
         val variableExpensesSoFar = expenseTransactions
             .filter { !it.isFixedRecurring && !it.smoothOver12Months }
-            .sumOf { it.amount }
+            .sumOf { abs(it.amount) }
 
-        val bookedSavings = savingsTransactions.sumOf { it.amount }
+        val bookedSavings = savingsTransactions.sumOf { abs(it.amount) }
         val plannedSavings = categories
             .filter { it.categoryType == CategoryType.SAVINGS && (it.defaultAmount ?: 0.0) > 0.0 }
-            .sumOf { it.defaultAmount ?: 0.0 }
+            .sumOf { abs(it.defaultAmount ?: 0.0) }
         val savingsThisMonth = if (isFutureMonth) max(bookedSavings, plannedSavings) else bookedSavings
 
         val referenceDay = when {
@@ -220,7 +229,7 @@ object SmartFinanceEngine {
             categories = categories,
             monthTransactions = monthTransactions
         )
-        val openUpcomingFixedTotal = upcomingDebits.sumOf { it.amount }
+        val openUpcomingFixedTotal = upcomingDebits.sumOf { abs(it.amount) }
 
         val effectiveOperatingExpenses =
             nonSmoothedExpenses + smoothedMonthlyReserveTotal + openUpcomingFixedTotal
@@ -252,13 +261,14 @@ object SmartFinanceEngine {
         val totalDisposableMonthBudget = effectiveIncome - totalCommittedFixedAndSavings
         val baseDailyBudget = totalDisposableMonthBudget / totalDaysInMonth.toDouble()
 
+        val totalExpensesBooked = nonSmoothedExpenses + smoothedMonthlyReserveTotal + bookedSavings
         val remainingFreeBudgetMonth = if (isFutureMonth) {
             totalDisposableMonthBudget
         } else {
-            effectiveIncome - bookedFixedExpenses - openUpcomingFixedTotal - smoothedMonthlyReserveTotal - bookedSavings - variableExpensesSoFar
+            effectiveIncome - totalExpensesBooked - openUpcomingFixedTotal
         }
 
-        val dynamicDailyBudgetToday = remainingFreeBudgetMonth / remainingDaysInMonth.toDouble()
+        val dynamicDailyBudgetToday = (remainingFreeBudgetMonth / remainingDaysInMonth.toDouble()).coerceAtLeast(0.0)
         val rolloverDeltaPerDay = dynamicDailyBudgetToday - baseDailyBudget
 
         val (weekdayBurn, weekendBurn) = computeWeekdayWeekendBurnRate(currentYm, allTransactions)
@@ -328,11 +338,12 @@ object SmartFinanceEngine {
         val categoryTotalsThisMonth = mutableMapOf<Long, Double>()
         for (cat in categories) {
             val sum = monthTransactions
-                .filter { it.categoryId == cat.id && it.transactionType != TransactionType.INCOME }
+                .filter { it.categoryId == cat.id && !it.isIncome }
                 .sumOf { tx ->
-                    if (tx.smoothOver12Months && tx.billingInterval == BillingInterval.YEARLY) tx.amount / 12.0
-                    else if (tx.smoothOver12Months && tx.billingInterval == BillingInterval.QUARTERLY) tx.amount / 3.0
-                    else tx.amount
+                    val amt = abs(tx.amount)
+                    if (tx.smoothOver12Months && tx.billingInterval == BillingInterval.YEARLY) amt / 12.0
+                    else if (tx.smoothOver12Months && tx.billingInterval == BillingInterval.QUARTERLY) amt / 3.0
+                    else amt
                 }
             categoryTotalsThisMonth[cat.id] = sum
         }
@@ -546,14 +557,14 @@ object SmartFinanceEngine {
                 val txDate = LocalDate.ofEpochDay(tx.dateEpochDay)
                 txDate.dayOfMonth == day && !tx.smoothOver12Months
             }
-            val settled = dayTx.sumOf { it.amount }
+            val settled = dayTx.sumOf { abs(it.amount) }
             val upcomingOnDay = upcomingDebits.filter { it.dueDayOfMonth == day }
-            val upcomingSum = upcomingOnDay.sumOf { it.amount }
+            val upcomingSum = upcomingOnDay.sumOf { abs(it.amount) }
             val total = settled + upcomingSum
 
             val items = mutableListOf<String>()
-            dayTx.forEach { items.add("${it.title} (${formatEuro(it.amount)})") }
-            upcomingOnDay.forEach { items.add("Geplant: ${it.title} (${formatEuro(it.amount)})") }
+            dayTx.forEach { items.add("${it.title} (-${formatEuro(abs(it.amount))})") }
+            upcomingOnDay.forEach { items.add("Geplant: ${it.title} (-${formatEuro(abs(it.amount))})") }
 
             val isToday = isCurrentMonth && today.dayOfMonth == day
             val isPastOrToday = when {

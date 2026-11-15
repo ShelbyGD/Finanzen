@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -49,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -126,11 +129,24 @@ fun CalculatorNumpadSheet(
         }
     }
 
-    val defaultCategory = remember(categories, selectedTxType) {
-        when (selectedTxType) {
-            TransactionType.INCOME -> categories.firstOrNull { it.categoryType == CategoryType.INCOME } ?: categories.firstOrNull()
-            TransactionType.SAVINGS -> categories.firstOrNull { it.categoryType == CategoryType.SAVINGS } ?: categories.firstOrNull()
-            else -> categories.firstOrNull { it.name.contains("Lebensmittel", ignoreCase = true) } ?: categories.firstOrNull()
+    val isExpenseSelected = selectedTxType != TransactionType.INCOME
+    val displayedCategories = remember(categories, isExpenseSelected) {
+        if (!isExpenseSelected) {
+            val incomeCats = categories.filter { it.categoryType == CategoryType.INCOME }
+            if (incomeCats.isNotEmpty()) incomeCats else categories
+        } else {
+            val expenseCats = categories.filter { it.categoryType != CategoryType.INCOME }
+            if (expenseCats.isNotEmpty()) expenseCats else categories
+        }
+    }
+
+    val defaultCategory = remember(categories, isExpenseSelected) {
+        if (!isExpenseSelected) {
+            categories.firstOrNull { it.categoryType == CategoryType.INCOME } ?: categories.firstOrNull()
+        } else {
+            categories.firstOrNull { it.name.contains("Lebensmittel", ignoreCase = true) }
+                ?: categories.firstOrNull { it.categoryType != CategoryType.INCOME }
+                ?: categories.firstOrNull()
         }
     }
     var selectedCategory by remember(defaultCategory) { mutableStateOf(defaultCategory) }
@@ -155,6 +171,70 @@ fun CalculatorNumpadSheet(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // 0. GROSSER KLARER SEGMENTED-TOGGLE GANZ OBEN: "➖ Ausgabe" vs. "➕ Einnahme"
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val isExpense = selectedTxType != TransactionType.INCOME
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isExpense) Color(0xFFEF4444) else Color.Transparent,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                            .clickable {
+                                selectedTxType = TransactionType.EXPENSE
+                                val firstExp = categories.firstOrNull { it.name.contains("Lebensmittel", ignoreCase = true) }
+                                    ?: categories.firstOrNull { it.categoryType != CategoryType.INCOME }
+                                    ?: categories.firstOrNull()
+                                if (firstExp != null) selectedCategory = firstExp
+                            }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "➖ Ausgabe",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (isExpense) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (!isExpense) Color(0xFF00E676) else Color.Transparent,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                            .clickable {
+                                selectedTxType = TransactionType.INCOME
+                                val firstInc = categories.firstOrNull { it.categoryType == CategoryType.INCOME }
+                                    ?: categories.firstOrNull()
+                                if (firstInc != null) selectedCategory = firstInc
+                            }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "➕ Einnahme",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (!isExpense) Color(0xFF003314) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
             // 1. 1-Tap Sprach-Buchung ("Smart Voice Entry" per Mikrofon)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -390,30 +470,6 @@ fun CalculatorNumpadSheet(
                 HorizontalDivider(thickness = 0.5.dp)
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = selectedTxType == TransactionType.EXPENSE,
-                    onClick = { selectedTxType = TransactionType.EXPENSE },
-                    label = { Text("Ausgabe") },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = selectedTxType == TransactionType.INCOME,
-                    onClick = { selectedTxType = TransactionType.INCOME },
-                    label = { Text("Einnahme") },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = selectedTxType == TransactionType.SAVINGS,
-                    onClick = { selectedTxType = TransactionType.SAVINGS },
-                    label = { Text("Sparrate") },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -434,7 +490,7 @@ fun CalculatorNumpadSheet(
                         text = SmartFinanceEngine.formatEuro(evaluatedAmount),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = if (isExpenseSelected) MaterialTheme.colorScheme.primary else Color(0xFF00E676),
                         textAlign = TextAlign.End
                     )
                     if (smoothOver12Months && evaluatedAmount > 0.0) {
@@ -447,13 +503,32 @@ fun CalculatorNumpadSheet(
                 }
             }
 
+            // Wenn Einnahme gewählt ist: Schnellauswahl für typische Einnahmen
+            if (!isExpenseSelected) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val incomePresets = listOf("Gehalt", "Rückerstattung", "Bonus", "Nebenjob", "Sonstige Einnahmen")
+                    incomePresets.forEach { preset ->
+                        FilterChip(
+                            selected = titleText == preset,
+                            onClick = { titleText = preset },
+                            label = { Text("➕ $preset") }
+                        )
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                categories.forEach { cat ->
+                displayedCategories.forEach { cat ->
                     FilterChip(
                         selected = selectedCategory?.id == cat.id,
                         onClick = {
@@ -584,14 +659,16 @@ fun CalculatorNumpadSheet(
                 }
             }
 
+            val isExpense = selectedTxType != TransactionType.INCOME
+            val absEvaluatedAmount = kotlin.math.abs(evaluatedAmount)
             Button(
                 onClick = {
                     val cat = selectedCategory ?: categories.firstOrNull()
-                    if (cat != null && evaluatedAmount > 0.0) {
+                    if (cat != null && absEvaluatedAmount > 0.0) {
                         onConfirmBooking(
                             titleText.ifBlank { cat.name },
-                            evaluatedAmount,
-                            selectedTxType,
+                            absEvaluatedAmount,
+                            if (isExpense) TransactionType.EXPENSE else TransactionType.INCOME,
                             cat,
                             dueDayOfMonth,
                             isFixedRecurring || smoothOver12Months,
@@ -601,14 +678,20 @@ fun CalculatorNumpadSheet(
                         onDismiss()
                     }
                 },
-                enabled = evaluatedAmount > 0.0 && selectedCategory != null,
+                enabled = absEvaluatedAmount > 0.0 && selectedCategory != null,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isExpense) MaterialTheme.colorScheme.primary else Color(0xFF00E676),
+                    contentColor = if (isExpense) MaterialTheme.colorScheme.onPrimary else Color(0xFF003314)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {
+                val sign = if (isExpense) "-" else "+"
+                val actionWord = if (isExpense) "Ausgabe buchen" else "Einnahme buchen"
                 Text(
-                    text = "Jetzt buchen (${SmartFinanceEngine.formatEuro(evaluatedAmount)})",
+                    text = "$actionWord ($sign${SmartFinanceEngine.formatEuro(absEvaluatedAmount)})",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )

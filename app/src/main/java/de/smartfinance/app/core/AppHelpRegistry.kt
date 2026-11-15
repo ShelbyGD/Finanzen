@@ -323,6 +323,17 @@ object AppHelpRegistry {
             )
         ),
         ChangelogEntry(
+            versionName = "1.2.1",
+            buildNumber = 10,
+            date = "15.11.2026",
+            newFeatures = listOf(
+                "Strikte Trennung von Einnahmen (+) & Ausgaben (-) im Buchungs-Sheet: Neuer großer Segmented-Toggle ('➖ Ausgabe' vs. '➕ Einnahme') mit dynamischer Kategorien- und Schnellauswahl (Gehalt, Rückerstattung, Bonus).",
+                "Korrekte Finanz-Mathematik: Gesamteinnahmen (gebuchte Einnahmen + optionales geplantes Grundgehalt) abzüglich Gesamtausgaben und offener Fixkosten reduzieren das verfügbare Budget zwingend korrekt.",
+                "Eindeutige visuelle Kennzeichnung: Ausgaben mit Minus ('-45,20 €'), Einnahmen mit Plus ('+2.450,00 €') in kräftigem Smaragdgrün und grünem Icon-Hintergrund in allen Listen & Analysen.",
+                "Keyboard-Fix & bündige Eingabeleiste im KI-Coach: Kein doppelter Abstand über der Tastatur mehr und automatisches Einklappen des Headers beim Schreiben."
+            )
+        ),
+        ChangelogEntry(
             versionName = "1.2.0",
             buildNumber = 9,
             date = "15.11.2026",
