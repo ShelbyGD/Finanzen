@@ -371,6 +371,16 @@ class FinanceRepository(
         }
     }
 
+    /**
+     * Selbstheilung: Raten < 1,00 € (z. B. fehlerhafte 0,01 €) werden auf 0,0 gesetzt
+     * (Modus "Ratenstart noch offen"), damit keine tausenden Raten berechnet werden.
+     */
+    suspend fun healInvalidInstallments() {
+        dao.getAllInstallmentsOnce()
+            .filter { it.monthlyRate < 1.0 && it.monthlyRate != 0.0 }
+            .forEach { dao.updateInstallment(it.copy(monthlyRate = 0.0)) }
+    }
+
     suspend fun cleanupDuplicateInstallments() {
         val all = dao.getAllInstallmentsOnce()
         val grouped = all.groupBy {

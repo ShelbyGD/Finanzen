@@ -550,4 +550,54 @@ class SmartFinanceSelfTest {
         val resolved = incomingEditWithoutId.copy(id = foundDuplicate!!.id)
         assertEquals(42L, resolved.id)
     }
+
+    /** Test A (Crash-Schutz): 975,10 € mit Rate 0,0 bzw. 0,01 darf nie > 120 Monate erzeugen. */
+    @Test
+    fun testA_crashProtection_zeroRateNeverExceeds120Months() {
+        val today = LocalDate.of(2026, 11, 16)
+        for (rate in listOf(0.0, 0.01)) {
+            val inst = de.smartfinance.app.data.local.InstallmentEntity(
+                title = "Fehlerposten", totalAmount = 975.10, monthlyRate = rate,
+                startEpochDay = LocalDate.of(2026, 1, 1).toEpochDay(), dueDayOfMonth = 1
+            )
+            val total = SmartFinanceEngine.totalInstallmentCount(inst)
+            assertTrue(total in 0..120)
+            val st = SmartFinanceEngine.calculateInstallmentState(inst, today)
+            assertTrue(st.remainingMonths in 0..120)
+            assertTrue(st.monthsPassed in 0..120)
+        }
+        val open = de.smartfinance.app.data.local.InstallmentEntity(
+            title = "Offen", totalAmount = 975.10, monthlyRate = 0.0,
+            startEpochDay = today.toEpochDay()
+        )
+        assertEquals(0, SmartFinanceEngine.totalInstallmentCount(open))
+        assertEquals(0, SmartFinanceEngine.calculateInstallmentState(open, today).remainingMonths)
+    }
+
+    /** Test B (Zukunfts-Start): Startdatum in 3 Monaten -> 0 Raten, 0 € Belastung im aktuellen Monat. */
+    @Test
+    fun testB_futureStart_noDeductionToday() {
+        val today = LocalDate.of(2026, 11, 16)
+        val start = today.plusMonths(3)
+        val inst = de.smartfinance.app.data.local.InstallmentEntity(
+            id = 7L, title = "Zukunft", totalAmount = 600.0, monthlyRate = 50.0,
+            startEpochDay = start.toEpochDay(), dueDayOfMonth = start.dayOfMonth,
+            extraPaidAmount = 0.0, deductFromBudget = true
+        )
+        val st = SmartFinanceEngine.calculateInstallmentState(inst, today)
+        assertEquals(0, st.monthsPassed)
+        assertEquals(0.0, st.paidSoFar, 0.001)
+        val incomeCat = CategoryTabEntity(
+            id = 1L, name = "Gehalt", iconKey = "income", colorHex = 0xFF10B981,
+            categoryType = CategoryType.INCOME, defaultAmount = 2500.0,
+            billingInterval = BillingInterval.MONTHLY
+        )
+        val snap = SmartFinanceEngine.analyzeMonth(
+            selectedYearMonth = YearMonth.from(today), today = today, billingStartDay = 1,
+            avgWindowMonths = 3, categories = listOf(incomeCat), allTransactions = emptyList(),
+            savingsGoals = emptyList(), installments = listOf(inst)
+        )
+        assertEquals(0.0, snap.activeInstallmentsRateTotal, 0.001)
+        assertEquals(2500.0, snap.remainingFreeBudgetMonth, 0.001)
+    }
 }

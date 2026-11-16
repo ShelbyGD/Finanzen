@@ -39,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -114,7 +115,7 @@ fun InstallmentsTrackerSheet(
 
     val monthlyLoadActive = remember(installmentStates) {
         installmentStates
-            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget && SmartFinanceEngine.isInstallmentRateActive(it.installment, today) }
             .sumOf { it.installment.monthlyRate }
     }
 
@@ -432,7 +433,7 @@ fun InstallmentsTrackerSheet(
 
                 val folderOpenDebt = itemsInFolder.sumOf { it.remainingAmount }
                 val folderActiveRate = itemsInFolder
-                    .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+                    .filter { !it.isFullyPaid && it.installment.deductFromBudget && SmartFinanceEngine.isInstallmentRateActive(it.installment, today) }
                     .sumOf { it.installment.monthlyRate }
 
                 InstallmentFolderSection(
@@ -607,9 +608,8 @@ private fun InstallmentFolderSection(
             for (st in itemsInFolder) {
                 val start = LocalDate.ofEpochDay(st.installment.startEpochDay)
                 val startYm = YearMonth.from(start)
-                val totalInst = if (st.installment.monthlyRate > 0.0) {
-                    kotlin.math.ceil(st.installment.totalAmount / st.installment.monthlyRate).toInt().coerceAtLeast(1)
-                } else 1
+                if (st.installment.monthlyRate <= 0.0) continue
+                val totalInst = SmartFinanceEngine.totalInstallmentCount(st.installment).coerceAtLeast(1)
                 val endYm = startYm.plusMonths((totalInst - 1).toLong())
 
                 if (minStartYm == null || startYm < minStartYm) minStartYm = startYm
@@ -760,6 +760,20 @@ private fun InstallmentFolderSection(
                             }
                         }
                     } else {
+                        val planTarget = itemsInFolder.firstOrNull {
+                            !it.isFullyPaid && (it.installment.monthlyRate <= 0.0 ||
+                                LocalDate.ofEpochDay(it.installment.startEpochDay).isAfter(LocalDate.now()))
+                        } ?: itemsInFolder.firstOrNull { !it.isFullyPaid }
+                        if (planTarget != null) {
+                            OutlinedButton(
+                                onClick = { onEditItem(planTarget.installment) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Outlined.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Ratenzahlung planen / später starten", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
                         itemsInFolder.forEach { state ->
                             InstallmentItemCard(
                                 state = state,
@@ -801,17 +815,18 @@ private fun InstallmentItemCard(
         "jeweils am ${inst.dueDayOfMonth}."
     }
 
-    val totalInstallments = if (inst.monthlyRate > 0.0) {
-        kotlin.math.ceil(inst.totalAmount / inst.monthlyRate).toInt().coerceAtLeast(1)
-    } else {
-        1
-    }
+    val isOpenItem = inst.monthlyRate <= 0.0
+    val isFutureStart = !isOpenItem && startDate.isAfter(LocalDate.now())
+    val totalInstallments = SmartFinanceEngine.totalInstallmentCount(inst)
     val paidInstallments = state.monthsPassed.coerceAtMost(totalInstallments)
 
     val endMonthText = if (state.isFullyPaid) {
         "Abbezahlt"
+    } else if (isOpenItem) {
+        "Ratenstart noch offen"
     } else {
-        val endYm = YearMonth.now().plusMonths(state.remainingMonths.toLong())
+        val baseYm = if (isFutureStart) YearMonth.from(startDate).minusMonths(1) else YearMonth.now()
+        val endYm = baseYm.plusMonths(state.remainingMonths.toLong())
         val formatted = endYm.format(monthYearFormatter).replaceFirstChar { it.uppercase() }
         "Frei ab $formatted"
     }
@@ -825,7 +840,7 @@ private fun InstallmentItemCard(
         } else {
             val autoSet = mutableSetOf<String>()
             val startYm = YearMonth.from(startDate)
-            for (i in 0 until state.monthsPassed) {
+            for (i in 0 until state.monthsPassed.coerceIn(0, 120)) {
                 autoSet.add(startYm.plusMonths(i.toLong()).toString())
             }
             autoSet
@@ -887,7 +902,7 @@ private fun InstallmentItemCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "Start: ${startDate.format(dateFormatter)} • Rate: ${SmartFinanceEngine.formatEuro(inst.monthlyRate)}/Monat ($dueText)",
+                    text = if (isOpenItem) "Offener Posten • Ratenstart noch offen / pausiert" else "Start: ${startDate.format(dateFormatter)} • Rate: ${SmartFinanceEngine.formatEuro(inst.monthlyRate)}/Monat ($dueText)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -910,6 +925,25 @@ private fun InstallmentItemCard(
                 }
             }
 
+            if (isFutureStart && !state.isFullyPaid) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                ) {
+                    Text(
+                        text = "Geplanter Start: ${startDate.format(dateFormatter)} (bis dahin 0,00 €/Monat)",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            if (!state.isFullyPaid && (isOpenItem || isFutureStart)) {
+                OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+                    Text("Ratenzahlung planen / später starten", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
             // ZEILE 3: Fortschrittsbalken + Text + Aktions-Icons (Stift, Sparschwein, Papierkorb)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 LinearProgressIndicator(
@@ -927,7 +961,9 @@ private fun InstallmentItemCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val progressSummary = if (state.isFullyPaid) {
+                    val progressSummary = if (isOpenItem && !state.isFullyPaid) {
+                        "Offen: ${SmartFinanceEngine.formatEuro(state.remainingAmount)} von ${SmartFinanceEngine.formatEuro(inst.totalAmount)} • keine automatische Rate (${SmartFinanceEngine.formatEuro(state.paidSoFar)} Sonderz.)"
+                    } else if (state.isFullyPaid) {
                         "Alle $totalInstallments Raten bezahlt (${SmartFinanceEngine.formatEuro(inst.totalAmount)}) • Abbezahlt"
                     } else {
                         val extraNotice = if (inst.extraPaidAmount > 0.0) " (inkl. ${SmartFinanceEngine.formatEuro(inst.extraPaidAmount)} Sonderz.)" else ""
@@ -1031,7 +1067,14 @@ private fun InstallmentItemCard(
                     val startYm = YearMonth.from(startDate)
                     val fullMonthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.GERMAN)
 
-                    for (i in 0 until totalInstallments) {
+                    if (totalInstallments == 0) {
+                        Text(
+                            text = "Kein Raten-Register: Ratenstart noch offen.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    for (i in 0 until totalInstallments.coerceIn(0, 120)) {
                         val rateYm = startYm.plusMonths(i.toLong())
                         val ymKey = rateYm.toString()
                         val isChecked = ymKey in checkedMonths
@@ -1364,7 +1407,7 @@ private fun InstallmentEditDialog(
     }
 
     val liveState = remember(parsedDate, parsedTotal, parsedRate, parsedExtra, title, selectedFolder) {
-        if (parsedDate != null && parsedTotal > 0.0 && parsedRate > 0.0) {
+        if (parsedDate != null && parsedTotal > 0.0) {
             val dummy = InstallmentEntity(
                 title = title.ifBlank { "Vorschau" },
                 totalAmount = parsedTotal,
@@ -1451,8 +1494,8 @@ private fun InstallmentEditDialog(
                     OutlinedTextField(
                         value = monthlyRateText,
                         onValueChange = { monthlyRateText = it },
-                        label = { Text("Monatl. Rate *") },
-                        placeholder = { Text("50,00") },
+                        label = { Text("Monatl. Rate (0 = offen)") },
+                        placeholder = { Text("0,00") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -1492,6 +1535,30 @@ private fun InstallmentEditDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                val isFutureOrOpen = parsedRate <= 0.0 || (parsedDate != null && parsedDate.isAfter(LocalDate.now()))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    FilterChip(
+                        selected = !isFutureOrOpen,
+                        onClick = {
+                            if (parsedDate == null || parsedDate.isAfter(LocalDate.now())) {
+                                startDateText = LocalDate.now().format(dtf)
+                            }
+                            errorMessage = null
+                        },
+                        label = { Text("Läuft bereits / Sofort", fontSize = 11.sp) }
+                    )
+                    FilterChip(
+                        selected = isFutureOrOpen,
+                        onClick = {
+                            if (parsedDate == null || !parsedDate.isAfter(LocalDate.now())) {
+                                startDateText = LocalDate.now().plusMonths(1).withDayOfMonth(1).format(dtf)
+                            }
+                            errorMessage = null
+                        },
+                        label = { Text("Startet erst in der Zukunft / Noch offen", fontSize = 11.sp) }
+                    )
+                }
 
                 OutlinedTextField(
                     value = extraPaidText,
@@ -1534,8 +1601,11 @@ private fun InstallmentEditDialog(
                             )
                             val endInfo = if (liveState.isFullyPaid) {
                                 "✅ Komplett abbezahlt"
+                            } else if (parsedRate <= 0.0) {
+                                "Offener Posten (Ratenstart noch offen / pausiert)"
                             } else {
-                                val endYm = YearMonth.now().plusMonths(liveState.remainingMonths.toLong())
+                                val baseYm = if (parsedDate != null && parsedDate.isAfter(LocalDate.now())) YearMonth.from(parsedDate).minusMonths(1) else YearMonth.now()
+                                val endYm = baseYm.plusMonths(liveState.remainingMonths.toLong())
                                 val endFormatted = endYm.format(monthYearDtf).replaceFirstChar { it.uppercase() }
                                 val rateWord = if (liveState.remainingMonths == 1) "Rate" else "Raten"
                                 "Voraussichtlich abbezahlt: $endFormatted (noch ${liveState.remainingMonths} $rateWord)"
@@ -1598,11 +1668,9 @@ private fun InstallmentEditDialog(
                         errorMessage = "Bitte einen gültigen Gesamtbetrag eingeben."
                         return@Button
                     }
-                    val monthlyRate = SmartFinanceEngine.parseEuroAmount(monthlyRateText) ?: totalAmount
-                    if (monthlyRate <= 0.0) {
-                        errorMessage = "Bitte eine monatliche Rate eingeben."
-                        return@Button
-                    }
+                    // Rate <= 0 (oder < 1 €) = Offener Posten / Ratenstart noch offen (kein 0,01-Fallback!)
+                    val monthlyRate = (SmartFinanceEngine.parseEuroAmount(monthlyRateText) ?: 0.0)
+                        .let { if (it < 1.0) 0.0 else it }
                     val parsedStartDate = try {
                         LocalDate.parse(startDateText.trim(), dtf)
                     } catch (e: Exception) {

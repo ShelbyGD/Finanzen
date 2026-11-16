@@ -188,7 +188,9 @@ object SmartFinanceEngine {
         val currentYm = YearMonth.from(today)
         var count = 0
         var ym = startYm
-        while (!ym.isAfter(currentYm)) {
+        var guard = 0
+        while (!ym.isAfter(currentYm) && guard < MAX_INSTALLMENT_MONTHS) {
+            guard++
             val effectiveDueDay = min(dueDayOfMonth, ym.lengthOfMonth())
             val dueDate = ym.atDay(effectiveDueDay)
             if (!dueDate.isBefore(startDate) && !dueDate.isAfter(today)) {
@@ -196,7 +198,23 @@ object SmartFinanceEngine {
             }
             ym = ym.plusMonths(1)
         }
-        return count
+        return count.coerceIn(0, MAX_INSTALLMENT_MONTHS)
+    }
+
+    /** Harte Obergrenze für Raten-/Monatsschleifen (10 Jahre). */
+    const val MAX_INSTALLMENT_MONTHS = 120
+
+    /** Gesamtzahl der Raten; 0 bei offenem Posten (Rate <= 0). */
+    fun totalInstallmentCount(installment: InstallmentEntity): Int {
+        if (installment.monthlyRate <= 0.0) return 0
+        return ceil(installment.totalAmount / installment.monthlyRate).toInt().coerceIn(0, MAX_INSTALLMENT_MONTHS)
+    }
+
+    /** Rate wirkt aktuell aufs Budget: Rate > 0 und Startmonat erreicht. */
+    fun isInstallmentRateActive(installment: InstallmentEntity, today: LocalDate = LocalDate.now()): Boolean {
+        if (installment.monthlyRate <= 0.0) return false
+        val start = LocalDate.ofEpochDay(installment.startEpochDay)
+        return !YearMonth.from(start).isAfter(YearMonth.from(today))
     }
 
     fun calculateInstallmentState(
@@ -205,11 +223,13 @@ object SmartFinanceEngine {
     ): InstallmentState {
         val startDate = LocalDate.ofEpochDay(installment.startEpochDay)
         val autoMonthsPassed = calculateMonthsPassed(startDate, installment.dueDayOfMonth, today)
-        val monthsPassed = if (installment.paidMonthsCsv.isNotBlank()) {
+        val monthsPassed = (if (installment.monthlyRate <= 0.0 || startDate.isAfter(today)) {
+            0
+        } else if (installment.paidMonthsCsv.isNotBlank()) {
             installment.paidMonthsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }.size
         } else {
             autoMonthsPassed
-        }
+        }).coerceIn(0, MAX_INSTALLMENT_MONTHS)
         val paidSoFar = (monthsPassed * installment.monthlyRate + installment.extraPaidAmount)
             .coerceAtMost(installment.totalAmount)
         val remainingAmount = (installment.totalAmount - paidSoFar).coerceAtLeast(0.0)
@@ -218,7 +238,7 @@ object SmartFinanceEngine {
         val remainingMonths = if (isFullyPaid || installment.monthlyRate <= 0.0) {
             0
         } else {
-            ceil(remainingAmount / installment.monthlyRate).toInt()
+            ceil(remainingAmount / installment.monthlyRate).toInt().coerceIn(0, MAX_INSTALLMENT_MONTHS)
         }
 
         val progressFraction = if (installment.totalAmount > 0.0) {
@@ -229,6 +249,10 @@ object SmartFinanceEngine {
 
         val statusText = if (isFullyPaid) {
             "✅ Komplett abbezahlt"
+        } else if (installment.monthlyRate <= 0.0) {
+            "Offener Posten (Ratenstart noch offen / pausiert)"
+        } else if (startDate.isAfter(today)) {
+            "Geplanter Start: ${startDate.format(shortDateFormatter)} (bis dahin 0,00 €/Monat)"
         } else {
             val endYm = YearMonth.from(today).plusMonths(remainingMonths.toLong())
             val endFormatted = endYm.format(germanMonthFormatter).replaceFirstChar { it.uppercase() }
@@ -354,7 +378,7 @@ object SmartFinanceEngine {
         val installmentStates = installments.map { calculateInstallmentState(it, today) }
         val openInstallmentsDebtTotal = installmentStates.sumOf { it.remainingAmount }
         val activeInstallmentsRateTotal = installmentStates
-            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget && isInstallmentRateActive(it.installment, today) }
             .sumOf { it.installment.monthlyRate }
 
         val totalCommittedFixedAndSavings =
@@ -652,7 +676,7 @@ object SmartFinanceEngine {
         val installmentStates = installments.map { calculateInstallmentState(it, today) }
         val openInstallmentsDebtTotal = installmentStates.sumOf { it.remainingAmount }
         val activeInstallmentsRateTotal = installmentStates
-            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget && isInstallmentRateActive(it.installment, today) }
             .sumOf { it.installment.monthlyRate }
 
         val weeklyInstallmentShare = (activeInstallmentsRateTotal * 12.0) / 52.0
@@ -789,7 +813,7 @@ object SmartFinanceEngine {
         val installmentStates = installments.map { calculateInstallmentState(it, today) }
         val openInstallmentsDebtTotal = installmentStates.sumOf { it.remainingAmount }
         val activeInstallmentsRateTotal = installmentStates
-            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget && isInstallmentRateActive(it.installment, today) }
             .sumOf { it.installment.monthlyRate }
         val yearlyInstallmentsShare = activeInstallmentsRateTotal * 12.0
 

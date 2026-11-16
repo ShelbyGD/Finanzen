@@ -73,6 +73,7 @@ object AppHelpRegistry {
             exampleTips = listOf(
                 "Ordner lassen sich per Fingertipp auf- und zuklappen und über das Stift- bzw. Mülleimer-Icon umbenennen oder löschen.",
                 "Über 'Auf Stichtags-Automatik zurücksetzen' stellt man manuell abgehakte Raten mit einem Tap auf die automatische Kalender-Erkennung zurück.",
+                "Rate 0 € = Offener Posten (Ratenstart noch offen). Mit \"Ratenzahlung planen / später starten\" setzt du Rate und zukünftiges Startdatum; vor dem Startmonat wird nichts vom Budget abgezogen. Maximal 120 Raten werden berechnet.",
                 "Auf der Startseite ('Übersicht') ist die Raten-Summenkarte ebenfalls einklappbar.",
                 "Die Kopfzeile zeigt jederzeit deine offene Gesamtschuld, die laufende Monatsbelastung und den Tilgungsfortschritt in Prozent."
             ),

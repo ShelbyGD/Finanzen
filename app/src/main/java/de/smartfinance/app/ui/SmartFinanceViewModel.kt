@@ -190,6 +190,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
+            repository.healInvalidInstallments()
             repository.ensureInitializedAndSyncRecurring()
             repository.cleanupDuplicateInstallments()
         }
