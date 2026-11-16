@@ -17,6 +17,7 @@ import de.smartfinance.app.data.backup.DataVaultManager
 import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
+import de.smartfinance.app.data.local.InstallmentEntity
 import de.smartfinance.app.data.local.QuickTemplateEntity
 import de.smartfinance.app.data.local.SavingsGoalEntity
 import de.smartfinance.app.data.local.SmartFinanceDatabase
@@ -65,6 +66,7 @@ enum class BottomNavTab(val label: String) {
 enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
     CATEGORIES_CONTRACTS("Kategorien, Sparziele & Verträge"),
+    INSTALLMENTS("💳 Ratenzahlungen & Offene Posten"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen"),
     HELP_CHANGELOG("Hilfe, Features & Was ist neu?"),
@@ -179,6 +181,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     val quickTemplates: StateFlow<List<QuickTemplateEntity>> = repository.quickTemplatesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val installments: StateFlow<List<InstallmentEntity>> = repository.installmentsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             repository.ensureInitializedAndSyncRecurring()
@@ -195,6 +200,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         cats: List<CategoryTabEntity>,
         txs: List<TransactionEntity>,
         goals: List<SavingsGoalEntity>,
+        insts: List<InstallmentEntity>,
         settings: UserSettingsState
     ): DashboardAnalysisSnapshot {
         val targetYm = yearMonthForPage(page)
@@ -205,18 +211,17 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             avgWindowMonths = settings.averageMonthsWindow,
             categories = cats,
             allTransactions = txs,
-            savingsGoals = goals
+            savingsGoals = goals,
+            installments = insts
         )
     }
 
     val currentSnapshot: StateFlow<DashboardAnalysisSnapshot> = combine(
-        _selectedMonthPage,
-        categories,
-        allTransactions,
-        savingsGoals,
-        settingsState
-    ) { page, cats, txs, goals, settings ->
-        analyzeForPage(page, cats, txs, goals, settings)
+        combine(_selectedMonthPage, settingsState) { page, settings -> page to settings },
+        combine(categories, allTransactions) { c, t -> c to t },
+        combine(savingsGoals, installments) { g, i -> g to i }
+    ) { (page, settings), (cats, txs), (goals, insts) ->
+        analyzeForPage(page, cats, txs, goals, insts, settings)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -225,9 +230,48 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             emptyList(),
             emptyList(),
             emptyList(),
+            emptyList(),
             preferences.settingsState.value
         )
     )
+
+    fun saveInstallment(installment: InstallmentEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveInstallment(installment)
+            _snackbarMessage.value = "Ratenzahlung '${installment.title}' gespeichert."
+        }
+    }
+
+    fun deleteInstallment(installment: InstallmentEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteInstallment(installment)
+            _snackbarMessage.value = "Ratenzahlung '${installment.title}' gelöscht."
+        }
+    }
+
+    fun quickPayExtra(installment: InstallmentEntity, extraAmount: Double) {
+        if (extraAmount <= 0.0) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val updated = installment.copy(
+                extraPaidAmount = installment.extraPaidAmount + extraAmount
+            )
+            repository.saveInstallment(updated)
+            _snackbarMessage.value = "Sonderzahlung von ${SmartFinanceEngine.formatEuro(extraAmount)} erfasst."
+        }
+    }
+
+    fun markInstallmentFullyPaid(installment: InstallmentEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val monthsPassed = SmartFinanceEngine.calculateMonthsPassed(
+                startDate = LocalDate.ofEpochDay(installment.startEpochDay),
+                dueDayOfMonth = installment.dueDayOfMonth
+            )
+            val neededExtra = (installment.totalAmount - (monthsPassed * installment.monthlyRate)).coerceAtLeast(0.0)
+            val updated = installment.copy(extraPaidAmount = neededExtra)
+            repository.saveInstallment(updated)
+            _snackbarMessage.value = "Ratenkauf '${installment.title}' als komplett abbezahlt markiert."
+        }
+    }
 
     fun navigateTo(destination: DrawerDestination, highlightChangelog: Boolean = false) {
         _highlightChangelogOnHelpScreen.value = highlightChangelog

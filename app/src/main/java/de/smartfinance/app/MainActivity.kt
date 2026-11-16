@@ -94,6 +94,7 @@ import de.smartfinance.app.ui.screens.CategoriesContractsScreen
 import de.smartfinance.app.ui.screens.CockpitScreen
 import de.smartfinance.app.ui.screens.DataVaultScreen
 import de.smartfinance.app.ui.screens.HelpChangelogScreen
+import de.smartfinance.app.ui.screens.InstallmentsTrackerSheet
 import de.smartfinance.app.ui.screens.LiteProOverviewScreen
 import de.smartfinance.app.ui.screens.SavingsBoosterTabScreen
 import de.smartfinance.app.ui.screens.SettingsDemoScreen
@@ -145,6 +146,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val allTransactions by viewModel.allTransactions.collectAsStateWithLifecycle()
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
+    val installments by viewModel.installments.collectAsStateWithLifecycle()
     val quickTemplates by viewModel.quickTemplates.collectAsStateWithLifecycle()
     val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
     val geminiVaultState by viewModel.geminiVaultState.collectAsStateWithLifecycle()
@@ -468,6 +470,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                             cats = categories,
                                             txs = allTransactions,
                                             goals = savingsGoals,
+                                            insts = installments,
                                             settings = settingsState
                                         )
                                     },
@@ -572,6 +575,17 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             onRequestProFeature = { title ->
                                 viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
                             }
+                        )
+                    }
+
+                    DrawerDestination.INSTALLMENTS -> {
+                        InstallmentsTrackerSheet(
+                            installments = installments,
+                            onSaveInstallment = viewModel::saveInstallment,
+                            onDeleteInstallment = viewModel::deleteInstallment,
+                            onQuickPayExtra = viewModel::quickPayExtra,
+                            onMarkFullyPaid = viewModel::markInstallmentFullyPaid,
+                            onNavigateBack = { viewModel.navigateTo(DrawerDestination.COCKPIT) }
                         )
                     }
 

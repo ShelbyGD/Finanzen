@@ -1,0 +1,929 @@
+package de.smartfinance.app.ui.screens
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import de.smartfinance.app.data.local.InstallmentEntity
+import de.smartfinance.app.domain.InstallmentState
+import de.smartfinance.app.domain.SmartFinanceEngine
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.roundToInt
+
+/**
+ * Screen / Sheet für das neue Modul: "💳 Ratenzahlungen & Offene Posten".
+ *
+ * Berechnet vollautomatisch vergangene Raten, Tilgungsstand, Restbeträge und
+ * koppelt offene Posten optional an das Monatsbudget.
+ */
+@Composable
+fun InstallmentsTrackerSheet(
+    installments: List<InstallmentEntity>,
+    onSaveInstallment: (InstallmentEntity) -> Unit,
+    onDeleteInstallment: (InstallmentEntity) -> Unit,
+    onQuickPayExtra: (InstallmentEntity, Double) -> Unit,
+    onMarkFullyPaid: (InstallmentEntity) -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    val today = remember { LocalDate.now() }
+
+    val installmentStates = remember(installments, today) {
+        installments.map { SmartFinanceEngine.calculateInstallmentState(it, today) }
+    }
+
+    val totalOpenDebt = remember(installmentStates) {
+        installmentStates.sumOf { it.remainingAmount }
+    }
+
+    val monthlyLoadActive = remember(installmentStates) {
+        installmentStates
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .sumOf { it.installment.monthlyRate }
+    }
+
+    val totalOriginalDebt = remember(installments) {
+        installments.sumOf { it.totalAmount }
+    }
+
+    val totalPaidSoFar = remember(installmentStates) {
+        installmentStates.sumOf { it.paidSoFar }
+    }
+
+    val overallProgressFraction = remember(totalOriginalDebt, totalPaidSoFar) {
+        if (totalOriginalDebt > 0.0) {
+            (totalPaidSoFar / totalOriginalDebt).toFloat().coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+    }
+
+    var showAddEditDialog by remember { mutableStateOf(false) }
+    var editingInstallment by remember { mutableStateOf<InstallmentEntity?>(null) }
+    var quickPayInstallment by remember { mutableStateOf<InstallmentEntity?>(null) }
+    var itemToDelete by remember { mutableStateOf<InstallmentEntity?>(null) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // --- 1. GROSSE SUMMEN-KACHEL GANZ OBEN ---
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.CreditCard,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = "Raten & Offene Posten",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Vollautomatische Tilgungsberechnung",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                editingInstallment = null
+                                showAddEditDialog = true
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Neu", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "Offene Gesamtschuld",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = SmartFinanceEngine.formatEuro(totalOpenDebt),
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (totalOpenDebt > 0.0) MaterialTheme.colorScheme.error else Color(0xFF1B873F)
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "Laufende Raten diesen Monat",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (monthlyLoadActive > 0.0) "-${SmartFinanceEngine.formatEuro(monthlyLoadActive)}" else "0,00 €",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (monthlyLoadActive > 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Tilgungsfortschritt-Balken
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val percent = (overallProgressFraction * 100).roundToInt()
+                            Text(
+                                text = "Gesamttilgung: $percent% getilgt",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "${SmartFinanceEngine.formatEuro(totalPaidSoFar)} von ${SmartFinanceEngine.formatEuro(totalOriginalDebt)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { overallProgressFraction },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = Color(0xFF2E7D32),
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- 2. LISTE DER EINTRÄGE ---
+        if (installments.isEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.CreditCard,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Keine Raten oder offenen Posten",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Hier kannst du Finanzierungen, Nachzahlungen oder Ratenkäufe erfassen. Der Betrag sinkt jeden Monat am Fälligkeitstag vollautomatisch!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Button(
+                            onClick = {
+                                editingInstallment = null
+                                showAddEditDialog = true
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Ersten Posten anlegen")
+                        }
+                    }
+                }
+            }
+        } else {
+            items(installmentStates, key = { it.installment.id }) { state ->
+                InstallmentItemCard(
+                    state = state,
+                    onEdit = {
+                        editingInstallment = state.installment
+                        showAddEditDialog = true
+                    },
+                    onDelete = {
+                        itemToDelete = state.installment
+                    },
+                    onOpenQuickPay = {
+                        quickPayInstallment = state.installment
+                    }
+                )
+            }
+        }
+    }
+
+    // --- DIALOG: ANLEGEN / BEARBEITEN ---
+    if (showAddEditDialog) {
+        InstallmentEditDialog(
+            initial = editingInstallment,
+            onDismiss = { showAddEditDialog = false },
+            onConfirm = { saved ->
+                onSaveInstallment(saved)
+                showAddEditDialog = false
+            }
+        )
+    }
+
+    // --- DIALOG: VORZEITIG ABLÖSEN / SONDERZAHLUNG ---
+    quickPayInstallment?.let { inst ->
+        val instState = remember(inst, today) {
+            SmartFinanceEngine.calculateInstallmentState(inst, today)
+        }
+        QuickPayDialog(
+            installment = inst,
+            state = instState,
+            onDismiss = { quickPayInstallment = null },
+            onQuickPay = { extra ->
+                onQuickPayExtra(inst, extra)
+                quickPayInstallment = null
+            },
+            onMarkFullyPaid = {
+                onMarkFullyPaid(inst)
+                quickPayInstallment = null
+            }
+        )
+    }
+
+    // --- DIALOG: LÖSCH-BESTÄTIGUNG ---
+    itemToDelete?.let { inst ->
+        AlertDialog(
+            onDismissRequest = { itemToDelete = null },
+            title = { Text("Eintrag löschen?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Möchtest du '${inst.title}' wirklich unwiderruflich aus der Datenbank entfernen?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteInstallment(inst)
+                        itemToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Löschen")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDelete = null }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Einzelne Karte für einen Ratenkauf / offenen Posten.
+ */
+@Composable
+private fun InstallmentItemCard(
+    state: InstallmentState,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onOpenQuickPay: () -> Unit
+) {
+    val inst = state.installment
+    val startDate = remember(inst.startEpochDay) {
+        LocalDate.ofEpochDay(inst.startEpochDay)
+    }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (state.isFullyPaid) {
+                Color(0xFFE8F5E9).copy(alpha = 0.5f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (state.isFullyPaid) Color(0xFF81C784).copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header: Name + Edit + Delete Icons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = inst.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Start: ${startDate.format(dateFormatter)} • Fällig am ${inst.dueDayOfMonth}.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (inst.deductFromBudget && !state.isFullyPaid) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            ) {
+                                Text(
+                                    text = "Budget-Abzug aktiv",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Bearbeiten",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Löschen",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Status Badge (Grün für voll abbezahlt oder Info mit Restlaufzeit)
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (state.isFullyPaid) {
+                    Color(0xFF2E7D32).copy(alpha = 0.15f)
+                } else {
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isFullyPaid) Icons.Default.CheckCircle else Icons.Default.Payment,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (state.isFullyPaid) Color(0xFF1B873F) else MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                        text = state.statusText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (state.isFullyPaid) Color(0xFF1B873F) else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+
+            // Betrags-Zeile: Restbetrag | Monatliche Rate | Gesamtbetrag
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Aktueller Restbetrag",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = SmartFinanceEngine.formatEuro(state.remainingAmount),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (state.isFullyPaid) Color(0xFF1B873F) else MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Monatliche Rate",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = SmartFinanceEngine.formatEuro(inst.monthlyRate),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Urspr. Betrag",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = SmartFinanceEngine.formatEuro(inst.totalAmount),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Fortschrittsbalken für diesen Posten
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LinearProgressIndicator(
+                    progress = { state.progressFraction },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = if (state.isFullyPaid) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val percent = (state.progressFraction * 100).roundToInt()
+                    Text(
+                        text = "$percent% getilgt (${SmartFinanceEngine.formatEuro(state.paidSoFar)})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (inst.extraPaidAmount > 0.0) {
+                        Text(
+                            text = "inkl. ${SmartFinanceEngine.formatEuro(inst.extraPaidAmount)} Sonderzahlung",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF1B873F)
+                        )
+                    }
+                }
+            }
+
+            // Schnell-Button: Vorzeitig ablösen / Sonderzahlung (nur wenn noch offen)
+            if (!state.isFullyPaid) {
+                OutlinedButton(
+                    onClick = onOpenQuickPay,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Savings,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Vorzeitig ablösen / Sonderzahlung",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Dialog zum Erfassen oder Bearbeiten eines Ratenkaufs.
+ */
+@Composable
+private fun InstallmentEditDialog(
+    initial: InstallmentEntity?,
+    onDismiss: () -> Unit,
+    onConfirm: (InstallmentEntity) -> Unit
+) {
+    var title by remember { mutableStateOf(initial?.title ?: "") }
+    var totalAmountText by remember {
+        mutableStateOf(if (initial != null && initial.totalAmount > 0.0) String.format(Locale.GERMAN, "%.2f", initial.totalAmount) else "")
+    }
+    var monthlyRateText by remember {
+        mutableStateOf(if (initial != null && initial.monthlyRate > 0.0) String.format(Locale.GERMAN, "%.2f", initial.monthlyRate) else "")
+    }
+    var dueDayText by remember {
+        mutableStateOf((initial?.dueDayOfMonth ?: 15).toString())
+    }
+    var extraPaidText by remember {
+        mutableStateOf(if (initial != null && initial.extraPaidAmount > 0.0) String.format(Locale.GERMAN, "%.2f", initial.extraPaidAmount) else "")
+    }
+    var deductFromBudget by remember {
+        mutableStateOf(initial?.deductFromBudget ?: true)
+    }
+
+    var isSubmitting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (initial == null) "Neuen Ratenkauf / Posten anlegen" else "Ratenkauf bearbeiten",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Bezeichnung / Zweck *") },
+                    placeholder = { Text("z. B. Smartphone Finanzierung") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = totalAmountText,
+                        onValueChange = { totalAmountText = it },
+                        label = { Text("Gesamtbetrag *") },
+                        placeholder = { Text("600,00") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedTextField(
+                        value = monthlyRateText,
+                        onValueChange = { monthlyRateText = it },
+                        label = { Text("Monatl. Rate *") },
+                        placeholder = { Text("50,00") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = dueDayText,
+                        onValueChange = { dueDayText = it },
+                        label = { Text("Fällig am (Tag)") },
+                        placeholder = { Text("15") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedTextField(
+                        value = extraPaidText,
+                        onValueChange = { extraPaidText = it },
+                        label = { Text("Sonderzahlung") },
+                        placeholder = { Text("0,00") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Laufende Rate vom Monatsbudget abziehen",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Reduziert das frei verfügbare Budget jeden Monat als Fixkosten",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = deductFromBudget,
+                        onCheckedChange = { deductFromBudget = it }
+                    )
+                }
+
+                errorMessage?.let { err ->
+                    Text(
+                        text = err,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !isSubmitting,
+                onClick = {
+                    if (isSubmitting) return@Button
+                    val trimmedTitle = title.trim()
+                    if (trimmedTitle.isEmpty()) {
+                        errorMessage = "Bitte gib eine Bezeichnung ein."
+                        return@Button
+                    }
+                    val totalAmount = SmartFinanceEngine.parseEuroAmount(totalAmountText) ?: 0.0
+                    if (totalAmount <= 0.0) {
+                        errorMessage = "Bitte einen gültigen Gesamtbetrag eingeben."
+                        return@Button
+                    }
+                    val monthlyRate = SmartFinanceEngine.parseEuroAmount(monthlyRateText) ?: totalAmount
+                    if (monthlyRate <= 0.0) {
+                        errorMessage = "Bitte eine monatliche Rate eingeben."
+                        return@Button
+                    }
+                    val dueDay = dueDayText.toIntOrNull()?.coerceIn(1, 31) ?: 15
+                    val extraPaid = SmartFinanceEngine.parseEuroAmount(extraPaidText) ?: 0.0
+
+                    isSubmitting = true
+                    val toSave = initial?.copy(
+                        title = trimmedTitle,
+                        totalAmount = totalAmount,
+                        monthlyRate = monthlyRate,
+                        dueDayOfMonth = dueDay,
+                        extraPaidAmount = extraPaid,
+                        deductFromBudget = deductFromBudget
+                    ) ?: InstallmentEntity(
+                        title = trimmedTitle,
+                        totalAmount = totalAmount,
+                        monthlyRate = monthlyRate,
+                        startEpochDay = LocalDate.now().toEpochDay(),
+                        dueDayOfMonth = dueDay,
+                        extraPaidAmount = extraPaid,
+                        deductFromBudget = deductFromBudget
+                    )
+                    onConfirm(toSave)
+                }
+            ) {
+                Text("Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
+}
+
+/**
+ * Dialog für "Vorzeitig ablösen / Sonderzahlung".
+ * Erlaubt entweder eine manuelle Teilzahlung oder 1-Tap "Komplett abbezahlt setzen".
+ */
+@Composable
+private fun QuickPayDialog(
+    installment: InstallmentEntity,
+    state: InstallmentState,
+    onDismiss: () -> Unit,
+    onQuickPay: (Double) -> Unit,
+    onMarkFullyPaid: () -> Unit
+) {
+    var amountText by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Sonderzahlung / Ablösung",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Posten: ${installment.title}\nOffener Restbetrag: ${SmartFinanceEngine.formatEuro(state.remainingAmount)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Option 1: 1-Tap Komplett abbezahlt setzen
+                Button(
+                    onClick = {
+                        if (isSubmitting) return@Button
+                        isSubmitting = true
+                        onMarkFullyPaid()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "✅ Komplett abbezahlt setzen (${SmartFinanceEngine.formatEuro(state.remainingAmount)})",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(
+                        text = " ODER TEILZAHLUNG ",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                }
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Betrag für Sonderzahlung in €") },
+                    placeholder = { Text("z. B. 100,00") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !isSubmitting,
+                onClick = {
+                    if (isSubmitting) return@Button
+                    val extra = SmartFinanceEngine.parseEuroAmount(amountText)
+                    if (extra == null || extra <= 0.0) {
+                        errorMessage = "Bitte einen gültigen Betrag eingeben."
+                        return@Button
+                    }
+                    isSubmitting = true
+                    onQuickPay(extra)
+                }
+            ) {
+                Text("Sonderzahlung buchen")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
+}

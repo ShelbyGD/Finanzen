@@ -3,6 +3,7 @@ package de.smartfinance.app.data.repository
 import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
+import de.smartfinance.app.data.local.InstallmentEntity
 import de.smartfinance.app.data.local.QuickTemplateEntity
 import de.smartfinance.app.data.local.SavingsGoalEntity
 import de.smartfinance.app.data.local.SmartFinanceDao
@@ -26,6 +27,7 @@ class FinanceRepository(
     val transactionsFlow: Flow<List<TransactionEntity>> = dao.observeAllTransactions()
     val savingsGoalsFlow: Flow<List<SavingsGoalEntity>> = dao.observeSavingsGoals()
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()
+    val installmentsFlow: Flow<List<InstallmentEntity>> = dao.observeInstallments()
 
     suspend fun ensureInitializedAndSyncRecurring() {
         deduplicateCategories()
@@ -344,5 +346,22 @@ class FinanceRepository(
 
     suspend fun addQuickTemplate(template: QuickTemplateEntity) {
         dao.insertQuickTemplate(template)
+    }
+
+    suspend fun saveInstallment(installment: InstallmentEntity): Long {
+        return if (installment.id == 0L) {
+            dao.insertInstallment(installment)
+        } else {
+            dao.updateInstallment(installment)
+            installment.id
+        }
+    }
+
+    suspend fun deleteInstallment(installment: InstallmentEntity) {
+        dao.deleteInstallment(installment)
+    }
+
+    suspend fun deleteInstallmentById(id: Long) {
+        dao.deleteInstallmentById(id)
     }
 }

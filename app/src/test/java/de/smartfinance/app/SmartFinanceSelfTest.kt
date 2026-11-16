@@ -319,4 +319,76 @@ class SmartFinanceSelfTest {
         assertEquals(0.0, snapshot.dynamicDailyBudgetToday, 0.001)
         assertEquals(0.0, snapshot.baseDailyBudget, 0.001)
     }
+
+    /**
+     * Test 5 (Ratenzahlungen & Offene Posten):
+     * Prüft die automatische Fälligkeits- und Tilgungsberechnung, Sonderzahlungen,
+     * Komplett-Ablösung sowie die Budget-Kopplung als Fixkosten-Abzug.
+     */
+    @Test
+    fun test5_installmentsTracker_autoReductionAndBudgetDeduction() {
+        val startDate = LocalDate.of(2026, 8, 1)
+        val today = LocalDate.of(2026, 11, 16) // 16. Nov -> 15. Aug, 15. Sep, 15. Okt, 15. Nov verstrichen = 4 Monate
+
+        val installment = de.smartfinance.app.data.local.InstallmentEntity(
+            id = 1L,
+            title = "Smartphone Finanzierung",
+            totalAmount = 600.0,
+            monthlyRate = 50.0,
+            startEpochDay = startDate.toEpochDay(),
+            dueDayOfMonth = 15,
+            extraPaidAmount = 0.0,
+            deductFromBudget = true
+        )
+
+        val monthsPassed = SmartFinanceEngine.calculateMonthsPassed(startDate, installment.dueDayOfMonth, today)
+        assertEquals(4, monthsPassed)
+
+        val state = SmartFinanceEngine.calculateInstallmentState(installment, today)
+        assertEquals(200.0, state.paidSoFar, 0.001)
+        assertEquals(400.0, state.remainingAmount, 0.001)
+        assertEquals(8, state.remainingMonths)
+        assertTrue(state.statusText.contains("Noch 8 Raten offen"))
+        assertEquals(false, state.isFullyPaid)
+
+        // Sonderzahlung testen
+        val withExtra = installment.copy(extraPaidAmount = 100.0)
+        val stateExtra = SmartFinanceEngine.calculateInstallmentState(withExtra, today)
+        assertEquals(300.0, stateExtra.paidSoFar, 0.001)
+        assertEquals(300.0, stateExtra.remainingAmount, 0.001)
+        assertEquals(6, stateExtra.remainingMonths)
+
+        // Komplett abbezahlt testen
+        val fullyPaid = installment.copy(extraPaidAmount = 400.0)
+        val stateFullyPaid = SmartFinanceEngine.calculateInstallmentState(fullyPaid, today)
+        assertEquals(600.0, stateFullyPaid.paidSoFar, 0.001)
+        assertEquals(0.0, stateFullyPaid.remainingAmount, 0.001)
+        assertEquals(0, stateFullyPaid.remainingMonths)
+        assertEquals(true, stateFullyPaid.isFullyPaid)
+        assertEquals("✅ Komplett abbezahlt", stateFullyPaid.statusText)
+
+        // Budget-Kopplung testen: 2.500 € Gehalt minus 50 € aktive Monatsrate = 2.450 € frei
+        val incomeCat = CategoryTabEntity(
+            id = 1L,
+            name = "Gehalt",
+            iconKey = "income",
+            colorHex = 0xFF10B981,
+            categoryType = CategoryType.INCOME,
+            defaultAmount = 2500.0,
+            billingInterval = BillingInterval.MONTHLY
+        )
+        val snapshotWithInstallment = SmartFinanceEngine.analyzeMonth(
+            selectedYearMonth = testYearMonth,
+            today = today,
+            billingStartDay = 1,
+            avgWindowMonths = 3,
+            categories = listOf(incomeCat),
+            allTransactions = emptyList(),
+            savingsGoals = emptyList(),
+            installments = listOf(installment)
+        )
+        assertEquals(2450.0, snapshotWithInstallment.remainingFreeBudgetMonth, 0.001)
+        assertEquals(50.0, snapshotWithInstallment.activeInstallmentsRateTotal, 0.001)
+        assertEquals(400.0, snapshotWithInstallment.openInstallmentsDebtTotal, 0.001)
+    }
 }

@@ -105,3 +105,19 @@ data class QuickTemplateEntity(
     val categoryName: String,
     val transactionType: String = TransactionType.EXPENSE
 )
+
+/**
+ * Ratenzahlungen, Finanzierungen & offene Posten mit automatischer monatlicher Tilgung.
+ */
+@Entity(tableName = "installments")
+data class InstallmentEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val title: String,
+    val totalAmount: Double,
+    val monthlyRate: Double,
+    val startEpochDay: Long,
+    val dueDayOfMonth: Int = 1,
+    val extraPaidAmount: Double = 0.0,
+    val deductFromBudget: Boolean = true
+)

@@ -98,4 +98,26 @@ interface SmartFinanceDao {
 
     @Query("DELETE FROM quick_templates")
     suspend fun deleteAllQuickTemplates()
+
+    // --- RATENZAHLUNGEN & OFFENE POSTEN ---
+    @Query("SELECT * FROM installments ORDER BY id DESC")
+    fun observeInstallments(): Flow<List<InstallmentEntity>>
+
+    @Query("SELECT * FROM installments ORDER BY id DESC")
+    suspend fun getAllInstallmentsOnce(): List<InstallmentEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInstallment(installment: InstallmentEntity): Long
+
+    @Update
+    suspend fun updateInstallment(installment: InstallmentEntity)
+
+    @Delete
+    suspend fun deleteInstallment(installment: InstallmentEntity)
+
+    @Query("DELETE FROM installments WHERE id = :id")
+    suspend fun deleteInstallmentById(id: Long)
+
+    @Query("DELETE FROM installments")
+    suspend fun deleteAllInstallments()
 }

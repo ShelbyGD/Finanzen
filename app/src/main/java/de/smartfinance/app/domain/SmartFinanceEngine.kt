@@ -4,6 +4,7 @@ import de.smartfinance.app.core.AppHelpRegistry
 import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
+import de.smartfinance.app.data.local.InstallmentEntity
 import de.smartfinance.app.data.local.SavingsGoalEntity
 import de.smartfinance.app.data.local.TransactionEntity
 import de.smartfinance.app.data.local.TransactionType
@@ -100,6 +101,17 @@ data class WhatIfSimulationResult(
     val explanation: String
 )
 
+data class InstallmentState(
+    val installment: InstallmentEntity,
+    val monthsPassed: Int,
+    val paidSoFar: Double,
+    val remainingAmount: Double,
+    val remainingMonths: Int,
+    val progressFraction: Float,
+    val isFullyPaid: Boolean,
+    val statusText: String
+)
+
 enum class TimeRangeMode(val label: String) {
     WEEK("Woche"),
     MONTH("Monat"),
@@ -150,7 +162,9 @@ data class DashboardAnalysisSnapshot(
     val categoryHistoricalAvg3M: Map<Long, Double>,
     val timeRangeMode: TimeRangeMode = TimeRangeMode.MONTH,
     val periodStartEpoch: Long = 0L,
-    val periodEndEpoch: Long = 0L
+    val periodEndEpoch: Long = 0L,
+    val activeInstallmentsRateTotal: Double = 0.0,
+    val openInstallmentsDebtTotal: Double = 0.0
 )
 
 /**
@@ -164,6 +178,71 @@ object SmartFinanceEngine {
     private val shortDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN)
     private val dayMonthFormatter = DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMAN)
 
+    fun calculateMonthsPassed(
+        startDate: LocalDate,
+        dueDayOfMonth: Int,
+        today: LocalDate = LocalDate.now()
+    ): Int {
+        if (today.isBefore(startDate)) return 0
+        val startYm = YearMonth.from(startDate)
+        val currentYm = YearMonth.from(today)
+        var count = 0
+        var ym = startYm
+        while (!ym.isAfter(currentYm)) {
+            val effectiveDueDay = min(dueDayOfMonth, ym.lengthOfMonth())
+            val dueDate = ym.atDay(effectiveDueDay)
+            if (!dueDate.isBefore(startDate) && !dueDate.isAfter(today)) {
+                count++
+            }
+            ym = ym.plusMonths(1)
+        }
+        return count
+    }
+
+    fun calculateInstallmentState(
+        installment: InstallmentEntity,
+        today: LocalDate = LocalDate.now()
+    ): InstallmentState {
+        val startDate = LocalDate.ofEpochDay(installment.startEpochDay)
+        val monthsPassed = calculateMonthsPassed(startDate, installment.dueDayOfMonth, today)
+        val paidSoFar = (monthsPassed * installment.monthlyRate + installment.extraPaidAmount)
+            .coerceAtMost(installment.totalAmount)
+        val remainingAmount = (installment.totalAmount - paidSoFar).coerceAtLeast(0.0)
+        val isFullyPaid = remainingAmount <= 0.001
+
+        val remainingMonths = if (isFullyPaid || installment.monthlyRate <= 0.0) {
+            0
+        } else {
+            ceil(remainingAmount / installment.monthlyRate).toInt()
+        }
+
+        val progressFraction = if (installment.totalAmount > 0.0) {
+            (paidSoFar / installment.totalAmount).toFloat().coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+
+        val statusText = if (isFullyPaid) {
+            "✅ Komplett abbezahlt"
+        } else {
+            val endYm = YearMonth.from(today).plusMonths(remainingMonths.toLong())
+            val endFormatted = endYm.format(germanMonthFormatter).replaceFirstChar { it.uppercase() }
+            val rateWord = if (remainingMonths == 1) "Rate" else "Raten"
+            "Noch $remainingMonths $rateWord offen • Frei ab $endFormatted"
+        }
+
+        return InstallmentState(
+            installment = installment,
+            monthsPassed = monthsPassed,
+            paidSoFar = paidSoFar,
+            remainingAmount = remainingAmount,
+            remainingMonths = remainingMonths,
+            progressFraction = progressFraction,
+            isFullyPaid = isFullyPaid,
+            statusText = statusText
+        )
+    }
+
     fun analyzeMonth(
         selectedYearMonth: YearMonth,
         today: LocalDate,
@@ -171,7 +250,8 @@ object SmartFinanceEngine {
         avgWindowMonths: Int,
         categories: List<CategoryTabEntity>,
         allTransactions: List<TransactionEntity>,
-        savingsGoals: List<SavingsGoalEntity>
+        savingsGoals: List<SavingsGoalEntity>,
+        installments: List<InstallmentEntity> = emptyList()
     ): DashboardAnalysisSnapshot {
         val currentYm = YearMonth.from(today)
         val isCurrentMonth = selectedYearMonth == currentYm
@@ -266,8 +346,14 @@ object SmartFinanceEngine {
             else -> 1
         }
 
+        val installmentStates = installments.map { calculateInstallmentState(it, today) }
+        val openInstallmentsDebtTotal = installmentStates.sumOf { it.remainingAmount }
+        val activeInstallmentsRateTotal = installmentStates
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .sumOf { it.installment.monthlyRate }
+
         val totalCommittedFixedAndSavings =
-            bookedFixedExpenses + openUpcomingFixedTotal + smoothedMonthlyReserveTotal + max(bookedSavings, plannedSavings)
+            bookedFixedExpenses + openUpcomingFixedTotal + smoothedMonthlyReserveTotal + max(bookedSavings, plannedSavings) + activeInstallmentsRateTotal
 
         val totalDisposableMonthBudget = effectiveIncome - totalCommittedFixedAndSavings
         val baseDailyBudget = totalDisposableMonthBudget / totalDaysInMonth.toDouble()
@@ -276,7 +362,7 @@ object SmartFinanceEngine {
         val remainingFreeBudgetMonth = if (isFutureMonth) {
             totalDisposableMonthBudget
         } else {
-            effectiveIncome - totalExpensesBooked - openUpcomingFixedTotal
+            effectiveIncome - totalExpensesBooked - openUpcomingFixedTotal - activeInstallmentsRateTotal
         }
 
         val dynamicDailyBudgetToday = (remainingFreeBudgetMonth / remainingDaysInMonth.toDouble()).coerceAtLeast(0.0)
@@ -443,7 +529,9 @@ object SmartFinanceEngine {
             categoryHistoricalAvg3M = categoryHistoricalAvg3M,
             timeRangeMode = TimeRangeMode.MONTH,
             periodStartEpoch = startEpoch,
-            periodEndEpoch = endEpoch
+            periodEndEpoch = endEpoch,
+            activeInstallmentsRateTotal = activeInstallmentsRateTotal,
+            openInstallmentsDebtTotal = openInstallmentsDebtTotal
         )
     }
 
@@ -455,7 +543,8 @@ object SmartFinanceEngine {
         avgWindowMonths: Int,
         categories: List<CategoryTabEntity>,
         allTransactions: List<TransactionEntity>,
-        savingsGoals: List<SavingsGoalEntity>
+        savingsGoals: List<SavingsGoalEntity>,
+        installments: List<InstallmentEntity> = emptyList()
     ): DashboardAnalysisSnapshot {
         return when (mode) {
             TimeRangeMode.WEEK -> analyzeWeek(
@@ -465,7 +554,8 @@ object SmartFinanceEngine {
                 avgWindowMonths = avgWindowMonths,
                 categories = categories,
                 allTransactions = allTransactions,
-                savingsGoals = savingsGoals
+                savingsGoals = savingsGoals,
+                installments = installments
             )
             TimeRangeMode.MONTH -> {
                 val ym = YearMonth.from(selectedDate)
@@ -476,7 +566,8 @@ object SmartFinanceEngine {
                     avgWindowMonths = avgWindowMonths,
                     categories = categories,
                     allTransactions = allTransactions,
-                    savingsGoals = savingsGoals
+                    savingsGoals = savingsGoals,
+                    installments = installments
                 )
             }
             TimeRangeMode.YEAR -> analyzeYear(
@@ -486,7 +577,8 @@ object SmartFinanceEngine {
                 avgWindowMonths = avgWindowMonths,
                 categories = categories,
                 allTransactions = allTransactions,
-                savingsGoals = savingsGoals
+                savingsGoals = savingsGoals,
+                installments = installments
             )
         }
     }
@@ -498,7 +590,8 @@ object SmartFinanceEngine {
         avgWindowMonths: Int,
         categories: List<CategoryTabEntity>,
         allTransactions: List<TransactionEntity>,
-        savingsGoals: List<SavingsGoalEntity>
+        savingsGoals: List<SavingsGoalEntity>,
+        installments: List<InstallmentEntity> = emptyList()
     ): DashboardAnalysisSnapshot {
         val weekFields = WeekFields.of(Locale.GERMANY)
         val periodStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -551,7 +644,14 @@ object SmartFinanceEngine {
         val variableExpensesSoFar = expenseTransactions.filter { !it.isFixedRecurring }.sumOf { abs(it.amount) }
         val bookedSavings = savingsTransactions.sumOf { abs(it.amount) }
 
-        val remainingFreeBudgetWeek = effectiveIncome - effectiveFixedExpenses - variableExpensesSoFar - bookedSavings
+        val installmentStates = installments.map { calculateInstallmentState(it, today) }
+        val openInstallmentsDebtTotal = installmentStates.sumOf { it.remainingAmount }
+        val activeInstallmentsRateTotal = installmentStates
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .sumOf { it.installment.monthlyRate }
+
+        val weeklyInstallmentShare = (activeInstallmentsRateTotal * 12.0) / 52.0
+        val remainingFreeBudgetWeek = effectiveIncome - effectiveFixedExpenses - variableExpensesSoFar - bookedSavings - weeklyInstallmentShare
 
         val daysRemainingInWeek = when {
             isCurrentWeek -> (ChronoUnit.DAYS.between(today, periodEnd).toInt() + 1).coerceAtLeast(1)
@@ -624,7 +724,9 @@ object SmartFinanceEngine {
             categoryHistoricalAvg3M = emptyMap(),
             timeRangeMode = TimeRangeMode.WEEK,
             periodStartEpoch = startEpoch,
-            periodEndEpoch = endEpoch
+            periodEndEpoch = endEpoch,
+            activeInstallmentsRateTotal = activeInstallmentsRateTotal,
+            openInstallmentsDebtTotal = openInstallmentsDebtTotal
         )
     }
 
@@ -635,7 +737,8 @@ object SmartFinanceEngine {
         avgWindowMonths: Int,
         categories: List<CategoryTabEntity>,
         allTransactions: List<TransactionEntity>,
-        savingsGoals: List<SavingsGoalEntity>
+        savingsGoals: List<SavingsGoalEntity>,
+        installments: List<InstallmentEntity> = emptyList()
     ): DashboardAnalysisSnapshot {
         val periodStart = LocalDate.of(selectedYear, 1, 1)
         val periodEnd = LocalDate.of(selectedYear, 12, 31)
@@ -678,7 +781,14 @@ object SmartFinanceEngine {
         val variableExpensesSoFar = expenseTransactions.filter { !it.isFixedRecurring }.sumOf { abs(it.amount) }
         val bookedSavings = savingsTransactions.sumOf { abs(it.amount) }
 
-        val remainingFreeBudgetYear = effectiveIncome - effectiveFixedExpenses - variableExpensesSoFar - bookedSavings
+        val installmentStates = installments.map { calculateInstallmentState(it, today) }
+        val openInstallmentsDebtTotal = installmentStates.sumOf { it.remainingAmount }
+        val activeInstallmentsRateTotal = installmentStates
+            .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+            .sumOf { it.installment.monthlyRate }
+        val yearlyInstallmentsShare = activeInstallmentsRateTotal * 12.0
+
+        val remainingFreeBudgetYear = effectiveIncome - effectiveFixedExpenses - variableExpensesSoFar - bookedSavings - yearlyInstallmentsShare
 
         val daysRemainingInYear = when {
             isCurrentYear -> (ChronoUnit.DAYS.between(today, periodEnd).toInt() + 1).coerceAtLeast(1)
@@ -742,7 +852,9 @@ object SmartFinanceEngine {
             categoryHistoricalAvg3M = emptyMap(),
             timeRangeMode = TimeRangeMode.YEAR,
             periodStartEpoch = startEpoch,
-            periodEndEpoch = endEpoch
+            periodEndEpoch = endEpoch,
+            activeInstallmentsRateTotal = activeInstallmentsRateTotal,
+            openInstallmentsDebtTotal = openInstallmentsDebtTotal
         )
     }
 

@@ -21,9 +21,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CategoryTabEntity::class,
         TransactionEntity::class,
         SavingsGoalEntity::class,
-        QuickTemplateEntity::class
+        QuickTemplateEntity::class,
+        InstallmentEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class SmartFinanceDatabase : RoomDatabase() {
@@ -35,12 +36,24 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
         private var INSTANCE: SmartFinanceDatabase? = null
 
         /**
-         * Vorbereitete verlustfreie Beispiel-Migration von Version 1 auf Version 2,
-         * damit zukünftige Schema-Updates niemals bestehende Tabellen löschen.
+         * Verlustfreie Migration von Version 1 auf Version 2 für Ratenzahlungen & offene Posten.
          */
         val SAFE_MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Verlustfreies Schema-Upgrade ohne Datenverlust
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `installments` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `totalAmount` REAL NOT NULL,
+                        `monthlyRate` REAL NOT NULL,
+                        `startEpochDay` INTEGER NOT NULL,
+                        `dueDayOfMonth` INTEGER NOT NULL,
+                        `extraPaidAmount` REAL NOT NULL,
+                        `deductFromBudget` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
             }
         }
 
@@ -52,6 +65,7 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
                     "smartfinance_clean_user.db"
                 )
                     .addMigrations(SAFE_MIGRATION_1_2)
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                     .also { INSTANCE = it }
             }
