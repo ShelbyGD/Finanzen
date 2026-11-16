@@ -469,4 +469,37 @@ class SmartFinanceSelfTest {
         assertEquals(1200.0, totalOpen, 0.001)
         assertEquals(150.0, totalActiveRate, 0.001)
     }
+
+    /**
+     * Test 7 (Rückwirkende Automatik-Berechnung & Tag-31-Schutz):
+     * Startdatum in der Vergangenheit: 31.05.2026, Gesamtbetrag 2.474,88 €, Rate 200,00 €.
+     * Prüft, dass bis zum heutigen Testdatum (16.11.2026) exakt 6 Fälligkeitstage vergangen sind
+     * (31.05., 30.06., 31.07., 31.08., 30.09., 31.10.) und in kürzeren Monaten (Juni, September)
+     * automatisch der Monatsletzte als Stichtag dient.
+     * Erwartetes Ergebnis: 6 × 200,00 € = 1.200,00 € getilgt, noch 1.274,88 € offen (7 Raten).
+     */
+    @Test
+    fun test7_retroactiveInstallmentCalculationAndTag31Protection() {
+        val startDate = LocalDate.of(2026, 5, 31)
+        val today = LocalDate.of(2026, 11, 16)
+        val installment = de.smartfinance.app.data.local.InstallmentEntity(
+            id = 10L,
+            title = "Smartphone Finanzierung",
+            totalAmount = 2474.88,
+            monthlyRate = 200.0,
+            startEpochDay = startDate.toEpochDay(),
+            dueDayOfMonth = 31,
+            folderName = "Technik"
+        )
+
+        val monthsPassed = SmartFinanceEngine.calculateMonthsPassed(startDate, installment.dueDayOfMonth, today)
+        assertEquals(6, monthsPassed)
+
+        val state = SmartFinanceEngine.calculateInstallmentState(installment, today)
+        assertEquals(6, state.monthsPassed)
+        assertEquals(1200.0, state.paidSoFar, 0.001)
+        assertEquals(1274.88, state.remainingAmount, 0.001)
+        assertEquals(7, state.remainingMonths)
+        assertTrue(state.statusText.contains("Noch 7 Raten offen"))
+    }
 }

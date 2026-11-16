@@ -357,6 +357,18 @@ object AppHelpRegistry {
 
     val changelogEntries: List<ChangelogEntry> = listOf(
         ChangelogEntry(
+            versionName = "1.3.4",
+            buildNumber = 16,
+            date = "16.11.2026",
+            newFeatures = listOf(
+                "Vollständiges Startdatum (TT.MM.JJJJ): Ersetzt das alte 'Fällig am (Tag)'-Feld durch ein vollwertiges Datumsfeld inklusive klickbarem Kalender-Icon (DatePickerDialog) und manueller Direkteingabe.",
+                "Rückwirkende Automatik-Berechnung: Vergangene Fälligkeitstage seit dem Startdatum werden exakt berechnet (inkl. automatischem Tag-31-Schutz für kürzere Monate), um bereits getilgte Raten sofort abzuziehen.",
+                "Live-Rechenbox im Dialog: Dynamische Vorschau direkt beim Ausfüllen ('Bereits getilgt', 'Aktuell noch offen', 'Voraussichtlich abbezahlt').",
+                "Übersichtliche 3-Zeilen-Karten in den Ordnern: Zeile 1 mit prominentem Restbetrag in Warnfarbe/Grün, Zeile 2 mit Startdatum und Monatsende-Hinweis, Zeile 3 mit Ratenzähler, Fortschrittsbalken und Aktions-Icons (Bearbeiten, Ablösen, Löschen).",
+                "Bereinigte Header-Buttons: Doppelter Plus-Text (+ + Posten) entfernt – klare Buttons 'Ordner' und 'Posten' mit Vector-Icons."
+            )
+        ),
+        ChangelogEntry(
             versionName = "1.3.3",
             buildNumber = 15,
             date = "16.11.2026",
