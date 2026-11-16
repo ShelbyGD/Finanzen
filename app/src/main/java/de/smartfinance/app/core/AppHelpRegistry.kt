@@ -61,21 +61,23 @@ object AppHelpRegistry {
             moduleNumber = 15,
             title = "15. Ratenzahlungen & Offene Posten (Finanzierungs-Tracker)",
             category = "Verbindlichkeiten & Tilgung",
-            shortSummary = "Vollautomatischer Tracker für Ratenkäufe, Kredite, Finanzierungen und offene Posten mit monatlicher Auto-Reduzierung am Fälligkeitstag, Restlaufzeit-Prognose und 1-Tap Sonderzahlung/Ablösung.",
+            shortSummary = "Vollautomatischer Tracker für Ratenkäufe, Kredite, Finanzierungen und offene Posten mit flexibler Ordner-Verwaltung, monatlicher Auto-Reduzierung am Fälligkeitstag und 1-Tap Ablösung/Sonderzahlung.",
             stepByStepGuide = listOf(
-                "Öffne das Hamburger-Menü und tippe auf '💳 Ratenzahlungen & Offene Posten'.",
-                "Tippe oben rechts auf '+ Neu', um eine Finanzierung oder Verbindlichkeit anzulegen (Gesamtbetrag, Monatsrate, Startdatum, Fälligkeitstag).",
+                "Öffne das Hamburger-Menü und tippe auf 'Ratenzahlungen & Offene Posten'.",
+                "Über '+ Ordner' kannst du übersichtliche Themen-Ordner anlegen (z. B. 'Technik', 'Haus & Nebenkosten', 'Auto', 'Sonstiges').",
+                "Über '+ Posten' trägst du neue Ratenkäufe oder Verbindlichkeiten ein und weist sie direkt einem Ordner zu.",
                 "Aktiviere den Schalter 'Laufende Rate vom Monatsbudget abziehen', damit die Rate automatisch als Fixkosten im Monatsbudget berücksichtigt wird.",
-                "Am Fälligkeitstag jeden Monats sinkt der Restbetrag und die Gesamtschuld vollautomatisch – ganz ohne manuelles Abhaken!",
-                "Über den Button 'Vorzeitig ablösen / Sonderzahlung' kannst du jederzeit Sonderzahlungen verbuchen oder den Posten mit 1 Tap auf 'Komplett abbezahlt' setzen."
+                "Am Fälligkeitstag jeden Monats sinkt der Restbetrag, die Ordner-Zwischensumme und die Gesamtschuld vollautomatisch – ganz ohne manuelles Abhaken!",
+                "Über den Button 'Ablösen / Sonderzahlung' kannst du jederzeit Sonderzahlungen verbuchen oder den Posten mit 1 Tap auf 'Komplett abbezahlt' setzen."
             ),
             exampleTips = listOf(
+                "Ordner lassen sich per Fingertipp auf- und zuklappen und über das Stift- bzw. Mülleimer-Icon umbenennen oder löschen.",
                 "Komplett abbezahlte Posten erhalten automatisch ein grünes Erfolgs-Badge ('✅ Komplett abbezahlt').",
                 "Sobald ein Posten abbezahlt ist, entfällt der monatliche Budget-Abzug ab dem Folgemonat automatisch.",
                 "Die Kopfzeile zeigt jederzeit deine offene Gesamtschuld, die laufende Monatsbelastung und den Tilgungsfortschritt in Prozent."
             ),
             requiredTier = AppTier.LITE_FREE,
-            addedInVersion = "1.3.2"
+            addedInVersion = "1.3.3"
         ),
         HelpEntry(
             id = ID_TIME_RANGE_SWITCHER,
@@ -355,11 +357,23 @@ object AppHelpRegistry {
 
     val changelogEntries: List<ChangelogEntry> = listOf(
         ChangelogEntry(
+            versionName = "1.3.3",
+            buildNumber = 15,
+            date = "16.11.2026",
+            newFeatures = listOf(
+                "100 % Clean-Look: Alle störenden Karten-Icons und Emojis aus dem Menü, der TopBar und den Karten von 'Ratenzahlungen & Offene Posten' restlos entfernt.",
+                "Neues Ordner-System für Ratenzahlungen: Beliebig viele Ordner erstellen (+ Ordner), umbenennen, löschen und Posten übersichtlich gruppieren.",
+                "Aufklappbare Ordner-Karten mit Live-Zwischensummen (Anzahl Posten, offene Restschuld und monatliche Ratenbelastung je Ordner).",
+                "Schnell-Aktionen im Ordner-Header: Direkt per '+' neue Posten in den jeweiligen Ordner einfügen, Ordner umbenennen oder löschen.",
+                "Neue STIL-GESETZ Pflichtregel in QA_AUTOPILOT.md: Strikte Typografie ohne bunte Emojis in Menüs, Titeln und Headern."
+            )
+        ),
+        ChangelogEntry(
             versionName = "1.3.2",
             buildNumber = 14,
             date = "16.11.2026",
             newFeatures = listOf(
-                "Neues Modul '💳 Ratenzahlungen & Offene Posten' im Hamburger-Menü: Vollautomatisches Tracking von Finanzierungen, Ratenkäufen und offenen Posten.",
+                "Neues Modul 'Ratenzahlungen & Offene Posten' im Hamburger-Menü: Vollautomatisches Tracking von Finanzierungen, Ratenkäufen und offenen Posten.",
                 "Vollautomatische monatliche Reduzierung: Zählt abgelaufene Fälligkeitstage seit Startdatum und tilgt Restbetrag sowie Gesamtschuld ohne manuelles Abhaken.",
                 "Echtzeit-Summenkachel & Tilgungsbalken: Offene Gesamtschuld, monatliche Ratenbelastung und prozentualer Tilgungsfortschritt auf einen Blick.",
                 "1-Tap Schnell-Ablösung & Sonderzahlungen: Teilzahlungen flexibel eintragen oder mit 1 Klick auf 'Komplett abbezahlt setzen'.",

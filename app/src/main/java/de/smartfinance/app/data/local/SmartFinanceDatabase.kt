@@ -22,9 +22,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransactionEntity::class,
         SavingsGoalEntity::class,
         QuickTemplateEntity::class,
-        InstallmentEntity::class
+        InstallmentEntity::class,
+        InstallmentFolderEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class SmartFinanceDatabase : RoomDatabase() {
@@ -50,10 +51,28 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
                         `startEpochDay` INTEGER NOT NULL,
                         `dueDayOfMonth` INTEGER NOT NULL,
                         `extraPaidAmount` REAL NOT NULL,
-                        `deductFromBudget` INTEGER NOT NULL
+                        `deductFromBudget` INTEGER NOT NULL,
+                        `folderName` TEXT NOT NULL DEFAULT 'Sonstiges'
                     )
                     """.trimIndent()
                 )
+            }
+        }
+
+        /**
+         * Verlustfreie Migration von Version 2 auf Version 3 für Ratenzahlungs-Ordner.
+         */
+        val SAFE_MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `installment_folders` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("ALTER TABLE `installments` ADD COLUMN `folderName` TEXT NOT NULL DEFAULT 'Sonstiges'")
             }
         }
 
@@ -64,7 +83,7 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
                     SmartFinanceDatabase::class.java,
                     "smartfinance_clean_user.db"
                 )
-                    .addMigrations(SAFE_MIGRATION_1_2)
+                    .addMigrations(SAFE_MIGRATION_1_2, SAFE_MIGRATION_2_3)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                     .also { INSTANCE = it }

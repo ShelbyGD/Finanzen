@@ -107,6 +107,16 @@ data class QuickTemplateEntity(
 )
 
 /**
+ * Kategorie-Ordner für Ratenzahlungen & offene Posten.
+ */
+@Entity(tableName = "installment_folders")
+data class InstallmentFolderEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val name: String
+)
+
+/**
  * Ratenzahlungen, Finanzierungen & offene Posten mit automatischer monatlicher Tilgung.
  */
 @Entity(tableName = "installments")
@@ -119,5 +129,6 @@ data class InstallmentEntity(
     val startEpochDay: Long,
     val dueDayOfMonth: Int = 1,
     val extraPaidAmount: Double = 0.0,
-    val deductFromBudget: Boolean = true
+    val deductFromBudget: Boolean = true,
+    val folderName: String = "Sonstiges"
 )

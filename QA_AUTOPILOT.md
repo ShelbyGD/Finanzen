@@ -61,6 +61,8 @@ Diese Datei definiert die verbindlichen Qualitäts-, Architektur- und Praxis-Reg
   - Jede scrollbare Liste (`LazyColumn`) erhält `contentPadding = PaddingValues(..., bottom = 104.dp)`, damit der unterste Eintrag niemals durch FloatingActionButtons oder BottomNav verdeckt wird.
 - **Tastatur-Bündigkeit:**
   - Im KI-Coach (`AiCoachTabScreen`) liegt das Texteingabefeld ohne störenden Zwischenraum direkt auf der Tastaturkante (`isKeyboardOpen`-Handling), und die Header-Karte klappt beim Tippen per `AnimatedVisibility(visible = !isKeyboardOpen)` automatisch ein.
+- **STIL-GESETZ (100 % Clean-Look ohne Emojis):**
+  - Verwende in Menüpunkten, TopBar-Titeln und Überschriften NIEMALS bunte Emojis (wie 💳, 💰 etc.). Halte die Typografie immer 100 % clean wie in den bestehenden Screens!
 
 ---
 

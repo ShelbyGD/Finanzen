@@ -147,6 +147,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val allTransactions by viewModel.allTransactions.collectAsStateWithLifecycle()
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
     val installments by viewModel.installments.collectAsStateWithLifecycle()
+    val installmentFolders by viewModel.installmentFolders.collectAsStateWithLifecycle()
     val quickTemplates by viewModel.quickTemplates.collectAsStateWithLifecycle()
     val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
     val geminiVaultState by viewModel.geminiVaultState.collectAsStateWithLifecycle()
@@ -581,10 +582,14 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                     DrawerDestination.INSTALLMENTS -> {
                         InstallmentsTrackerSheet(
                             installments = installments,
+                            folders = installmentFolders,
                             onSaveInstallment = viewModel::saveInstallment,
                             onDeleteInstallment = viewModel::deleteInstallment,
                             onQuickPayExtra = viewModel::quickPayExtra,
                             onMarkFullyPaid = viewModel::markInstallmentFullyPaid,
+                            onCreateFolder = viewModel::createInstallmentFolder,
+                            onRenameFolder = viewModel::renameInstallmentFolder,
+                            onDeleteFolder = viewModel::deleteInstallmentFolder,
                             onNavigateBack = { viewModel.navigateTo(DrawerDestination.COCKPIT) }
                         )
                     }

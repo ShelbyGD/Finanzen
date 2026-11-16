@@ -18,6 +18,7 @@ import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
 import de.smartfinance.app.data.local.InstallmentEntity
+import de.smartfinance.app.data.local.InstallmentFolderEntity
 import de.smartfinance.app.data.local.QuickTemplateEntity
 import de.smartfinance.app.data.local.SavingsGoalEntity
 import de.smartfinance.app.data.local.SmartFinanceDatabase
@@ -66,7 +67,7 @@ enum class BottomNavTab(val label: String) {
 enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
     CATEGORIES_CONTRACTS("Kategorien, Sparziele & Verträge"),
-    INSTALLMENTS("💳 Ratenzahlungen & Offene Posten"),
+    INSTALLMENTS("Ratenzahlungen & Offene Posten"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen"),
     HELP_CHANGELOG("Hilfe, Features & Was ist neu?"),
@@ -184,6 +185,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     val installments: StateFlow<List<InstallmentEntity>> = repository.installmentsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val installmentFolders: StateFlow<List<InstallmentFolderEntity>> = repository.installmentFoldersFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             repository.ensureInitializedAndSyncRecurring()
@@ -270,6 +274,31 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             val updated = installment.copy(extraPaidAmount = neededExtra)
             repository.saveInstallment(updated)
             _snackbarMessage.value = "Ratenkauf '${installment.title}' als komplett abbezahlt markiert."
+        }
+    }
+
+    fun createInstallmentFolder(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveInstallmentFolder(InstallmentFolderEntity(name = trimmed))
+            _snackbarMessage.value = "Ordner '$trimmed' erstellt."
+        }
+    }
+
+    fun renameInstallmentFolder(folder: InstallmentFolderEntity, newName: String) {
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.renameInstallmentFolder(folder, trimmed)
+            _snackbarMessage.value = "Ordner in '$trimmed' umbenannt."
+        }
+    }
+
+    fun deleteInstallmentFolder(folder: InstallmentFolderEntity, deleteItems: Boolean = false) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteInstallmentFolder(folder, deleteItems)
+            _snackbarMessage.value = "Ordner '${folder.name}' gelöscht."
         }
     }
 

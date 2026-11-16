@@ -120,4 +120,29 @@ interface SmartFinanceDao {
 
     @Query("DELETE FROM installments")
     suspend fun deleteAllInstallments()
+
+    // --- RATENZAHLUNGS-ORDNER ---
+    @Query("SELECT * FROM installment_folders ORDER BY name ASC")
+    fun observeInstallmentFolders(): Flow<List<InstallmentFolderEntity>>
+
+    @Query("SELECT * FROM installment_folders ORDER BY name ASC")
+    suspend fun getAllInstallmentFoldersOnce(): List<InstallmentFolderEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInstallmentFolder(folder: InstallmentFolderEntity): Long
+
+    @Update
+    suspend fun updateInstallmentFolder(folder: InstallmentFolderEntity)
+
+    @Delete
+    suspend fun deleteInstallmentFolder(folder: InstallmentFolderEntity)
+
+    @Query("DELETE FROM installment_folders WHERE id = :id")
+    suspend fun deleteInstallmentFolderById(id: Long)
+
+    @Query("UPDATE installments SET folderName = :newName WHERE folderName = :oldName")
+    suspend fun renameInstallmentFolderInItems(oldName: String, newName: String)
+
+    @Query("DELETE FROM installments WHERE folderName = :folderName")
+    suspend fun deleteInstallmentsByFolderName(folderName: String)
 }

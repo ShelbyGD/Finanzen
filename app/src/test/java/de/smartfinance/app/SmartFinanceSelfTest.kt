@@ -391,4 +391,82 @@ class SmartFinanceSelfTest {
         assertEquals(50.0, snapshotWithInstallment.activeInstallmentsRateTotal, 0.001)
         assertEquals(400.0, snapshotWithInstallment.openInstallmentsDebtTotal, 0.001)
     }
+
+    /**
+     * Test 6 (Ordner-System & 100 % Clean-Look ohne Emojis):
+     * Prüft, dass im Hamburger-Menü und den Titeln keinerlei Emojis vorkommen
+     * und dass Raten-Posten nach Ordnern gruppiert und Zwischensummen exakt berechnet werden.
+     */
+    @Test
+    fun test6_installmentFoldersAndCleanStyle() {
+        // 1. Clean-Look Prüfung: Keine Emojis in Drawer-Titeln
+        assertEquals("Ratenzahlungen & Offene Posten", de.smartfinance.app.ui.DrawerDestination.INSTALLMENTS.title)
+        for (dest in de.smartfinance.app.ui.DrawerDestination.entries) {
+            assertTrue("Menü-Titel '${dest.title}' darf kein 💳-Emoji enthalten!", !dest.title.contains("💳"))
+        }
+
+        // 2. Ordner-Gruppierung und Zwischensummen
+        val startDate = LocalDate.of(2026, 8, 1)
+        val today = LocalDate.of(2026, 11, 16) // 4 Monate verstrichen
+
+        val itemHaus1 = de.smartfinance.app.data.local.InstallmentEntity(
+            id = 1L,
+            title = "Heizkosten-Nachzahlung",
+            totalAmount = 600.0,
+            monthlyRate = 50.0,
+            startEpochDay = startDate.toEpochDay(),
+            dueDayOfMonth = 15,
+            folderName = "Haus & Nebenkosten"
+        )
+        val itemHaus2 = de.smartfinance.app.data.local.InstallmentEntity(
+            id = 2L,
+            title = "Grundsteuer",
+            totalAmount = 250.0,
+            monthlyRate = 25.0,
+            startEpochDay = startDate.toEpochDay(),
+            dueDayOfMonth = 15,
+            extraPaidAmount = 150.0, // 4 * 25 + 150 = 250 -> komplett abbezahlt
+            folderName = "Haus & Nebenkosten"
+        )
+        val itemTechnik = de.smartfinance.app.data.local.InstallmentEntity(
+            id = 3L,
+            title = "Laptop",
+            totalAmount = 1200.0,
+            monthlyRate = 100.0,
+            startEpochDay = startDate.toEpochDay(),
+            dueDayOfMonth = 15,
+            folderName = "Technik"
+        )
+
+        val items = listOf(itemHaus1, itemHaus2, itemTechnik)
+        val states = items.map { SmartFinanceEngine.calculateInstallmentState(it, today) }
+
+        // Haus & Nebenkosten Ordner-Prüfung
+        val hausStates = states.filter { it.installment.folderName == "Haus & Nebenkosten" }
+        assertEquals(2, hausStates.size)
+
+        // itemHaus1: 600 - (4*50) = 400 € offen, 50 €/Monat aktiv
+        // itemHaus2: 250 - (4*25 + 150) = 0 € offen, 0 €/Monat aktiv (da abbezahlt)
+        val hausOpenDebt = hausStates.sumOf { it.remainingAmount }
+        val hausMonthlyRate = hausStates.filter { !it.isFullyPaid && it.installment.deductFromBudget }.sumOf { it.installment.monthlyRate }
+
+        assertEquals(400.0, hausOpenDebt, 0.001)
+        assertEquals(50.0, hausMonthlyRate, 0.001)
+
+        // Technik Ordner-Prüfung
+        val technikStates = states.filter { it.installment.folderName == "Technik" }
+        assertEquals(1, technikStates.size)
+        // itemTechnik: 1200 - (4*100) = 800 € offen, 100 €/Monat aktiv
+        val technikOpenDebt = technikStates.sumOf { it.remainingAmount }
+        val technikMonthlyRate = technikStates.filter { !it.isFullyPaid && it.installment.deductFromBudget }.sumOf { it.installment.monthlyRate }
+
+        assertEquals(800.0, technikOpenDebt, 0.001)
+        assertEquals(100.0, technikMonthlyRate, 0.001)
+
+        // Gesamtsumme
+        val totalOpen = states.sumOf { it.remainingAmount }
+        val totalActiveRate = states.filter { !it.isFullyPaid && it.installment.deductFromBudget }.sumOf { it.installment.monthlyRate }
+        assertEquals(1200.0, totalOpen, 0.001)
+        assertEquals(150.0, totalActiveRate, 0.001)
+    }
 }

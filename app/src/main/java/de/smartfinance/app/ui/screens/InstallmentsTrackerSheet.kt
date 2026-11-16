@@ -1,7 +1,8 @@
 package de.smartfinance.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,16 +17,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.AlertDialog
@@ -33,6 +36,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.smartfinance.app.data.local.InstallmentEntity
+import de.smartfinance.app.data.local.InstallmentFolderEntity
 import de.smartfinance.app.domain.InstallmentState
 import de.smartfinance.app.domain.SmartFinanceEngine
 import java.time.LocalDate
@@ -67,18 +76,22 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Screen / Sheet für das neue Modul: "💳 Ratenzahlungen & Offene Posten".
+ * Screen / Sheet für das Modul: "Ratenzahlungen & Offene Posten" im 100 % Clean-Banking-Look.
  *
- * Berechnet vollautomatisch vergangene Raten, Tilgungsstand, Restbeträge und
- * koppelt offene Posten optional an das Monatsbudget.
+ * Enthält ein vollständiges Ordner-System zum Erstellen, Umbenennen, Löschen und Gruppieren
+ * von Finanzierungen und offenen Posten.
  */
 @Composable
 fun InstallmentsTrackerSheet(
     installments: List<InstallmentEntity>,
+    folders: List<InstallmentFolderEntity>,
     onSaveInstallment: (InstallmentEntity) -> Unit,
     onDeleteInstallment: (InstallmentEntity) -> Unit,
     onQuickPayExtra: (InstallmentEntity, Double) -> Unit,
     onMarkFullyPaid: (InstallmentEntity) -> Unit,
+    onCreateFolder: (String) -> Unit,
+    onRenameFolder: (InstallmentFolderEntity, String) -> Unit,
+    onDeleteFolder: (InstallmentFolderEntity, Boolean) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val today = remember { LocalDate.now() }
@@ -113,8 +126,31 @@ fun InstallmentsTrackerSheet(
         }
     }
 
+    // Ermitteln aller vorhandenen Ordner (DB-Ordner + eventuelle Ordnernamen aus bestehenden Posten)
+    val allFolderNames = remember(folders, installments) {
+        val set = mutableListOf<String>()
+        folders.forEach { f ->
+            val name = f.name.trim()
+            if (name.isNotEmpty() && name !in set) set.add(name)
+        }
+        installments.forEach { i ->
+            val name = i.folderName.trim().ifEmpty { "Sonstiges" }
+            if (name !in set) set.add(name)
+        }
+        if (set.isEmpty()) {
+            set.add("Sonstiges")
+        }
+        set
+    }
+
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var folderToRename by remember { mutableStateOf<InstallmentFolderEntity?>(null) }
+    var folderToDelete by remember { mutableStateOf<InstallmentFolderEntity?>(null) }
+
     var showAddEditDialog by remember { mutableStateOf(false) }
     var editingInstallment by remember { mutableStateOf<InstallmentEntity?>(null) }
+    var targetFolderForNewItem by remember { mutableStateOf<String?>(null) }
+
     var quickPayInstallment by remember { mutableStateOf<InstallmentEntity?>(null) }
     var itemToDelete by remember { mutableStateOf<InstallmentEntity?>(null) }
 
@@ -123,14 +159,14 @@ fun InstallmentsTrackerSheet(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // --- 1. GROSSE SUMMEN-KACHEL GANZ OBEN ---
+        // --- 1. GROSSE SUMMEN-KACHEL GANZ OBEN (100 % CLEAN LOOK OHNE KREDITKARTEN-EMOJIS) ---
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -144,53 +180,55 @@ fun InstallmentsTrackerSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.CreditCard,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                            Column {
-                                Text(
-                                    text = "Raten & Offene Posten",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Vollautomatische Tilgungsberechnung",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                        Column {
+                            Text(
+                                text = "Raten & Offene Posten",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Vollautomatische Tilgungsberechnung & Ordner",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
 
-                        Button(
-                            onClick = {
-                                editingInstallment = null
-                                showAddEditDialog = true
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                        // Zwei klare Buttons nebeneinander: "+ Ordner" und "+ Posten"
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Neu", fontWeight = FontWeight.Bold)
+                            OutlinedButton(
+                                onClick = { showCreateFolderDialog = true },
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CreateNewFolder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "+ Ordner", fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    editingInstallment = null
+                                    targetFolderForNewItem = allFolderNames.firstOrNull() ?: "Sonstiges"
+                                    showAddEditDialog = true
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "+ Posten", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
 
@@ -262,8 +300,8 @@ fun InstallmentsTrackerSheet(
             }
         }
 
-        // --- 2. LISTE DER EINTRÄGE ---
-        if (installments.isEmpty()) {
+        // --- 2. ORDNER-STRUKTUR MIT GRUPPIERTEN POSTEN ---
+        if (installments.isEmpty() && folders.isEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -278,68 +316,137 @@ fun InstallmentsTrackerSheet(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                            modifier = Modifier.size(56.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.CreditCard,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(28.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
                         Text(
                             text = "Keine Raten oder offenen Posten",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Hier kannst du Finanzierungen, Nachzahlungen oder Ratenkäufe erfassen. Der Betrag sinkt jeden Monat am Fälligkeitstag vollautomatisch!",
+                            text = "Hier kannst du Finanzierungen, Nachzahlungen oder Ratenkäufe in übersichtlichen Ordnern organisieren. Die Beträge sinken an jedem Fälligkeitstag vollautomatisch!",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
-                        Button(
-                            onClick = {
-                                editingInstallment = null
-                                showAddEditDialog = true
-                            },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Ersten Posten anlegen")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { showCreateFolderDialog = true },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.CreateNewFolder, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "+ Ordner anlegen")
+                            }
+                            Button(
+                                onClick = {
+                                    editingInstallment = null
+                                    targetFolderForNewItem = "Sonstiges"
+                                    showAddEditDialog = true
+                                },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "+ Posten anlegen")
+                            }
                         }
                     }
                 }
             }
         } else {
-            items(installmentStates, key = { it.installment.id }) { state ->
-                InstallmentItemCard(
-                    state = state,
-                    onEdit = {
-                        editingInstallment = state.installment
+            // Für jeden Ordner eine aufklappbare Karte
+            items(allFolderNames, key = { it }) { folderName ->
+                val folderEntity = folders.find { it.name.equals(folderName, ignoreCase = true) }
+                    ?: InstallmentFolderEntity(name = folderName)
+
+                val itemsInFolder = installmentStates.filter {
+                    val itemFolder = it.installment.folderName.trim().ifEmpty { "Sonstiges" }
+                    itemFolder.equals(folderName, ignoreCase = true)
+                }
+
+                val folderOpenDebt = itemsInFolder.sumOf { it.remainingAmount }
+                val folderActiveRate = itemsInFolder
+                    .filter { !it.isFullyPaid && it.installment.deductFromBudget }
+                    .sumOf { it.installment.monthlyRate }
+
+                InstallmentFolderSection(
+                    folderName = folderName,
+                    folderEntity = folderEntity,
+                    itemsCount = itemsInFolder.size,
+                    openDebt = folderOpenDebt,
+                    monthlyRate = folderActiveRate,
+                    itemsInFolder = itemsInFolder,
+                    onAddNewItemInFolder = {
+                        editingInstallment = null
+                        targetFolderForNewItem = folderName
                         showAddEditDialog = true
                     },
-                    onDelete = {
-                        itemToDelete = state.installment
+                    onRenameFolder = {
+                        folderToRename = folderEntity
                     },
-                    onOpenQuickPay = {
-                        quickPayInstallment = state.installment
+                    onDeleteFolder = {
+                        folderToDelete = folderEntity
+                    },
+                    onEditItem = { inst ->
+                        editingInstallment = inst
+                        showAddEditDialog = true
+                    },
+                    onDeleteItem = { inst ->
+                        itemToDelete = inst
+                    },
+                    onOpenQuickPay = { inst ->
+                        quickPayInstallment = inst
                     }
                 )
             }
         }
     }
 
-    // --- DIALOG: ANLEGEN / BEARBEITEN ---
+    // --- DIALOG: NEUEN ORDNER ANLEGEN ---
+    if (showCreateFolderDialog) {
+        CreateFolderDialog(
+            existingNames = allFolderNames,
+            onDismiss = { showCreateFolderDialog = false },
+            onConfirm = { name ->
+                onCreateFolder(name)
+                showCreateFolderDialog = false
+            }
+        )
+    }
+
+    // --- DIALOG: ORDNER UMBENENNEN ---
+    folderToRename?.let { folder ->
+        RenameFolderDialog(
+            folder = folder,
+            onDismiss = { folderToRename = null },
+            onConfirm = { newName ->
+                onRenameFolder(folder, newName)
+                folderToRename = null
+            }
+        )
+    }
+
+    // --- DIALOG: ORDNER LÖSCHEN ---
+    folderToDelete?.let { folder ->
+        val itemsCount = installments.count {
+            it.folderName.trim().equals(folder.name.trim(), ignoreCase = true)
+        }
+        DeleteFolderDialog(
+            folder = folder,
+            itemsCount = itemsCount,
+            onDismiss = { folderToDelete = null },
+            onConfirm = { deleteItems ->
+                onDeleteFolder(folder, deleteItems)
+                folderToDelete = null
+            }
+        )
+    }
+
+    // --- DIALOG: POSTEN ANLEGEN / BEARBEITEN ---
     if (showAddEditDialog) {
         InstallmentEditDialog(
             initial = editingInstallment,
+            availableFolders = allFolderNames,
+            preselectedFolder = targetFolderForNewItem ?: allFolderNames.firstOrNull() ?: "Sonstiges",
             onDismiss = { showAddEditDialog = false },
             onConfirm = { saved ->
                 onSaveInstallment(saved)
@@ -368,7 +475,7 @@ fun InstallmentsTrackerSheet(
         )
     }
 
-    // --- DIALOG: LÖSCH-BESTÄTIGUNG ---
+    // --- DIALOG: POSTEN LÖSCH-BESTÄTIGUNG ---
     itemToDelete?.let { inst ->
         AlertDialog(
             onDismissRequest = { itemToDelete = null },
@@ -397,7 +504,169 @@ fun InstallmentsTrackerSheet(
 }
 
 /**
- * Einzelne Karte für einen Ratenkauf / offenen Posten.
+ * Auf- und zuklappbare Ordner-Karte für eine Ratenzahlungs-Kategorie.
+ */
+@Composable
+private fun InstallmentFolderSection(
+    folderName: String,
+    folderEntity: InstallmentFolderEntity,
+    itemsCount: Int,
+    openDebt: Double,
+    monthlyRate: Double,
+    itemsInFolder: List<InstallmentState>,
+    onAddNewItemInFolder: () -> Unit,
+    onRenameFolder: () -> Unit,
+    onDeleteFolder: () -> Unit,
+    onEditItem: (InstallmentEntity) -> Unit,
+    onDeleteItem: (InstallmentEntity) -> Unit,
+    onOpenQuickPay: (InstallmentEntity) -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(true) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Ordner-Header: Klickbar zum Auf-/Zuklappen
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = folderName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val countText = "$itemsCount ${if (itemsCount == 1) "Posten" else "Posten"}"
+                        val rateText = if (monthlyRate > 0.0) "Rate: -${SmartFinanceEngine.formatEuro(monthlyRate)}/Monat" else "Rate: 0,00 €"
+                        Text(
+                            text = "$countText • Offen: ${SmartFinanceEngine.formatEuro(openDebt)} • $rateText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Aktionen oben rechts im Ordner-Header: + (Neu), Stift (Umbenennen), Trash (Löschen), Aufklappen
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    IconButton(
+                        onClick = onAddNewItemInFolder,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Neuen Posten in $folderName einfügen",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onRenameFolder,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Ordner umbenennen",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDeleteFolder,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Ordner löschen",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { isExpanded = !isExpanded },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isExpanded) "Zuklappen" else "Aufklappen",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Aufgeklappter Inhalt
+            AnimatedVisibility(visible = isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                    if (itemsInFolder.isEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Keine Posten in diesem Ordner",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(onClick = onAddNewItemInFolder) {
+                                Text("+ Posten hinzufügen", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    } else {
+                        itemsInFolder.forEach { state ->
+                            InstallmentItemCard(
+                                state = state,
+                                onEdit = { onEditItem(state.installment) },
+                                onDelete = { onDeleteItem(state.installment) },
+                                onOpenQuickPay = { onOpenQuickPay(state.installment) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Einzelne Karte für einen Ratenkauf / offenen Posten innerhalb eines Ordners.
  */
 @Composable
 private fun InstallmentItemCard(
@@ -413,25 +682,25 @@ private fun InstallmentItemCard(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (state.isFullyPaid) {
-                Color(0xFFE8F5E9).copy(alpha = 0.5f)
+                Color(0xFFE8F5E9).copy(alpha = 0.4f)
             } else {
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             }
         ),
         border = BorderStroke(
             1.dp,
-            if (state.isFullyPaid) Color(0xFF81C784).copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            if (state.isFullyPaid) Color(0xFF81C784).copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Header: Name + Edit + Delete Icons
             Row(
@@ -442,7 +711,7 @@ private fun InstallmentItemCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = inst.title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -474,20 +743,20 @@ private fun InstallmentItemCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onEdit) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Bearbeiten",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onDelete) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = "Löschen",
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -495,28 +764,28 @@ private fun InstallmentItemCard(
 
             // Status Badge (Grün für voll abbezahlt oder Info mit Restlaufzeit)
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = if (state.isFullyPaid) {
-                    Color(0xFF2E7D32).copy(alpha = 0.15f)
+                    Color(0xFF2E7D32).copy(alpha = 0.12f)
                 } else {
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
                         imageVector = if (state.isFullyPaid) Icons.Default.CheckCircle else Icons.Default.Payment,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(14.dp),
                         tint = if (state.isFullyPaid) Color(0xFF1B873F) else MaterialTheme.colorScheme.secondary
                     )
                     Text(
                         text = state.statusText,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (state.isFullyPaid) Color(0xFF1B873F) else MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -537,7 +806,7 @@ private fun InstallmentItemCard(
                     )
                     Text(
                         text = SmartFinanceEngine.formatEuro(state.remainingAmount),
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (state.isFullyPaid) Color(0xFF1B873F) else MaterialTheme.colorScheme.error
                     )
@@ -551,7 +820,7 @@ private fun InstallmentItemCard(
                     )
                     Text(
                         text = SmartFinanceEngine.formatEuro(inst.monthlyRate),
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -565,7 +834,7 @@ private fun InstallmentItemCard(
                     )
                     Text(
                         text = SmartFinanceEngine.formatEuro(inst.totalAmount),
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -603,13 +872,13 @@ private fun InstallmentItemCard(
                 }
             }
 
-            // Schnell-Button: Vorzeitig ablösen / Sonderzahlung (nur wenn noch offen)
+            // Schnell-Button: Ablösen / Sonderzahlung (nur wenn noch offen)
             if (!state.isFullyPaid) {
                 OutlinedButton(
                     onClick = onOpenQuickPay,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    contentPadding = PaddingValues(vertical = 6.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Savings,
@@ -618,7 +887,7 @@ private fun InstallmentItemCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Vorzeitig ablösen / Sonderzahlung",
+                        text = "Ablösen / Sonderzahlung",
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -628,15 +897,205 @@ private fun InstallmentItemCard(
 }
 
 /**
- * Dialog zum Erfassen oder Bearbeiten eines Ratenkaufs.
+ * Dialog zum Erstellen eines neuen Ordners.
  */
+@Composable
+private fun CreateFolderDialog(
+    existingNames: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Neuen Ordner erstellen", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Gib einen Namen für den Kategorie-Ordner ein (z. B. 'Technik', 'Haus & Nebenkosten', 'Auto'):",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        errorMessage = null
+                    },
+                    label = { Text("Ordner-Name *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                errorMessage?.let {
+                    Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val clean = name.trim()
+                    if (clean.isEmpty()) {
+                        errorMessage = "Bitte einen Namen eingeben."
+                        return@Button
+                    }
+                    if (existingNames.any { it.equals(clean, ignoreCase = true) }) {
+                        errorMessage = "Ein Ordner mit diesem Namen existiert bereits."
+                        return@Button
+                    }
+                    onConfirm(clean)
+                }
+            ) {
+                Text("Erstellen")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        }
+    )
+}
+
+/**
+ * Dialog zum Umbenennen eines bestehenden Ordners.
+ */
+@Composable
+private fun RenameFolderDialog(
+    folder: InstallmentFolderEntity,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var newName by remember { mutableStateOf(folder.name) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ordner umbenennen", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Neuer Name für Ordner '${folder.name}':",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = {
+                        newName = it
+                        errorMessage = null
+                    },
+                    label = { Text("Neuer Ordner-Name *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                errorMessage?.let {
+                    Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val clean = newName.trim()
+                    if (clean.isEmpty()) {
+                        errorMessage = "Bitte einen Namen eingeben."
+                        return@Button
+                    }
+                    onConfirm(clean)
+                }
+            ) {
+                Text("Umbenennen")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        }
+    )
+}
+
+/**
+ * Dialog zur Bestätigung beim Löschen eines Ordners.
+ */
+@Composable
+private fun DeleteFolderDialog(
+    folder: InstallmentFolderEntity,
+    itemsCount: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (deleteItems: Boolean) -> Unit
+) {
+    var deleteItemsAlso by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ordner '${folder.name}' löschen?", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (itemsCount > 0) {
+                    Text(
+                        text = "In diesem Ordner befinden sich aktuell $itemsCount offene Posten.\n\n" +
+                            "Wähle aus, was mit den enthaltenen Posten geschehen soll:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { deleteItemsAlso = !deleteItemsAlso }
+                    ) {
+                        Checkbox(
+                            checked = deleteItemsAlso,
+                            onCheckedChange = { deleteItemsAlso = it }
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Auch alle $itemsCount Posten unwiderruflich löschen",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    if (!deleteItemsAlso) {
+                        Text(
+                            text = "Hinweis: Die Posten werden nach 'Sonstiges' verschoben.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Möchtest du den leeren Ordner '${folder.name}' wirklich löschen?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(deleteItemsAlso) },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Löschen")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        }
+    )
+}
+
+/**
+ * Dialog zum Erfassen oder Bearbeiten eines Ratenkaufs inkl. Ordner-Auswahl.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InstallmentEditDialog(
     initial: InstallmentEntity?,
+    availableFolders: List<String>,
+    preselectedFolder: String,
     onDismiss: () -> Unit,
     onConfirm: (InstallmentEntity) -> Unit
 ) {
     var title by remember { mutableStateOf(initial?.title ?: "") }
+    var selectedFolder by remember {
+        mutableStateOf(initial?.folderName?.ifEmpty { preselectedFolder } ?: preselectedFolder)
+    }
     var totalAmountText by remember {
         mutableStateOf(if (initial != null && initial.totalAmount > 0.0) String.format(Locale.GERMAN, "%.2f", initial.totalAmount) else "")
     }
@@ -653,6 +1112,7 @@ private fun InstallmentEditDialog(
         mutableStateOf(initial?.deductFromBudget ?: true)
     }
 
+    var isFolderDropdownExpanded by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -660,7 +1120,7 @@ private fun InstallmentEditDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (initial == null) "Neuen Ratenkauf / Posten anlegen" else "Ratenkauf bearbeiten",
+                text = if (initial == null) "Neuen Posten anlegen" else "Posten bearbeiten",
                 fontWeight = FontWeight.Bold
             )
         },
@@ -669,6 +1129,38 @@ private fun InstallmentEditDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Ordner-Auswahlzeile
+                ExposedDropdownMenuBox(
+                    expanded = isFolderDropdownExpanded,
+                    onExpandedChange = { isFolderDropdownExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = selectedFolder,
+                        onValueChange = { selectedFolder = it },
+                        label = { Text("Ordner / Kategorie") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isFolderDropdownExpanded) },
+                        readOnly = false,
+                        modifier = Modifier
+                            .menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryEditable)
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = isFolderDropdownExpanded,
+                        onDismissRequest = { isFolderDropdownExpanded = false }
+                    ) {
+                        availableFolders.forEach { folderName ->
+                            DropdownMenuItem(
+                                text = { Text(folderName) },
+                                onClick = {
+                                    selectedFolder = folderName
+                                    isFolderDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -784,6 +1276,7 @@ private fun InstallmentEditDialog(
                     }
                     val dueDay = dueDayText.toIntOrNull()?.coerceIn(1, 31) ?: 15
                     val extraPaid = SmartFinanceEngine.parseEuroAmount(extraPaidText) ?: 0.0
+                    val folderNameClean = selectedFolder.trim().ifEmpty { "Sonstiges" }
 
                     isSubmitting = true
                     val toSave = initial?.copy(
@@ -792,7 +1285,8 @@ private fun InstallmentEditDialog(
                         monthlyRate = monthlyRate,
                         dueDayOfMonth = dueDay,
                         extraPaidAmount = extraPaid,
-                        deductFromBudget = deductFromBudget
+                        deductFromBudget = deductFromBudget,
+                        folderName = folderNameClean
                     ) ?: InstallmentEntity(
                         title = trimmedTitle,
                         totalAmount = totalAmount,
@@ -800,7 +1294,8 @@ private fun InstallmentEditDialog(
                         startEpochDay = LocalDate.now().toEpochDay(),
                         dueDayOfMonth = dueDay,
                         extraPaidAmount = extraPaid,
-                        deductFromBudget = deductFromBudget
+                        deductFromBudget = deductFromBudget,
+                        folderName = folderNameClean
                     )
                     onConfirm(toSave)
                 }
@@ -817,7 +1312,7 @@ private fun InstallmentEditDialog(
 }
 
 /**
- * Dialog für "Vorzeitig ablösen / Sonderzahlung".
+ * Dialog für "Ablösen / Sonderzahlung".
  * Erlaubt entweder eine manuelle Teilzahlung oder 1-Tap "Komplett abbezahlt setzen".
  */
 @Composable
@@ -836,7 +1331,7 @@ private fun QuickPayDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Sonderzahlung / Ablösung",
+                text = "Ablösen / Sonderzahlung",
                 fontWeight = FontWeight.Bold
             )
         },
@@ -846,7 +1341,7 @@ private fun QuickPayDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    text = "Posten: ${installment.title}\nOffener Restbetrag: ${SmartFinanceEngine.formatEuro(state.remainingAmount)}",
+                    text = "Posten: ${installment.title}\nOrdner: ${installment.folderName}\nOffener Restbetrag: ${SmartFinanceEngine.formatEuro(state.remainingAmount)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -865,7 +1360,7 @@ private fun QuickPayDialog(
                     Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "✅ Komplett abbezahlt setzen (${SmartFinanceEngine.formatEuro(state.remainingAmount)})",
+                        text = "Komplett abbezahlt setzen (${SmartFinanceEngine.formatEuro(state.remainingAmount)})",
                         fontWeight = FontWeight.Bold
                     )
                 }

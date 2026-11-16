@@ -4,6 +4,7 @@ import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
 import de.smartfinance.app.data.local.InstallmentEntity
+import de.smartfinance.app.data.local.InstallmentFolderEntity
 import de.smartfinance.app.data.local.QuickTemplateEntity
 import de.smartfinance.app.data.local.SavingsGoalEntity
 import de.smartfinance.app.data.local.SmartFinanceDao
@@ -363,5 +364,33 @@ class FinanceRepository(
 
     suspend fun deleteInstallmentById(id: Long) {
         dao.deleteInstallmentById(id)
+    }
+
+    val installmentFoldersFlow: Flow<List<InstallmentFolderEntity>> = dao.observeInstallmentFolders()
+
+    suspend fun saveInstallmentFolder(folder: InstallmentFolderEntity): Long {
+        return if (folder.id == 0L) {
+            dao.insertInstallmentFolder(folder)
+        } else {
+            dao.updateInstallmentFolder(folder)
+            folder.id
+        }
+    }
+
+    suspend fun renameInstallmentFolder(folder: InstallmentFolderEntity, newName: String) {
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty()) return
+        val oldName = folder.name
+        dao.updateInstallmentFolder(folder.copy(name = trimmed))
+        dao.renameInstallmentFolderInItems(oldName, trimmed)
+    }
+
+    suspend fun deleteInstallmentFolder(folder: InstallmentFolderEntity, deleteItems: Boolean = false) {
+        dao.deleteInstallmentFolder(folder)
+        if (deleteItems) {
+            dao.deleteInstallmentsByFolderName(folder.name)
+        } else {
+            dao.renameInstallmentFolderInItems(folder.name, "Sonstiges")
+        }
     }
 }
