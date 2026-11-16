@@ -210,28 +210,13 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     }
 
     val currentSnapshot: StateFlow<DashboardAnalysisSnapshot> = combine(
-        combine(_timeRangeMode, _selectedDate, _selectedMonthPage) { mode, date, page ->
-            Triple(mode, date, page)
-        },
+        _selectedMonthPage,
         categories,
         allTransactions,
         savingsGoals,
         settingsState
-    ) { (mode, date, page), cats, txs, goals, settings ->
-        if (mode == TimeRangeMode.MONTH) {
-            analyzeForPage(page, cats, txs, goals, settings)
-        } else {
-            SmartFinanceEngine.analyzePeriod(
-                mode = mode,
-                selectedDate = date,
-                today = LocalDate.now(),
-                billingStartDay = settings.billingStartDay,
-                avgWindowMonths = settings.averageMonthsWindow,
-                categories = cats,
-                allTransactions = txs,
-                savingsGoals = goals
-            )
-        }
+    ) { page, cats, txs, goals, settings ->
+        analyzeForPage(page, cats, txs, goals, settings)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -275,30 +260,17 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun previousPeriod() {
-        when (_timeRangeMode.value) {
-            TimeRangeMode.WEEK -> _selectedDate.value = _selectedDate.value.minusWeeks(1)
-            TimeRangeMode.MONTH -> {
-                val newPage = (_selectedMonthPage.value - 1).coerceAtLeast(0)
-                setSelectedMonthPage(newPage)
-            }
-            TimeRangeMode.YEAR -> _selectedDate.value = _selectedDate.value.minusYears(1)
-        }
+        val newPage = (_selectedMonthPage.value - 1).coerceAtLeast(0)
+        setSelectedMonthPage(newPage)
     }
 
     fun nextPeriod() {
-        when (_timeRangeMode.value) {
-            TimeRangeMode.WEEK -> _selectedDate.value = _selectedDate.value.plusWeeks(1)
-            TimeRangeMode.MONTH -> {
-                val newPage = (_selectedMonthPage.value + 1).coerceAtMost(totalMonthPages - 1)
-                setSelectedMonthPage(newPage)
-            }
-            TimeRangeMode.YEAR -> _selectedDate.value = _selectedDate.value.plusYears(1)
-        }
+        val newPage = (_selectedMonthPage.value + 1).coerceAtMost(totalMonthPages - 1)
+        setSelectedMonthPage(newPage)
     }
 
     fun jumpToCurrentPeriod() {
-        _selectedDate.value = LocalDate.now()
-        _selectedMonthPage.value = baseMonthIndex
+        setSelectedMonthPage(baseMonthIndex)
     }
 
     fun jumpToCurrentMonth() {

@@ -47,12 +47,12 @@ Diese Datei definiert die verbindlichen Qualitäts-, Architektur- und Praxis-Reg
 
 ---
 
-## 5. Multi-Zeitraum-Architektur (Woche, Monat, Jahr)
-- Der Zeitraum-Umschalter im Header (`CockpitScreen`, `Analysen`, `SmartFinanceViewModel`) bietet 3 Modi:
-  - **Woche (`TimeRangeMode.WEEK`):** Kalenderwoche Mo–So (`KW XX (dd.MM.–dd.MM.)`).
-  - **Monat (`TimeRangeMode.MONTH`):** Standard-Monatsansicht (`Monat Jahr`).
-  - **Jahr (`TimeRangeMode.YEAR`):** Gesamtjahr (`Jahr YYYY`) summiert alle 12× Monatsfixkosten + Jahresversicherungen + Einzelbuchungen des Jahres.
-- Mit `<` und `>` wechselt der Nutzer dynamisch eine Periode vor oder zurück.
+## 5. Klare, einheitliche Monats-Architektur & fokussiertes Cockpit
+- Die App rechnet überall fest und eindeutig im Monats-Modus (`< Monat Jahr >`).
+- Mit `<` und `>` wechselt der Nutzer monatsweise vor oder zurück.
+- Die Startseite (`Übersicht`) bleibt radikal vereinfacht und fokussiert:
+  1. Oben die große violette Hero-Karte (`vom Gehalt verfügbar`, `Einnahmen`, `Heute frei`).
+  2. Direkt darunter die Liste `Letzte Buchungen` mit maximalem Platz für alle Einträge.
 
 ---
 

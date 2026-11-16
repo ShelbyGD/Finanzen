@@ -58,22 +58,22 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_TIME_RANGE_SWITCHER,
             moduleNumber = 14,
-            title = "14. Zeitraum-Umschalter (Woche / Monat / Jahr) & Strikte Finanz-Mathematik",
-            category = "Navigation & Mathematik",
-            shortSummary = "Kompakter 3er-Segmented-Switch (Woche / Monat / Jahr) im Header mit dynamischen Pfeiltasten (< >) zur Navigation sowie glasklare Trennung von Einnahmen (+), Ausgaben (-) und Verträgen.",
+            title = "14. Aufgeräumtes Monats-Cockpit & Strikte Finanz-Mathematik",
+            category = "Navigation & Übersicht",
+            shortSummary = "Schlankes, klares Monats-Cockpit mit wischbarem Monats-Umschalter (< November 2026 >), großer violetter Hero-Karte und direkter Liste 'Letzte Buchungen' ohne ablenkende Zwischenkarten.",
             stepByStepGuide = listOf(
-                "Wähle oben im Header direkt unter dem Titel zwischen 'Woche', 'Monat' oder 'Jahr' aus.",
-                "Im Wochen-Modus navigierst du mit den Pfeilen durch Kalenderwochen (KW Mo-So) mit exakter Wochensumme und Wochenbudget.",
-                "Im Monats-Modus siehst du den gewählten Monat mit verbleibenden Tagen und täglichem Tagessatz.",
-                "Im Jahres-Modus summiert SmartFinance alle 12x monatlichen Fixkosten, Jahresversicherungen sowie alle Buchungen des Kalenderjahres.",
-                "Im Reiter 'Verträge' sind feste Einnahmen (+) und feste Ausgaben/Verträge (-) strikt getrennt – variable Alltagsbudgets gehören exklusiv in die Kreisringe auf der Übersicht."
+                "Navigiere mit den Pfeilen (< und >) oder per horizontalem Wischen durch die Monate.",
+                "Auf der Startseite ('Übersicht') siehst du ganz oben die große violette Hero-Karte mit deinem verfügbaren Monatsbudget, Einnahmen und Tagessatz.",
+                "Direkt darunter stehen ohne überflüssige Zwischenkarten alle deine letzten Buchungen im Detail.",
+                "Über den Link '• Heute' springst du aus jedem beliebigen Monat sofort in den aktuellen Monat zurück.",
+                "Im Reiter 'Verträge' sind feste Einnahmen (+) und Verträge/Fixkosten (-) sauber getrennt."
             ),
             exampleTips = listOf(
                 "Formel: Verfügbares Budget = Gesamteinnahmen - Fixkosten/Verträge - Variable Ausgaben.",
-                "Komma-Toleranz: Im Taschenrechner- und Buchungsdialog kannst du sowohl '12,50' als auch '12.50' eingeben."
+                "Komma-Toleranz: Bei Beträgen kannst du sowohl '12,50' als auch '12.50' eingeben."
             ),
             requiredTier = AppTier.LITE_FREE,
-            addedInVersion = "1.2.0"
+            addedInVersion = "1.3.1"
         ),
         HelpEntry(
             id = ID_TIMELINE_HEADER,
@@ -333,11 +333,20 @@ object AppHelpRegistry {
 
     val changelogEntries: List<ChangelogEntry> = listOf(
         ChangelogEntry(
+            versionName = "1.3.1",
+            buildNumber = 13,
+            date = "16.11.2026",
+            newFeatures = listOf(
+                "Radikale Entschlackung der Übersicht: Überflüssigen Woche/Monat/Jahr-Umschalter im Header komplett entfernt – die App rechnet konsistent und geradlinig im Monats-Modus (< November 2026 >).",
+                "Fokussierte Startseite ('Übersicht'): 'Budgets'-Karte mit Kreisringen und 'Nächste Abbuchungen (Wächter)' komplett entfernt.",
+                "Zwei Kernelemente auf einen Blick: Oben die große violette Hero-Karte ('vom Gehalt verfügbar', 'Einnahmen', 'Heute frei') und direkt darunter die Liste 'Letzte Buchungen' mit viel Platz für alle Einträge."
+            )
+        ),
+        ChangelogEntry(
             versionName = "1.3.0",
             buildNumber = 12,
             date = "16.11.2026",
             newFeatures = listOf(
-                "Zeitraum-Umschalter (Woche / Monat / Jahr): Neuer kompakter 3er-Segmented-Switch im Header mit dynamischen Vor-/Zurück-Pfeilen (< >) für Kalenderwochen (KW Mo-So), Monate und ganze Kalenderjahre.",
                 "Strikte Finanz-Mathematik & Verträge-Bereinigung: Eindeutige Formel 'Verfügbar = Einnahmen - Fixkosten/Verträge - Variable Ausgaben'. Reiter 'Verträge' aufgeteilt in feste Einnahmen (+) und echte Verträge/Fixkosten (-). Im Buchungsdialog klarer Umschalter '➖ Ausgabe' vs. '➕ Einnahme' mit voller Komma- & Punkttoleranz.",
                 "Strenger Duplikat-Wächter & Debounce: Beseitigung redundanter Buttons, intelligenter Duplikat-Schutz bei Kategorien (DISTINCT / Case-Insensitive) und Doppelklick-Sperre (Debounce) in allen Dialogen.",
                 "UI-Politur: Einheitliches 104dp Content-Padding für alle LazyColumns gegen verdeckte Einträge und bündiges Tastatur-Padding im KI-Coach.",
