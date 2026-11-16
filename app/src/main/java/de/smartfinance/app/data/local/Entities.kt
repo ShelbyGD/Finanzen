@@ -130,5 +130,6 @@ data class InstallmentEntity(
     val dueDayOfMonth: Int = 1,
     val extraPaidAmount: Double = 0.0,
     val deductFromBudget: Boolean = true,
-    val folderName: String = "Sonstiges"
+    val folderName: String = "Sonstiges",
+    val paidMonthsCsv: String = ""
 )

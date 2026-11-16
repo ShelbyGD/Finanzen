@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.AlertDialog
@@ -56,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -157,13 +161,14 @@ fun InstallmentsTrackerSheet(
 
     var quickPayInstallment by remember { mutableStateOf<InstallmentEntity?>(null) }
     var itemToDelete by remember { mutableStateOf<InstallmentEntity?>(null) }
+    var isSummaryExpanded by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // --- 1. GROSSE SUMMEN-KACHEL GANZ OBEN (100 % CLEAN LOOK OHNE KREDITKARTEN-EMOJIS) ---
+        // --- 1. EINKLAPPBARE SUMMEN-KACHEL GANZ OBEN (100 % CLEAN LOOK OHNE EMOJIS) ---
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -176,38 +181,50 @@ fun InstallmentsTrackerSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isSummaryExpanded = !isSummaryExpanded },
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Raten & Offene Posten",
+                                text = if (!isSummaryExpanded) {
+                                    "Raten & Offene Posten: ${SmartFinanceEngine.formatEuro(totalOpenDebt)} offen"
+                                } else {
+                                    "Raten & Offene Posten"
+                                },
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Vollautomatische Tilgungsberechnung & Ordner",
+                                text = if (!isSummaryExpanded) {
+                                    "Tippen zum Ausklappen • ${installmentStates.count { !it.isFullyPaid }} aktive Posten"
+                                } else {
+                                    "Vollautomatische Tilgungsberechnung & Ordner"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
-                        // Zwei klare Buttons nebeneinander: "+ Ordner" und "+ Posten" (ohne störende kleine Icons)
+                        // Buttons nebeneinander: "+ Ordner", "+ Posten" und Einklapp-Pfeil
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedButton(
                                 onClick = { showCreateFolderDialog = true },
                                 shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(text = "+ Ordner", fontWeight = FontWeight.SemiBold)
+                                Text(text = "+ Ordner", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                             }
 
                             Button(
@@ -217,115 +234,134 @@ fun InstallmentsTrackerSheet(
                                     showAddEditDialog = true
                                 },
                                 shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(text = "+ Posten", fontWeight = FontWeight.Bold)
+                                Text(text = "+ Posten", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+
+                            IconButton(
+                                onClick = { isSummaryExpanded = !isSummaryExpanded },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isSummaryExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isSummaryExpanded) "Zuklappen" else "Aufklappen",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
                         }
                     }
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                    // Klare Abzugs-Logik: Urspr. Gesamt - Bereits bezahlt = Aktuell noch offen
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Urspr. Gesamtbetrag",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = SmartFinanceEngine.formatEuro(totalOriginalDebt),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1.1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Bereits bezahlt",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF1B873F)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "-${SmartFinanceEngine.formatEuro(totalPaidSoFar)}",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1B873F)
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1.2f), horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = "Aktuell noch offen",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (totalOpenDebt > 0.0) MaterialTheme.colorScheme.error else Color(0xFF1B873F)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = SmartFinanceEngine.formatEuro(totalOpenDebt),
-                                fontSize = 19.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (totalOpenDebt > 0.0) MaterialTheme.colorScheme.error else Color(0xFF1B873F)
-                            )
-                        }
-                    }
-
-                    if (monthlyLoadActive > 0.0) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    AnimatedVisibility(visible = isSummaryExpanded) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = "Laufende Raten diesen Monat:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "-${SmartFinanceEngine.formatEuro(monthlyLoadActive)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-                    // Tilgungsfortschritt-Balken
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val percent = (overallProgressFraction * 100).roundToInt()
-                            Text(
-                                text = "Gesamttilgung: $percent% getilgt",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "${SmartFinanceEngine.formatEuro(totalPaidSoFar)} von ${SmartFinanceEngine.formatEuro(totalOriginalDebt)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            // Klare Abzugs-Logik: Urspr. Gesamt - Bereits bezahlt = Aktuell noch offen
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Urspr. Gesamtbetrag",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = SmartFinanceEngine.formatEuro(totalOriginalDebt),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1.1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "Bereits bezahlt",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF1B873F)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "-${SmartFinanceEngine.formatEuro(totalPaidSoFar)}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1B873F)
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1.2f), horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "Aktuell noch offen",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (totalOpenDebt > 0.0) MaterialTheme.colorScheme.error else Color(0xFF1B873F)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = SmartFinanceEngine.formatEuro(totalOpenDebt),
+                                        fontSize = 19.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (totalOpenDebt > 0.0) MaterialTheme.colorScheme.error else Color(0xFF1B873F)
+                                    )
+                                }
+                            }
+
+                            if (monthlyLoadActive > 0.0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Laufende Raten diesen Monat:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "-${SmartFinanceEngine.formatEuro(monthlyLoadActive)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            // Tilgungsfortschritt-Balken
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val percent = (overallProgressFraction * 100).roundToInt()
+                                    Text(
+                                        text = "Gesamttilgung: $percent% getilgt",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "${SmartFinanceEngine.formatEuro(totalPaidSoFar)} von ${SmartFinanceEngine.formatEuro(totalOriginalDebt)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    progress = { overallProgressFraction },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                    color = Color(0xFF2E7D32),
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            }
                         }
-                        LinearProgressIndicator(
-                            progress = { overallProgressFraction },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            color = Color(0xFF2E7D32),
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
                     }
                 }
             }
@@ -426,7 +462,8 @@ fun InstallmentsTrackerSheet(
                     },
                     onOpenQuickPay = { inst ->
                         quickPayInstallment = inst
-                    }
+                    },
+                    onSaveItem = onSaveInstallment
                 )
             }
         }
@@ -554,9 +591,39 @@ private fun InstallmentFolderSection(
     onDeleteFolder: () -> Unit,
     onEditItem: (InstallmentEntity) -> Unit,
     onDeleteItem: (InstallmentEntity) -> Unit,
-    onOpenQuickPay: (InstallmentEntity) -> Unit
+    onOpenQuickPay: (InstallmentEntity) -> Unit,
+    onSaveItem: (InstallmentEntity) -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(true) }
+
+    // Gesamter Zeitraum im Ordner-Header berechnen (z. B. "Laufzeit: Mai 2026 – Jun 2027 (14 Monate gesamt)")
+    val timeframeText = remember(itemsInFolder) {
+        if (itemsInFolder.isEmpty()) null
+        else {
+            val shortMonthFmt = DateTimeFormatter.ofPattern("MMM yyyy", Locale.GERMAN)
+            var minStartYm: YearMonth? = null
+            var maxEndYm: YearMonth? = null
+
+            for (st in itemsInFolder) {
+                val start = LocalDate.ofEpochDay(st.installment.startEpochDay)
+                val startYm = YearMonth.from(start)
+                val totalInst = if (st.installment.monthlyRate > 0.0) {
+                    kotlin.math.ceil(st.installment.totalAmount / st.installment.monthlyRate).toInt().coerceAtLeast(1)
+                } else 1
+                val endYm = startYm.plusMonths((totalInst - 1).toLong())
+
+                if (minStartYm == null || startYm < minStartYm) minStartYm = startYm
+                if (maxEndYm == null || endYm > maxEndYm) maxEndYm = endYm
+            }
+
+            if (minStartYm != null && maxEndYm != null) {
+                val totalMonths = (maxEndYm.year - minStartYm.year) * 12 + (maxEndYm.monthValue - minStartYm.monthValue) + 1
+                val startStr = minStartYm.format(shortMonthFmt).replaceFirstChar { it.uppercase() }
+                val endStr = maxEndYm.format(shortMonthFmt).replaceFirstChar { it.uppercase() }
+                "Laufzeit: $startStr – $endStr ($totalMonths Monate gesamt)"
+            } else null
+        }
+    }
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -602,6 +669,14 @@ private fun InstallmentFolderSection(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (timeframeText != null) {
+                            Text(
+                                text = timeframeText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
 
@@ -690,7 +765,8 @@ private fun InstallmentFolderSection(
                                 state = state,
                                 onEdit = { onEditItem(state.installment) },
                                 onDelete = { onDeleteItem(state.installment) },
-                                onOpenQuickPay = { onOpenQuickPay(state.installment) }
+                                onOpenQuickPay = { onOpenQuickPay(state.installment) },
+                                onSaveItem = onSaveItem
                             )
                         }
                     }
@@ -702,13 +778,15 @@ private fun InstallmentFolderSection(
 
 /**
  * Einzelne Karte für einen Ratenkauf / offenen Posten innerhalb eines Ordners.
+ * Mit Monats-Register und Checkboxen zum manuellen und automatischen Abhaken von Raten.
  */
 @Composable
 private fun InstallmentItemCard(
     state: InstallmentState,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onOpenQuickPay: () -> Unit
+    onOpenQuickPay: () -> Unit,
+    onSaveItem: (InstallmentEntity) -> Unit
 ) {
     val inst = state.installment
     val startDate = remember(inst.startEpochDay) {
@@ -736,6 +814,22 @@ private fun InstallmentItemCard(
         val endYm = YearMonth.now().plusMonths(state.remainingMonths.toLong())
         val formatted = endYm.format(monthYearFormatter).replaceFirstChar { it.uppercase() }
         "Frei ab $formatted"
+    }
+
+    var isRegisterExpanded by rememberSaveable { mutableStateOf(false) }
+
+    // Ausgewertete abgehakte Monate ermitteln
+    val checkedMonths = remember(inst.paidMonthsCsv, inst.startEpochDay, inst.totalAmount, inst.monthlyRate, state.monthsPassed) {
+        if (inst.paidMonthsCsv.isNotBlank()) {
+            inst.paidMonthsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        } else {
+            val autoSet = mutableSetOf<String>()
+            val startYm = YearMonth.from(startDate)
+            for (i in 0 until state.monthsPassed) {
+                autoSet.add(startYm.plusMonths(i.toLong()).toString())
+            }
+            autoSet
+        }
     }
 
     Card(
@@ -890,6 +984,134 @@ private fun InstallmentItemCard(
                                 tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(17.dp)
                             )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+
+            // MONATS-REGISTER / EINZELRATEN ZUM ABHAKEN
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { isRegisterExpanded = !isRegisterExpanded },
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Monats-Register & Raten abhaken ($paidInstallments von $totalInstallments bezahlt)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Icon(
+                        imageVector = if (isRegisterExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isRegisterExpanded) "Register zuklappen" else "Register aufklappen",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = isRegisterExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val startYm = YearMonth.from(startDate)
+                    val fullMonthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.GERMAN)
+
+                    for (i in 0 until totalInstallments) {
+                        val rateYm = startYm.plusMonths(i.toLong())
+                        val ymKey = rateYm.toString()
+                        val isChecked = ymKey in checkedMonths
+                        val monthLabel = rateYm.format(fullMonthFormatter).replaceFirstChar { it.uppercase() }
+                        val rateVal = if (i == totalInstallments - 1 && inst.totalAmount > 0.0) {
+                            val prevRates = inst.monthlyRate * (totalInstallments - 1)
+                            val remainder = inst.totalAmount - prevRates
+                            if (remainder > 0.0) remainder else inst.monthlyRate
+                        } else {
+                            inst.monthlyRate
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isChecked) Color(0xFFE8F5E9).copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(
+                                0.5.dp,
+                                if (isChecked) Color(0xFF81C784).copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newSet = if (isChecked) checkedMonths - ymKey else checkedMonths + ymKey
+                                        val newCsv = newSet.sorted().joinToString(",")
+                                        onSaveItem(inst.copy(paidMonthsCsv = newCsv))
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Checkbox(
+                                        checked = isChecked,
+                                        onCheckedChange = { checked ->
+                                            val newSet = if (checked) checkedMonths + ymKey else checkedMonths - ymKey
+                                            val newCsv = newSet.sorted().joinToString(",")
+                                            onSaveItem(inst.copy(paidMonthsCsv = newCsv))
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Text(
+                                        text = "Rate ${i + 1}: $monthLabel",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = if (isChecked) FontWeight.Normal else FontWeight.Medium,
+                                        textDecoration = if (isChecked) TextDecoration.LineThrough else null,
+                                        color = if (isChecked) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Text(
+                                    text = if (isChecked) "Bezahlt (${SmartFinanceEngine.formatEuro(rateVal)})" else SmartFinanceEngine.formatEuro(rateVal),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isChecked) Color(0xFF1B873F) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    if (inst.paidMonthsCsv.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(
+                                onClick = { onSaveItem(inst.copy(paidMonthsCsv = "")) },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Auf Stichtags-Automatik zurücksetzen",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }

@@ -204,7 +204,12 @@ object SmartFinanceEngine {
         today: LocalDate = LocalDate.now()
     ): InstallmentState {
         val startDate = LocalDate.ofEpochDay(installment.startEpochDay)
-        val monthsPassed = calculateMonthsPassed(startDate, installment.dueDayOfMonth, today)
+        val autoMonthsPassed = calculateMonthsPassed(startDate, installment.dueDayOfMonth, today)
+        val monthsPassed = if (installment.paidMonthsCsv.isNotBlank()) {
+            installment.paidMonthsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }.size
+        } else {
+            autoMonthsPassed
+        }
         val paidSoFar = (monthsPassed * installment.monthlyRate + installment.extraPaidAmount)
             .coerceAtMost(installment.totalAmount)
         val remainingAmount = (installment.totalAmount - paidSoFar).coerceAtLeast(0.0)
