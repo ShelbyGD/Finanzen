@@ -67,6 +67,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,6 +77,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.data.local.TransactionType
+import de.smartfinance.app.domain.TimeRangeMode
 import de.smartfinance.app.ui.BottomNavTab
 import de.smartfinance.app.ui.DrawerDestination
 import de.smartfinance.app.ui.SmartFinanceViewModel
@@ -148,6 +151,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val geminiVaultState by viewModel.geminiVaultState.collectAsStateWithLifecycle()
     val activeTier by viewModel.activeTier.collectAsStateWithLifecycle()
     val currentSnapshot by viewModel.currentSnapshot.collectAsStateWithLifecycle()
+    val timeRangeMode by viewModel.timeRangeMode.collectAsStateWithLifecycle()
 
     val showCalculatorSheet by viewModel.showCalculatorSheet.collectAsStateWithLifecycle()
     val showAiChatSheet by viewModel.showAiChatSheet.collectAsStateWithLifecycle()
@@ -175,7 +179,11 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val totalAlertsCount = currentSnapshot.contractAlerts.size +
         currentSnapshot.radarAlerts.size +
         (if (settingsState.showUpdateBanner) 1 else 0)
-    val isCurrentMonth = selectedMonthPage == viewModel.baseMonthIndex
+    val isCurrentPeriod = when (timeRangeMode) {
+        TimeRangeMode.WEEK -> currentSnapshot.isCurrentMonth
+        TimeRangeMode.MONTH -> selectedMonthPage == viewModel.baseMonthIndex
+        TimeRangeMode.YEAR -> currentSnapshot.isCurrentMonth
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -296,47 +304,55 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                 overflow = TextOverflow.Ellipsis
                             )
 
-                            // Darunter klein der wischbare/wählbare Monat, z. B. `< November 2026 >`
+                            // Darunter klein der wischbare/wählbare Zeitraum (< ... >) + 3er Segmented-Switch (Woche | Monat | Jahr)
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.ChevronLeft,
-                                    contentDescription = "Vorheriger Monat",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clickable {
-                                            viewModel.setSelectedMonthPage((selectedMonthPage - 1).coerceAtLeast(0))
-                                        }
-                                )
-                                Text(
-                                    text = currentSnapshot.monthTitleFormatted,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.clickable { viewModel.jumpToCurrentMonth() }
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.ChevronRight,
-                                    contentDescription = "Nächster Monat",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clickable {
-                                            viewModel.setSelectedMonthPage(
-                                                (selectedMonthPage + 1).coerceAtMost(viewModel.totalMonthPages - 1)
-                                            )
-                                        }
-                                )
-                                if (!isCurrentMonth) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronLeft,
+                                        contentDescription = "Vorheriger Zeitraum",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clickable { viewModel.previousPeriod() }
+                                    )
                                     Text(
-                                        text = "• Heute",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.clickable { viewModel.jumpToCurrentMonth() }
+                                        text = currentSnapshot.monthTitleFormatted,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.clickable { viewModel.jumpToCurrentPeriod() }
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = "Nächster Zeitraum",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clickable { viewModel.nextPeriod() }
+                                    )
+                                    if (!isCurrentPeriod) {
+                                        Text(
+                                            text = "• Heute",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.clickable { viewModel.jumpToCurrentPeriod() }
+                                        )
+                                    }
+                                }
+
+                                if (currentDestination == DrawerDestination.COCKPIT &&
+                                    (selectedBottomTab == BottomNavTab.OVERVIEW || selectedBottomTab == BottomNavTab.ANALYTICS)) {
+                                    PeriodSegmentedSwitch(
+                                        selectedMode = timeRangeMode,
+                                        onSelectMode = viewModel::setTimeRangeMode
                                     )
                                 }
                             }
@@ -464,6 +480,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         when (selectedBottomTab) {
                             BottomNavTab.OVERVIEW -> {
                                 CockpitScreen(
+                                    timeRangeMode = timeRangeMode,
                                     selectedMonthPage = selectedMonthPage,
                                     totalMonthPages = viewModel.totalMonthPages,
                                     snapshotForPage = { page ->
@@ -757,5 +774,48 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 viewModel.navigateTo(DrawerDestination.LITE_PRO_OVERVIEW)
             }
         )
+    }
+}
+
+@Composable
+fun PeriodSegmentedSwitch(
+    selectedMode: TimeRangeMode,
+    onSelectMode: (TimeRangeMode) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        modifier = Modifier.height(26.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TimeRangeMode.entries.forEach { mode ->
+                val isSelected = mode == selectedMode
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    modifier = Modifier
+                        .height(22.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onSelectMode(mode) }
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            text = mode.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
     }
 }

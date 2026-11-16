@@ -52,8 +52,29 @@ object AppHelpRegistry {
     const val ID_DATA_VAULT_BACKUP = "data_vault_backup"
     const val ID_DEMO_SHORTCUTS_SIMULATOR = "demo_shortcuts_simulator"
     const val ID_GEMINI_CLOUD_HYBRID = "gemini_cloud_hybrid"
+    const val ID_TIME_RANGE_SWITCHER = "time_range_switcher"
 
     val helpEntries: List<HelpEntry> = listOf(
+        HelpEntry(
+            id = ID_TIME_RANGE_SWITCHER,
+            moduleNumber = 14,
+            title = "14. Zeitraum-Umschalter (Woche / Monat / Jahr) & Strikte Finanz-Mathematik",
+            category = "Navigation & Mathematik",
+            shortSummary = "Kompakter 3er-Segmented-Switch (Woche / Monat / Jahr) im Header mit dynamischen Pfeiltasten (< >) zur Navigation sowie glasklare Trennung von Einnahmen (+), Ausgaben (-) und Verträgen.",
+            stepByStepGuide = listOf(
+                "Wähle oben im Header direkt unter dem Titel zwischen 'Woche', 'Monat' oder 'Jahr' aus.",
+                "Im Wochen-Modus navigierst du mit den Pfeilen durch Kalenderwochen (KW Mo-So) mit exakter Wochensumme und Wochenbudget.",
+                "Im Monats-Modus siehst du den gewählten Monat mit verbleibenden Tagen und täglichem Tagessatz.",
+                "Im Jahres-Modus summiert SmartFinance alle 12x monatlichen Fixkosten, Jahresversicherungen sowie alle Buchungen des Kalenderjahres.",
+                "Im Reiter 'Verträge' sind feste Einnahmen (+) und feste Ausgaben/Verträge (-) strikt getrennt – variable Alltagsbudgets gehören exklusiv in die Kreisringe auf der Übersicht."
+            ),
+            exampleTips = listOf(
+                "Formel: Verfügbares Budget = Gesamteinnahmen - Fixkosten/Verträge - Variable Ausgaben.",
+                "Komma-Toleranz: Im Taschenrechner- und Buchungsdialog kannst du sowohl '12,50' als auch '12.50' eingeben."
+            ),
+            requiredTier = AppTier.LITE_FREE,
+            addedInVersion = "1.2.0"
+        ),
         HelpEntry(
             id = ID_TIMELINE_HEADER,
             moduleNumber = 1,
@@ -311,6 +332,18 @@ object AppHelpRegistry {
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.3.0",
+            buildNumber = 12,
+            date = "16.11.2026",
+            newFeatures = listOf(
+                "Zeitraum-Umschalter (Woche / Monat / Jahr): Neuer kompakter 3er-Segmented-Switch im Header mit dynamischen Vor-/Zurück-Pfeilen (< >) für Kalenderwochen (KW Mo-So), Monate und ganze Kalenderjahre.",
+                "Strikte Finanz-Mathematik & Verträge-Bereinigung: Eindeutige Formel 'Verfügbar = Einnahmen - Fixkosten/Verträge - Variable Ausgaben'. Reiter 'Verträge' aufgeteilt in feste Einnahmen (+) und echte Verträge/Fixkosten (-). Im Buchungsdialog klarer Umschalter '➖ Ausgabe' vs. '➕ Einnahme' mit voller Komma- & Punkttoleranz.",
+                "Strenger Duplikat-Wächter & Debounce: Beseitigung redundanter Buttons, intelligenter Duplikat-Schutz bei Kategorien (DISTINCT / Case-Insensitive) und Doppelklick-Sperre (Debounce) in allen Dialogen.",
+                "UI-Politur: Einheitliches 104dp Content-Padding für alle LazyColumns gegen verdeckte Einträge und bündiges Tastatur-Padding im KI-Coach.",
+                "Autonomes Auto-QA-System: Feste Pflicht-Regeldatei QA_AUTOPILOT.md und automatische JUnit-Test-Suite SmartFinanceSelfTest.kt (Mathe-Check, Zeitraum-Umrechnung, Duplikat-Schutz, 0,00-€-Null-Start)."
+            )
+        ),
         ChangelogEntry(
             versionName = "1.2.2",
             buildNumber = 11,

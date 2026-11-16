@@ -74,6 +74,7 @@ import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.domain.DashboardAnalysisSnapshot
 import de.smartfinance.app.domain.SavingsGoalProgress
 import de.smartfinance.app.domain.SmartFinanceEngine
+import de.smartfinance.app.domain.TimeRangeMode
 import de.smartfinance.app.ui.components.CashflowWaveChart
 import de.smartfinance.app.ui.theme.BudgetRingGreen
 import de.smartfinance.app.ui.theme.BudgetRingOrange
@@ -98,6 +99,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun CockpitScreen(
+    timeRangeMode: TimeRangeMode = TimeRangeMode.MONTH,
     selectedMonthPage: Int,
     totalMonthPages: Int,
     snapshotForPage: (Int) -> DashboardAnalysisSnapshot,
@@ -114,31 +116,50 @@ fun CockpitScreen(
     onNavigateToAnalytics: () -> Unit,
     onNavigateToContracts: () -> Unit
 ) {
-    val pagerState = rememberPagerState(
-        initialPage = selectedMonthPage,
-        pageCount = { totalMonthPages }
-    )
+    if (timeRangeMode == TimeRangeMode.MONTH) {
+        val pagerState = rememberPagerState(
+            initialPage = selectedMonthPage,
+            pageCount = { totalMonthPages }
+        )
 
-    LaunchedEffect(selectedMonthPage) {
-        if (pagerState.currentPage != selectedMonthPage) {
-            pagerState.animateScrollToPage(selectedMonthPage)
-        }
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        if (pagerState.currentPage != selectedMonthPage) {
-            onSelectMonthPage(pagerState.currentPage)
-        }
-    }
-
-    HorizontalPager(
-        state = pagerState,
-        modifier = Modifier.fillMaxSize()
-    ) { page ->
-        val snapshot = remember(page, categories, allTransactions, settingsState) {
-            snapshotForPage(page)
+        LaunchedEffect(selectedMonthPage) {
+            if (pagerState.currentPage != selectedMonthPage) {
+                pagerState.animateScrollToPage(selectedMonthPage)
+            }
         }
 
+        LaunchedEffect(pagerState.currentPage) {
+            if (pagerState.currentPage != selectedMonthPage) {
+                onSelectMonthPage(pagerState.currentPage)
+            }
+        }
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            val snapshot = remember(page, categories, allTransactions, settingsState) {
+                snapshotForPage(page)
+            }
+
+            OverviewMonthContent(
+                snapshot = snapshot,
+                categories = categories,
+                allTransactions = allTransactions,
+                selectedCategoryId = selectedCategoryId,
+                onSelectCategoryFilter = onSelectCategoryFilter,
+                onSelectTransaction = onSelectTransaction,
+                onOpenAddBooking = onOpenAddBooking,
+                onUpdatePlannedIncome = onUpdatePlannedIncome,
+                onSaveCategory = onSaveCategory,
+                onNavigateToAnalytics = onNavigateToAnalytics,
+                onNavigateToContracts = onNavigateToContracts
+            )
+        }
+    } else {
+        val snapshot = remember(timeRangeMode, selectedMonthPage, categories, allTransactions, settingsState) {
+            snapshotForPage(selectedMonthPage)
+        }
         OverviewMonthContent(
             snapshot = snapshot,
             categories = categories,
@@ -178,10 +199,14 @@ private fun OverviewMonthContent(
         categories.firstOrNull { it.categoryType == CategoryType.INCOME }
     }
 
-    val periodTransactions = remember(allTransactions, snapshot.selectedYearMonth, selectedCategoryId) {
+    val periodTransactions = remember(allTransactions, snapshot.periodStartEpoch, snapshot.periodEndEpoch, snapshot.selectedYearMonth, selectedCategoryId) {
         allTransactions
             .filter { tx ->
-                YearMonth.from(LocalDate.ofEpochDay(tx.dateEpochDay)) == snapshot.selectedYearMonth
+                if (snapshot.periodStartEpoch > 0L && snapshot.periodEndEpoch > 0L) {
+                    tx.dateEpochDay in snapshot.periodStartEpoch..snapshot.periodEndEpoch
+                } else {
+                    YearMonth.from(LocalDate.ofEpochDay(tx.dateEpochDay)) == snapshot.selectedYearMonth
+                }
             }
             .filter { tx ->
                 selectedCategoryId == null || tx.categoryId == selectedCategoryId
@@ -203,7 +228,7 @@ private fun OverviewMonthContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         // 1. DIE VIOLETTE HERO-KARTE (Oben im "Übersicht"-Tab)
@@ -321,6 +346,8 @@ private fun IncomeEditDialog(
         mutableStateOf(initialPayDay.toString())
     }
 
+    var isSubmitting by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -356,7 +383,10 @@ private fun IncomeEditDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSubmitting,
                 onClick = {
+                    if (isSubmitting) return@Button
+                    isSubmitting = true
                     val amt = amountText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                     val day = payDayText.toIntOrNull()?.coerceIn(1, 31)
                     onSave(amt, if (amt > 0.0) (day ?: 1) else null)
@@ -439,15 +469,20 @@ private fun VioletHeroBudgetCard(
                         )
                     }
 
+                    val daysLabel = when (snapshot.timeRangeMode) {
+                        TimeRangeMode.WEEK -> "${snapshot.remainingDaysInMonth} Tage bis Sonntag >"
+                        TimeRangeMode.YEAR -> "${snapshot.remainingDaysInMonth} Tage bis Jahresende >"
+                        else -> "${snapshot.remainingDaysInMonth} Tage bis Monatsende >"
+                    }
                     Text(
-                        text = "${snapshot.remainingDaysInMonth} Tage bis Monatsende >",
+                        text = daysLabel,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium,
                         color = Color.White.copy(alpha = 0.85f)
                     )
                 }
 
-                // Zentrum der Karte: Riesige, fette Zahl + "vom Gehalt verfügbar"
+                // Zentrum der Karte: Riesige, fette Zahl + dynamisches Verfügbarkeits-Label
                 Row(
                     verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -460,8 +495,13 @@ private fun VioletHeroBudgetCard(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
+                    val periodLabel = when (snapshot.timeRangeMode) {
+                        TimeRangeMode.WEEK -> "diese Woche verfügbar"
+                        TimeRangeMode.YEAR -> "dieses Jahr verfügbar"
+                        else -> "vom Gehalt verfügbar"
+                    }
                     Text(
-                        text = "vom Gehalt verfügbar",
+                        text = periodLabel,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = Color.White.copy(alpha = 0.85f),
@@ -908,6 +948,7 @@ private fun EditBudgetLimitDialog(
     var limitText by remember {
         mutableStateOf(if (currentLimit > 0.0) String.format(Locale.GERMAN, "%.2f", currentLimit) else "")
     }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -942,7 +983,10 @@ private fun EditBudgetLimitDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSubmitting,
                 onClick = {
+                    if (isSubmitting) return@Button
+                    isSubmitting = true
                     val parsed = limitText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0)
                     onSaveLimit(if (parsed != null && parsed > 0.0) parsed else null)
                 }
@@ -973,6 +1017,7 @@ private fun CreateBudgetCategoryDialog(
     var name by remember { mutableStateOf("") }
     var limitText by remember { mutableStateOf("") }
     var selectedIcon by remember { mutableStateOf("cart") }
+    var isSubmitting by remember { mutableStateOf(false) }
     val iconChoices = listOf("cart", "restaurant", "coffee", "car", "sports", "leisure", "shopping", "gift", "health", "pet")
 
     AlertDialog(
@@ -1050,8 +1095,11 @@ private fun CreateBudgetCategoryDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSubmitting && name.isNotBlank(),
                 onClick = {
+                    if (isSubmitting) return@Button
                     if (name.isNotBlank()) {
+                        isSubmitting = true
                         val limit = limitText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0)
                         val color = CategoryIconCatalog.accentColorFor(selectedIcon, name).value.toLong()
                         onSave(
@@ -1064,8 +1112,7 @@ private fun CreateBudgetCategoryDialog(
                             )
                         )
                     }
-                },
-                enabled = name.isNotBlank()
+                }
             ) {
                 Text("Anlegen")
             }
@@ -1452,7 +1499,7 @@ fun AnalyticsTabScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         // 1. Große grafische Monats-Belastungswelle (Tag 1–31)
@@ -1754,7 +1801,7 @@ fun SavingsBoosterTabScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         // 1. Hero-Karte Sparbooster

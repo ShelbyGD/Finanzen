@@ -28,6 +28,7 @@ class FinanceRepository(
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()
 
     suspend fun ensureInitializedAndSyncRecurring() {
+        deduplicateCategories()
         val existingCategories = dao.getAllCategoryTabsOnce()
         if (existingCategories.isEmpty()) {
             seedCleanCategories()
@@ -45,6 +46,19 @@ class FinanceRepository(
             )
         }
         processDueRecurringBookings(LocalDate.now())
+    }
+
+    suspend fun deduplicateCategories() {
+        val existing = dao.getAllCategoryTabsOnce()
+        val seen = mutableSetOf<String>()
+        for (cat in existing) {
+            val key = cat.name.trim().lowercase()
+            if (key in seen) {
+                dao.deleteCategoryTab(cat)
+            } else {
+                seen.add(key)
+            }
+        }
     }
 
     /**
@@ -291,7 +305,24 @@ class FinanceRepository(
     }
 
     suspend fun saveCategoryTab(tab: CategoryTabEntity) {
-        if (tab.id == 0L) {
+        val existing = dao.getAllCategoryTabsOnce()
+        val duplicate = existing.firstOrNull {
+            it.name.trim().equals(tab.name.trim(), ignoreCase = true) && it.id != tab.id
+        }
+        if (duplicate != null) {
+            val updated = duplicate.copy(
+                monthlyBudgetLimit = tab.monthlyBudgetLimit ?: duplicate.monthlyBudgetLimit,
+                defaultAmount = tab.defaultAmount ?: duplicate.defaultAmount,
+                dueDayOfMonth = tab.dueDayOfMonth ?: duplicate.dueDayOfMonth,
+                billingInterval = tab.billingInterval,
+                smoothOver12Months = tab.smoothOver12Months,
+                contractEndDateEpochDay = tab.contractEndDateEpochDay ?: duplicate.contractEndDateEpochDay,
+                iconKey = tab.iconKey,
+                colorHex = tab.colorHex,
+                categoryType = tab.categoryType
+            )
+            dao.updateCategoryTab(updated)
+        } else if (tab.id == 0L) {
             dao.insertCategoryTab(tab)
         } else {
             dao.updateCategoryTab(tab)

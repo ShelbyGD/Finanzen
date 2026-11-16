@@ -109,6 +109,7 @@ fun CalculatorNumpadSheet(
     var isParsingVoice by remember { mutableStateOf(false) }
     var manualVoiceSentence by remember { mutableStateOf("") }
     var showVoiceTextFallback by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -391,10 +392,13 @@ fun CalculatorNumpadSheet(
                                 }
                                 Button(
                                     onClick = {
+                                        if (isSubmitting) return@Button
+                                        isSubmitting = true
                                         onBookVoiceProposals(parsed.proposals)
                                         voiceParseResult = null
                                         onDismiss()
                                     },
+                                    enabled = !isSubmitting,
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(
@@ -440,7 +444,9 @@ fun CalculatorNumpadSheet(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.clickable {
+                            modifier = Modifier.clickable(enabled = !isSubmitting) {
+                                if (isSubmitting) return@clickable
+                                isSubmitting = true
                                 onExecuteQuickTemplate(tpl)
                                 onDismiss()
                             }
@@ -663,8 +669,10 @@ fun CalculatorNumpadSheet(
             val absEvaluatedAmount = kotlin.math.abs(evaluatedAmount)
             Button(
                 onClick = {
+                    if (isSubmitting) return@Button
                     val cat = selectedCategory ?: categories.firstOrNull()
                     if (cat != null && absEvaluatedAmount > 0.0) {
+                        isSubmitting = true
                         onConfirmBooking(
                             titleText.ifBlank { cat.name },
                             absEvaluatedAmount,
@@ -678,7 +686,7 @@ fun CalculatorNumpadSheet(
                         onDismiss()
                     }
                 },
-                enabled = absEvaluatedAmount > 0.0 && selectedCategory != null,
+                enabled = !isSubmitting && absEvaluatedAmount > 0.0 && selectedCategory != null,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isExpense) MaterialTheme.colorScheme.primary else Color(0xFF00E676),
                     contentColor = if (isExpense) MaterialTheme.colorScheme.onPrimary else Color(0xFF003314)

@@ -52,7 +52,7 @@ fun LiteProOverviewScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // 1. Aktueller Lizenzstatus & Entwickler-Simulator-Umschalter

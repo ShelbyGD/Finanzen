@@ -34,6 +34,7 @@ import org.json.JSONObject
 import de.smartfinance.app.domain.ReceiptOcrParser
 import de.smartfinance.app.domain.ReceiptSplitItem
 import de.smartfinance.app.domain.SmartFinanceEngine
+import de.smartfinance.app.domain.TimeRangeMode
 import de.smartfinance.app.domain.VoiceBookingProposal
 import de.smartfinance.app.domain.VoiceParseResult
 import kotlinx.coroutines.Dispatchers
@@ -97,6 +98,12 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     val totalMonthPages = 37
     private val _selectedMonthPage = MutableStateFlow(baseMonthIndex)
     val selectedMonthPage: StateFlow<Int> = _selectedMonthPage.asStateFlow()
+
+    private val _timeRangeMode = MutableStateFlow(TimeRangeMode.MONTH)
+    val timeRangeMode: StateFlow<TimeRangeMode> = _timeRangeMode.asStateFlow()
+
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
+    val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
 
     private val _selectedCategoryId = MutableStateFlow<Long?>(null)
     val selectedCategoryId: StateFlow<Long?> = _selectedCategoryId.asStateFlow()
@@ -203,13 +210,28 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     }
 
     val currentSnapshot: StateFlow<DashboardAnalysisSnapshot> = combine(
-        _selectedMonthPage,
+        combine(_timeRangeMode, _selectedDate, _selectedMonthPage) { mode, date, page ->
+            Triple(mode, date, page)
+        },
         categories,
         allTransactions,
         savingsGoals,
         settingsState
-    ) { page, cats, txs, goals, settings ->
-        analyzeForPage(page, cats, txs, goals, settings)
+    ) { (mode, date, page), cats, txs, goals, settings ->
+        if (mode == TimeRangeMode.MONTH) {
+            analyzeForPage(page, cats, txs, goals, settings)
+        } else {
+            SmartFinanceEngine.analyzePeriod(
+                mode = mode,
+                selectedDate = date,
+                today = LocalDate.now(),
+                billingStartDay = settings.billingStartDay,
+                avgWindowMonths = settings.averageMonthsWindow,
+                categories = cats,
+                allTransactions = txs,
+                savingsGoals = goals
+            )
+        }
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -242,12 +264,45 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         preferences.toggleDarkMode()
     }
 
+    fun setTimeRangeMode(mode: TimeRangeMode) {
+        _timeRangeMode.value = mode
+    }
+
     fun setSelectedMonthPage(page: Int) {
-        _selectedMonthPage.value = page.coerceIn(0, totalMonthPages - 1)
+        val coerced = page.coerceIn(0, totalMonthPages - 1)
+        _selectedMonthPage.value = coerced
+        _selectedDate.value = yearMonthForPage(coerced).atDay(1)
+    }
+
+    fun previousPeriod() {
+        when (_timeRangeMode.value) {
+            TimeRangeMode.WEEK -> _selectedDate.value = _selectedDate.value.minusWeeks(1)
+            TimeRangeMode.MONTH -> {
+                val newPage = (_selectedMonthPage.value - 1).coerceAtLeast(0)
+                setSelectedMonthPage(newPage)
+            }
+            TimeRangeMode.YEAR -> _selectedDate.value = _selectedDate.value.minusYears(1)
+        }
+    }
+
+    fun nextPeriod() {
+        when (_timeRangeMode.value) {
+            TimeRangeMode.WEEK -> _selectedDate.value = _selectedDate.value.plusWeeks(1)
+            TimeRangeMode.MONTH -> {
+                val newPage = (_selectedMonthPage.value + 1).coerceAtMost(totalMonthPages - 1)
+                setSelectedMonthPage(newPage)
+            }
+            TimeRangeMode.YEAR -> _selectedDate.value = _selectedDate.value.plusYears(1)
+        }
+    }
+
+    fun jumpToCurrentPeriod() {
+        _selectedDate.value = LocalDate.now()
+        _selectedMonthPage.value = baseMonthIndex
     }
 
     fun jumpToCurrentMonth() {
-        _selectedMonthPage.value = baseMonthIndex
+        jumpToCurrentPeriod()
     }
 
     fun selectCategoryFilter(categoryId: Long?) {
@@ -341,6 +396,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         navigateTo(DrawerDestination.HELP_CHANGELOG, highlightChangelog = true)
     }
 
+    private var lastBookingTime = 0L
+    private var lastCategorySaveTime = 0L
+
     fun addBooking(
         title: String,
         amount: Double,
@@ -353,6 +411,10 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         smoothOver12Months: Boolean = false,
         note: String = ""
     ) {
+        val now = System.currentTimeMillis()
+        if (now - lastBookingTime < 350) return
+        lastBookingTime = now
+
         val absAmount = kotlin.math.abs(amount)
         if (absAmount <= 0.0) return
         viewModelScope.launch(Dispatchers.IO) {
@@ -424,6 +486,10 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun saveCategoryTab(tab: CategoryTabEntity) {
+        val now = System.currentTimeMillis()
+        if (now - lastCategorySaveTime < 350) return
+        lastCategorySaveTime = now
+
         viewModelScope.launch(Dispatchers.IO) {
             repository.saveCategoryTab(tab)
             withContext(Dispatchers.Main) {

@@ -63,7 +63,7 @@ fun HelpChangelogScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // 1. App-Info & Versions-Header (`v1.0.X (Build #Y)`)

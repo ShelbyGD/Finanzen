@@ -117,7 +117,7 @@ fun CategoriesContractsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // =====================================================================
@@ -510,6 +510,8 @@ private fun FixedIncomeEditDialog(
         mutableStateOf(currentPayDay.toString())
     }
 
+    var isSubmitting by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -547,7 +549,10 @@ private fun FixedIncomeEditDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSubmitting,
                 onClick = {
+                    if (isSubmitting) return@Button
+                    isSubmitting = true
                     val parsedAmount = amountText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                     val parsedDay = payDayText.toIntOrNull()?.coerceIn(1, 31) ?: 1
                     onSave(parsedAmount, parsedDay)
@@ -592,6 +597,7 @@ private fun ContractEditDialog(
         }?.toString() ?: ""
     }
     var contractDaysUntilEndText by remember { mutableStateOf(initialContractDays) }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -689,8 +695,11 @@ private fun ContractEditDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSubmitting && name.isNotBlank(),
                 onClick = {
+                    if (isSubmitting) return@Button
                     if (name.isNotBlank()) {
+                        isSubmitting = true
                         val due = dueDayText.toIntOrNull()?.coerceIn(1, 31) ?: 1
                         val defAmt = defaultAmtText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                         val contractEpoch = contractDaysUntilEndText.toLongOrNull()?.let {

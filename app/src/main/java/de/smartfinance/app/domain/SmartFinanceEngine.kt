@@ -12,6 +12,8 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -98,6 +100,12 @@ data class WhatIfSimulationResult(
     val explanation: String
 )
 
+enum class TimeRangeMode(val label: String) {
+    WEEK("Woche"),
+    MONTH("Monat"),
+    YEAR("Jahr")
+}
+
 data class DashboardAnalysisSnapshot(
     val selectedYearMonth: YearMonth,
     val monthTitleFormatted: String,
@@ -139,7 +147,10 @@ data class DashboardAnalysisSnapshot(
     val contractAlerts: List<ContractExpiryAlert>,
     val savingsProgress: SavingsGoalProgress?,
     val categoryTotalsThisMonth: Map<Long, Double>,
-    val categoryHistoricalAvg3M: Map<Long, Double>
+    val categoryHistoricalAvg3M: Map<Long, Double>,
+    val timeRangeMode: TimeRangeMode = TimeRangeMode.MONTH,
+    val periodStartEpoch: Long = 0L,
+    val periodEndEpoch: Long = 0L
 )
 
 /**
@@ -429,7 +440,309 @@ object SmartFinanceEngine {
             contractAlerts = contractAlerts,
             savingsProgress = savingsProgress,
             categoryTotalsThisMonth = categoryTotalsThisMonth,
-            categoryHistoricalAvg3M = categoryHistoricalAvg3M
+            categoryHistoricalAvg3M = categoryHistoricalAvg3M,
+            timeRangeMode = TimeRangeMode.MONTH,
+            periodStartEpoch = startEpoch,
+            periodEndEpoch = endEpoch
+        )
+    }
+
+    fun analyzePeriod(
+        mode: TimeRangeMode,
+        selectedDate: LocalDate,
+        today: LocalDate = LocalDate.now(),
+        billingStartDay: Int,
+        avgWindowMonths: Int,
+        categories: List<CategoryTabEntity>,
+        allTransactions: List<TransactionEntity>,
+        savingsGoals: List<SavingsGoalEntity>
+    ): DashboardAnalysisSnapshot {
+        return when (mode) {
+            TimeRangeMode.WEEK -> analyzeWeek(
+                selectedDate = selectedDate,
+                today = today,
+                billingStartDay = billingStartDay,
+                avgWindowMonths = avgWindowMonths,
+                categories = categories,
+                allTransactions = allTransactions,
+                savingsGoals = savingsGoals
+            )
+            TimeRangeMode.MONTH -> {
+                val ym = YearMonth.from(selectedDate)
+                analyzeMonth(
+                    selectedYearMonth = ym,
+                    today = today,
+                    billingStartDay = billingStartDay,
+                    avgWindowMonths = avgWindowMonths,
+                    categories = categories,
+                    allTransactions = allTransactions,
+                    savingsGoals = savingsGoals
+                )
+            }
+            TimeRangeMode.YEAR -> analyzeYear(
+                selectedYear = selectedDate.year,
+                today = today,
+                billingStartDay = billingStartDay,
+                avgWindowMonths = avgWindowMonths,
+                categories = categories,
+                allTransactions = allTransactions,
+                savingsGoals = savingsGoals
+            )
+        }
+    }
+
+    fun analyzeWeek(
+        selectedDate: LocalDate,
+        today: LocalDate,
+        billingStartDay: Int,
+        avgWindowMonths: Int,
+        categories: List<CategoryTabEntity>,
+        allTransactions: List<TransactionEntity>,
+        savingsGoals: List<SavingsGoalEntity>
+    ): DashboardAnalysisSnapshot {
+        val weekFields = WeekFields.of(Locale.GERMANY)
+        val periodStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val periodEnd = selectedDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+        val startEpoch = periodStart.toEpochDay()
+        val endEpoch = periodEnd.toEpochDay()
+
+        val kw = periodStart.get(weekFields.weekOfWeekBasedYear())
+        val isCurrentWeek = (today in periodStart..periodEnd)
+        val isFutureWeek = periodStart.isAfter(today)
+
+        val weekTransactions = allTransactions.filter { it.dateEpochDay in startEpoch..endEpoch }
+
+        val actualIncome = weekTransactions.filter { it.isIncome }.sumOf { abs(it.amount) }
+
+        val plannedMonthlyIncome = categories
+            .filter { it.categoryType == CategoryType.INCOME && (it.defaultAmount ?: 0.0) > 0.0 }
+            .sumOf { abs(it.defaultAmount ?: 0.0) }
+        val plannedWeeklySalary = plannedMonthlyIncome * 12.0 / 52.0
+
+        val hasSalaryBookingInWeek = weekTransactions.any { tx ->
+            tx.isIncome && (
+                tx.categoryName.contains("Gehalt", ignoreCase = true) ||
+                tx.title.contains("Gehalt", ignoreCase = true) ||
+                tx.title.contains("Lohn", ignoreCase = true) ||
+                tx.title.contains("Einkommen", ignoreCase = true)
+            )
+        }
+        val targetIncome = if (hasSalaryBookingInWeek || actualIncome > 0.0) actualIncome else plannedWeeklySalary
+        val effectiveIncome = targetIncome
+
+        val expenseTransactions = weekTransactions.filter { !it.isIncome && it.transactionType != TransactionType.SAVINGS }
+        val savingsTransactions = weekTransactions.filter { it.transactionType == TransactionType.SAVINGS }
+
+        val actualExpensesRaw = expenseTransactions.sumOf { abs(it.amount) }
+
+        val fixedCategories = categories.filter { it.categoryType == CategoryType.FIXED_EXPENSE }
+        val weeklyFixedShareFromCategories = fixedCategories.sumOf { cat ->
+            val amt = cat.defaultAmount ?: 0.0
+            when (cat.billingInterval) {
+                BillingInterval.YEARLY -> amt / 52.0
+                BillingInterval.QUARTERLY -> (amt * 4.0) / 52.0
+                else -> (amt * 12.0) / 52.0
+            }
+        }
+
+        val bookedFixedExpenses = expenseTransactions.filter { it.isFixedRecurring }.sumOf { abs(it.amount) }
+        val effectiveFixedExpenses = if (bookedFixedExpenses > 0.0) bookedFixedExpenses else weeklyFixedShareFromCategories
+
+        val variableExpensesSoFar = expenseTransactions.filter { !it.isFixedRecurring }.sumOf { abs(it.amount) }
+        val bookedSavings = savingsTransactions.sumOf { abs(it.amount) }
+
+        val remainingFreeBudgetWeek = effectiveIncome - effectiveFixedExpenses - variableExpensesSoFar - bookedSavings
+
+        val daysRemainingInWeek = when {
+            isCurrentWeek -> (ChronoUnit.DAYS.between(today, periodEnd).toInt() + 1).coerceAtLeast(1)
+            isFutureWeek -> 7
+            else -> 1
+        }
+        val dynamicDailyBudgetToday = (remainingFreeBudgetWeek / daysRemainingInWeek.toDouble()).coerceAtLeast(0.0)
+
+        val rawTitle = "KW $kw (${periodStart.format(dayMonthFormatter)}–${periodEnd.format(dayMonthFormatter)})"
+        val periodRangeFormatted = "${periodStart.format(shortDateFormatter)} – ${periodEnd.format(shortDateFormatter)}"
+
+        val categoryTotalsThisPeriod = mutableMapOf<Long, Double>()
+        for (cat in categories) {
+            val sum = weekTransactions
+                .filter { it.categoryId == cat.id && !it.isIncome }
+                .sumOf { abs(it.amount) }
+            categoryTotalsThisPeriod[cat.id] = sum
+        }
+
+        val currentYm = YearMonth.from(today)
+        val (histAvgIncome, histAvgExpense) = computeHistoricalAverages(
+            referenceYm = currentYm,
+            monthsBack = 3,
+            billingStartDay = billingStartDay,
+            allTransactions = allTransactions,
+            smoothedMonthlyReserve = weeklyFixedShareFromCategories
+        )
+
+        return DashboardAnalysisSnapshot(
+            selectedYearMonth = YearMonth.from(periodStart),
+            monthTitleFormatted = rawTitle,
+            periodRangeFormatted = periodRangeFormatted,
+            isCurrentMonth = isCurrentWeek,
+            isFutureForecastMonth = isFutureWeek,
+            billingStartDay = billingStartDay,
+            actualIncome = actualIncome,
+            targetIncome = targetIncome,
+            actualExpensesRaw = actualExpensesRaw,
+            effectiveOperatingExpenses = effectiveFixedExpenses + variableExpensesSoFar,
+            targetExpenses = effectiveFixedExpenses + variableExpensesSoFar,
+            bookedFixedExpenses = effectiveFixedExpenses,
+            variableExpensesSoFar = variableExpensesSoFar,
+            savingsThisMonth = bookedSavings,
+            smoothedMonthlyReserveTotal = weeklyFixedShareFromCategories,
+            smoothedItems = emptyList(),
+            openUpcomingFixedTotal = 0.0,
+            upcomingDebits = emptyList(),
+            nextDebitHeadline = "Wochenansicht KW $kw",
+            nextDebitSubline = "Verbleibende Tage bis Sonntag: $daysRemainingInWeek",
+            remainingFreeBudgetMonth = remainingFreeBudgetWeek,
+            baseDailyBudget = effectiveIncome / 7.0,
+            dynamicDailyBudgetToday = dynamicDailyBudgetToday,
+            rolloverDeltaPerDay = 0.0,
+            remainingDaysInMonth = daysRemainingInWeek,
+            avgWindowMonths = avgWindowMonths,
+            historicalAvgIncome = histAvgIncome / 4.33,
+            historicalAvgExpense = histAvgExpense / 4.33,
+            weekdayBurnRate = 0.0,
+            weekendBurnRate = 0.0,
+            projectedEndOfMonthBalance = remainingFreeBudgetWeek,
+            dayLoadPoints = emptyList(),
+            loadStartThird = 0.0,
+            loadMiddleThird = 0.0,
+            loadEndThird = 0.0,
+            peakPeriodDescription = "Woche KW $kw",
+            radarAlerts = emptyList(),
+            contractAlerts = emptyList(),
+            savingsProgress = null,
+            categoryTotalsThisMonth = categoryTotalsThisPeriod,
+            categoryHistoricalAvg3M = emptyMap(),
+            timeRangeMode = TimeRangeMode.WEEK,
+            periodStartEpoch = startEpoch,
+            periodEndEpoch = endEpoch
+        )
+    }
+
+    fun analyzeYear(
+        selectedYear: Int,
+        today: LocalDate,
+        billingStartDay: Int,
+        avgWindowMonths: Int,
+        categories: List<CategoryTabEntity>,
+        allTransactions: List<TransactionEntity>,
+        savingsGoals: List<SavingsGoalEntity>
+    ): DashboardAnalysisSnapshot {
+        val periodStart = LocalDate.of(selectedYear, 1, 1)
+        val periodEnd = LocalDate.of(selectedYear, 12, 31)
+        val startEpoch = periodStart.toEpochDay()
+        val endEpoch = periodEnd.toEpochDay()
+
+        val isCurrentYear = (today.year == selectedYear)
+        val isFutureYear = (selectedYear > today.year)
+
+        val yearTransactions = allTransactions.filter { it.dateEpochDay in startEpoch..endEpoch }
+
+        val actualIncome = yearTransactions.filter { it.isIncome }.sumOf { abs(it.amount) }
+
+        val plannedMonthlyIncome = categories
+            .filter { it.categoryType == CategoryType.INCOME && (it.defaultAmount ?: 0.0) > 0.0 }
+            .sumOf { abs(it.defaultAmount ?: 0.0) }
+        val plannedYearlySalary = plannedMonthlyIncome * 12.0
+
+        val targetIncome = max(actualIncome, plannedYearlySalary)
+        val effectiveIncome = targetIncome
+
+        val expenseTransactions = yearTransactions.filter { !it.isIncome && it.transactionType != TransactionType.SAVINGS }
+        val savingsTransactions = yearTransactions.filter { it.transactionType == TransactionType.SAVINGS }
+
+        val actualExpensesRaw = expenseTransactions.sumOf { abs(it.amount) }
+
+        val fixedCategories = categories.filter { it.categoryType == CategoryType.FIXED_EXPENSE }
+        val annualFixedFromCategories = fixedCategories.sumOf { cat ->
+            val amt = cat.defaultAmount ?: 0.0
+            when (cat.billingInterval) {
+                BillingInterval.YEARLY -> amt
+                BillingInterval.QUARTERLY -> amt * 4.0
+                else -> amt * 12.0
+            }
+        }
+
+        val bookedFixedExpenses = expenseTransactions.filter { it.isFixedRecurring }.sumOf { abs(it.amount) }
+        val effectiveFixedExpenses = max(bookedFixedExpenses, annualFixedFromCategories)
+
+        val variableExpensesSoFar = expenseTransactions.filter { !it.isFixedRecurring }.sumOf { abs(it.amount) }
+        val bookedSavings = savingsTransactions.sumOf { abs(it.amount) }
+
+        val remainingFreeBudgetYear = effectiveIncome - effectiveFixedExpenses - variableExpensesSoFar - bookedSavings
+
+        val daysRemainingInYear = when {
+            isCurrentYear -> (ChronoUnit.DAYS.between(today, periodEnd).toInt() + 1).coerceAtLeast(1)
+            isFutureYear -> periodStart.lengthOfYear()
+            else -> 1
+        }
+        val dynamicDailyBudgetToday = (remainingFreeBudgetYear / daysRemainingInYear.toDouble()).coerceAtLeast(0.0)
+
+        val rawTitle = "Jahr $selectedYear"
+        val periodRangeFormatted = "${periodStart.format(shortDateFormatter)} – ${periodEnd.format(shortDateFormatter)}"
+
+        val categoryTotalsThisPeriod = mutableMapOf<Long, Double>()
+        for (cat in categories) {
+            val sum = yearTransactions
+                .filter { it.categoryId == cat.id && !it.isIncome }
+                .sumOf { abs(it.amount) }
+            categoryTotalsThisPeriod[cat.id] = sum
+        }
+
+        return DashboardAnalysisSnapshot(
+            selectedYearMonth = YearMonth.of(selectedYear, 1),
+            monthTitleFormatted = rawTitle,
+            periodRangeFormatted = periodRangeFormatted,
+            isCurrentMonth = isCurrentYear,
+            isFutureForecastMonth = isFutureYear,
+            billingStartDay = billingStartDay,
+            actualIncome = actualIncome,
+            targetIncome = targetIncome,
+            actualExpensesRaw = actualExpensesRaw,
+            effectiveOperatingExpenses = effectiveFixedExpenses + variableExpensesSoFar,
+            targetExpenses = effectiveFixedExpenses + variableExpensesSoFar,
+            bookedFixedExpenses = effectiveFixedExpenses,
+            variableExpensesSoFar = variableExpensesSoFar,
+            savingsThisMonth = bookedSavings,
+            smoothedMonthlyReserveTotal = annualFixedFromCategories / 12.0,
+            smoothedItems = emptyList(),
+            openUpcomingFixedTotal = 0.0,
+            upcomingDebits = emptyList(),
+            nextDebitHeadline = "Jahresansicht $selectedYear",
+            nextDebitSubline = "12× Monatsfixkosten + Versicherungen: ${formatEuro(annualFixedFromCategories)}",
+            remainingFreeBudgetMonth = remainingFreeBudgetYear,
+            baseDailyBudget = effectiveIncome / periodStart.lengthOfYear().toDouble(),
+            dynamicDailyBudgetToday = dynamicDailyBudgetToday,
+            rolloverDeltaPerDay = 0.0,
+            remainingDaysInMonth = daysRemainingInYear,
+            avgWindowMonths = avgWindowMonths,
+            historicalAvgIncome = targetIncome / 12.0,
+            historicalAvgExpense = (effectiveFixedExpenses + variableExpensesSoFar) / 12.0,
+            weekdayBurnRate = 0.0,
+            weekendBurnRate = 0.0,
+            projectedEndOfMonthBalance = remainingFreeBudgetYear,
+            dayLoadPoints = emptyList(),
+            loadStartThird = 0.0,
+            loadMiddleThird = 0.0,
+            loadEndThird = 0.0,
+            peakPeriodDescription = "Gesamtjahr $selectedYear",
+            radarAlerts = emptyList(),
+            contractAlerts = emptyList(),
+            savingsProgress = null,
+            categoryTotalsThisMonth = categoryTotalsThisPeriod,
+            categoryHistoricalAvg3M = emptyMap(),
+            timeRangeMode = TimeRangeMode.YEAR,
+            periodStartEpoch = startEpoch,
+            periodEndEpoch = endEpoch
         )
     }
 
@@ -1001,5 +1314,23 @@ object SmartFinanceEngine {
 
     fun formatEuroWhole(amount: Double): String {
         return String.format(Locale.GERMAN, "%,.0f €", amount)
+    }
+
+    fun parseEuroAmount(raw: String): Double? {
+        if (raw.isBlank()) return null
+        val cleaned = raw.replace("€", "")
+            .replace("EUR", "", ignoreCase = true)
+            .replace(" ", "")
+            .trim()
+        val normalized = if (cleaned.contains(".") && cleaned.contains(",")) {
+            if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
+                cleaned.replace(".", "").replace(",", ".")
+            } else {
+                cleaned.replace(",", "")
+            }
+        } else {
+            cleaned.replace(",", ".")
+        }
+        return normalized.toDoubleOrNull()
     }
 }
