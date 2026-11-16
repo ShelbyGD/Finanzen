@@ -113,15 +113,15 @@ object AppHelpRegistry {
             moduleNumber = 4,
             title = "4. Runde Kreis-Budgets & Vertrags-Wecker",
             category = "Budgets & Verträge",
-            shortSummary = "Runde Fortschrittsringe (Circular Progress Rings) für alle Kategorien in der Budgets-Karte sowie eigene Vertrags-Verwaltung mit 30-Tage-Vorwarnung im Tab 'Verträge'.",
+            shortSummary = "Runde Fortschrittsringe (Circular Progress Rings) für variable Monatsbudgets im Cockpit sowie saubere Vertrags- & Fixkosten-Verwaltung im Tab 'Verträge'.",
             stepByStepGuide = listOf(
-                "In der Karte 'Budgets' siehst du für jede Kategorie (Lebensmittel, Kfz, Handy, Versicherung, Freizeit) einen runden Fortschrittsring: Grün (<75 %), Orange (>75 %) oder Rot (Limit überschritten).",
-                "Tippe auf einen Budget-Kreis zum Filtern der Buchungen oder ganz rechts auf den runden '+'-Kreis-Button, um eine neue Kategorie anzulegen.",
-                "Im unteren Tab 'Verträge' verwaltest du alle Fixkosten, Fälligkeitstage (1–31) und Kündigungs-Stichtage (inkl. 30-Tage-Vorwarnung über die Benachrichtigungs-Glocke oben rechts)."
+                "Im Cockpit ('Übersicht') verwaltest du über die Karte 'Budgets' deine variablen Alltagsbudgets (Lebensmittel, Freizeit etc.) mit runden Fortschrittsringen: Grün (<75 %), Orange (>75 %) oder Rot (Limit überschritten). Über '+ Neu' oder 'Alle anzeigen >' legst du Monatslimits fest.",
+                "Im Tab 'Verträge' sind feste monatliche Einnahmen (Gehalt) und feste Ausgaben (Kfz-Versicherung, Handyvertrag, Miete) sauber getrennt. Verträge werden ausschließlich als echte Ausgaben-Abzüge mit Fälligkeitstag und 1/12-Glättung gelistet.",
+                "Kündigungsfristen werden mit 30-Tage-Vorwarnung automatisch über die Benachrichtigungs-Glocke oben rechts in der Top-Bar signalisiert."
             ),
             exampleTips = listOf(
-                "Ein Tap auf 'Alle anzeigen >' in der Budgets-Karte hebt aktive Kategorien-Filter sofort wieder auf.",
-                "Alle aktiven Vertrags-Wecker werden gebündelt über das Glocken-Symbol oben rechts in der Top-Bar angezeigt."
+                "Tippe auf einen Budget-Ring zum Filtern der letzten Buchungen oder nutze 'Alle anzeigen >' zum Verwalten aller Limits.",
+                "Variable Monatslimits sind keine Verträge, sondern Obergrenzen für die Kreis-Ringe. Das verfügbare Monatsbudget berechnet sich strikt: Einnahmen minus Fixkosten minus variable Ausgaben."
             ),
             requiredTier = AppTier.PRO_FULL,
             addedInVersion = "1.0.1"
@@ -311,6 +311,17 @@ object AppHelpRegistry {
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.2.2",
+            buildNumber = 11,
+            date = "15.11.2026",
+            newFeatures = listOf(
+                "Struktur-Update im Reiter 'Verträge': Klare Trennung in Sektion A 'Feste monatliche Einnahmen (+)' (Gehalt als positive Budget-Basis) und Sektion B 'Verträge & Fixkosten (Feste Ausgaben -)' mit Gesamtsumme ('Fixkosten gesamt: -XXX,XX € / Monat').",
+                "Keine Vermischung von variablen Budgets mehr: 'Lebensmittel', 'Freizeit' etc. und der Text 'Monatslimit: 0,00 €' wurden vollständig aus den Verträgen entfernt.",
+                "Variable Monatsbudgets direkt in den Budget-Ringen verwalten: Limits für Alltagsausgaben werden direkt im Cockpit über die Kreis-Ringe sowie die Dialoge ('Alle anzeigen >' & '+ Neu') gepflegt.",
+                "Strikte Ausgaben-Mathematik in der violetten Hero-Karte ('vom Gehalt verfügbar'): Einnahmen abzüglich Fixkosten und variabler Ausgaben reduzieren das freie Budget verlässlich."
+            )
+        ),
         ChangelogEntry(
             versionName = BuildConfig.VERSION_NAME,
             buildNumber = BuildConfig.BUILD_NUMBER,

@@ -1,6 +1,8 @@
 package de.smartfinance.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,15 +26,14 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.NotificationsActive
-import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,17 +65,18 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * Tab 2 ("Verträge"):
- * Verwaltung aller dynamischen Kategorien, Monatslimits, Fälligkeitstage (1–31),
- * 1/12-Jahreskosten-Glättung, Vertrags-Wecker (30-Tage-Vorwarnung) und Etappen-Sparziel.
+ * Sauber getrennt von variablen Alltagsbudgets in zwei klare Sektionen:
+ * - Sektion A (Ganz oben): "Feste monatliche Einnahmen (+)" für Gehalt & feste Einnahmen
+ * - Sektion B (Hauptliste): "Verträge & Fixkosten (Feste Ausgaben -)" mit monatlichen Abzügen
+ *   (Handyvertrag, Kfz-Versicherung mit 1/12-Glättung, Miete, Strom etc.)
  */
 @Composable
 fun CategoriesContractsScreen(
     categories: List<CategoryTabEntity>,
-    savingsProgress: SavingsGoalProgress?,
+    savingsProgress: SavingsGoalProgress? = null,
     activeTier: AppTier,
     onSaveCategory: (CategoryTabEntity) -> Unit,
     onDeleteCategory: (CategoryTabEntity) -> Unit,
@@ -83,84 +86,152 @@ fun CategoriesContractsScreen(
         initialSavedAmount: Double,
         monthlyRate: Double,
         dueDay: Int
-    ) -> Unit,
+    ) -> Unit = { _, _, _, _, _ -> },
+    onUpdatePlannedIncome: (Double, Int?) -> Unit = { _, _ -> },
     onRequestProFeature: (String) -> Unit
 ) {
-    var editingCategory by remember { mutableStateOf<CategoryTabEntity?>(null) }
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var showSavingsEditor by remember { mutableStateOf(false) }
+    var editingContract by remember { mutableStateOf<CategoryTabEntity?>(null) }
+    var showCreateContractDialog by remember { mutableStateOf(false) }
+    var showIncomeEditDialog by remember { mutableStateOf(false) }
 
     val isProUnlocked = FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)
 
+    val incomeCategory = remember(categories) {
+        categories.firstOrNull { it.categoryType == CategoryType.INCOME }
+    }
+    val incomeAmount = incomeCategory?.defaultAmount ?: 0.0
+    val incomePayDay = incomeCategory?.dueDayOfMonth ?: 1
+
+    val contractCategories = remember(categories) {
+        categories.filter { it.categoryType == CategoryType.FIXED_EXPENSE }
+    }
+
+    val totalMonthlyFixedCosts = remember(contractCategories) {
+        contractCategories.sumOf { cat ->
+            val amt = cat.defaultAmount ?: 0.0
+            if (cat.smoothOver12Months && cat.billingInterval == BillingInterval.YEARLY) amt / 12.0
+            else if (cat.smoothOver12Months && cat.billingInterval == BillingInterval.QUARTERLY) amt / 3.0
+            else amt
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 112.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Etappen-Sparziel-Tracker & Dauer-Sparraten Kurzübersicht
+        // =====================================================================
+        // 1. SEKTION A (Ganz oben): "Feste monatliche Einnahmen (+)"
+        // =====================================================================
         item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Feste monatliche Einnahmen (+)",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF00E676).copy(alpha = 0.08f)
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFF00E676).copy(alpha = 0.35f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    onClick = { showIncomeEditDialog = true },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Savings,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = savingsProgress?.goal?.title ?: "Mein Sparziel",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        OutlinedButton(onClick = { showSavingsEditor = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Anpassen")
-                        }
-                    }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFF00E676).copy(alpha = 0.20f),
+                                    modifier = Modifier.size(42.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = CategoryIconCatalog.iconForKey("income"),
+                                            contentDescription = null,
+                                            tint = Color(0xFF00E676),
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
 
-                    if (savingsProgress != null) {
-                        LinearProgressIndicator(
-                            progress = { savingsProgress.progressFraction },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(10.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                        )
-                        Text(
-                            text = "Erreicht: ${SmartFinanceEngine.formatEuro(savingsProgress.totalSaved)} von ${SmartFinanceEngine.formatEuro(savingsProgress.targetAmount)} (${(savingsProgress.progressFraction * 100).roundToInt()} %)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Monatliche Dauer-Sparrate: ${SmartFinanceEngine.formatEuro(savingsProgress.effectiveMonthlyRate)} (am ${savingsProgress.goal.dueDayOfMonth}. des Monats) • ${savingsProgress.estimatedCompletionText}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                                Column {
+                                    Text(
+                                        text = incomeCategory?.name ?: "Gehalt & Feste Einnahmen",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Monatliche Basis (+) für das freie Budget",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = { showIncomeEditDialog = true },
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Anpassen", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                text = "+${SmartFinanceEngine.formatEuro(incomeAmount)} / Monat",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF00E676)
+                            )
+
+                            Text(
+                                text = if (incomeAmount > 0.0) {
+                                    "Eingang am $incomePayDay. des Monats"
+                                } else {
+                                    "Tippe hier zum Eintragen"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // 2. Header + "+ Kategorie / Vertrag hinzufügen"
+        // =====================================================================
+        // 2. SEKTION B (Hauptliste): "Verträge & Fixkosten (Feste Ausgaben -)"
+        // =====================================================================
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -169,24 +240,28 @@ fun CategoriesContractsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Verträge, Fixkosten, Einnahmen & Budgets",
+                        text = "Verträge & Fixkosten (Feste Ausgaben -)",
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "Tippe auf eine Kategorie, um eigene Budgets, Grundgehalt oder Verträge einzutragen",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Fixkosten gesamt: -${SmartFinanceEngine.formatEuro(totalMonthlyFixedCosts)} / Monat",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (totalMonthlyFixedCosts > 0.0) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
                 Button(
                     onClick = {
                         if (isProUnlocked) {
-                            showCreateDialog = true
+                            showCreateContractDialog = true
                         } else {
-                            onRequestProFeature("Eigene Kategorien & Vertrags-Wecker")
+                            onRequestProFeature("Eigene Verträge & Vertrags-Wecker")
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
                         imageVector = if (isProUnlocked) Icons.Default.Add else Icons.Outlined.Lock,
@@ -199,61 +274,85 @@ fun CategoriesContractsScreen(
             }
         }
 
-        // 3. Liste aller Kategorien & Verträge
-        items(categories, key = { it.id }) { cat ->
-            CategoryContractCard(
-                category = cat,
-                onEdit = {
-                    editingCategory = cat
-                },
-                onDelete = {
-                    onDeleteCategory(cat)
+        // Liste aller echten Fixkosten & Verträge (AUSSCHLIESSLICH FIXED_EXPENSE)
+        if (contractCategories.isEmpty()) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Noch keine Verträge angelegt – tippe oben rechts auf '+ Neu', um Kfz-Versicherung, Handyvertrag oder Miete einzutragen.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
-            )
+            }
+        } else {
+            items(contractCategories, key = { it.id }) { cat ->
+                ContractItemCard(
+                    category = cat,
+                    onEdit = { editingContract = cat },
+                    onDelete = { onDeleteCategory(cat) }
+                )
+            }
         }
     }
 
-    if (showCreateDialog) {
-        CategoryEditDialog(
+    // Dialog: Gehalt & Feste Einnahmen anpassen
+    if (showIncomeEditDialog) {
+        FixedIncomeEditDialog(
+            currentAmount = incomeAmount,
+            currentPayDay = incomePayDay,
+            onDismiss = { showIncomeEditDialog = false },
+            onSave = { amount, payDay ->
+                onUpdatePlannedIncome(amount, payDay)
+                if (incomeCategory != null) {
+                    onSaveCategory(
+                        incomeCategory.copy(
+                            defaultAmount = amount,
+                            dueDayOfMonth = payDay
+                        )
+                    )
+                }
+                showIncomeEditDialog = false
+            }
+        )
+    }
+
+    // Dialog: Neuen Vertrag / Fixkosten anlegen
+    if (showCreateContractDialog) {
+        ContractEditDialog(
             initialCategory = null,
-            onDismiss = { showCreateDialog = false },
+            onDismiss = { showCreateContractDialog = false },
             onSave = { newCat ->
                 onSaveCategory(newCat)
-                showCreateDialog = false
+                showCreateContractDialog = false
             }
         )
     }
 
-    editingCategory?.let { catToEdit ->
-        CategoryEditDialog(
+    // Dialog: Bestehenden Vertrag bearbeiten
+    editingContract?.let { catToEdit ->
+        ContractEditDialog(
             initialCategory = catToEdit,
-            onDismiss = { editingCategory = null },
+            onDismiss = { editingContract = null },
             onSave = { updated ->
                 onSaveCategory(updated)
-                editingCategory = null
-            }
-        )
-    }
-
-    if (showSavingsEditor) {
-        val currentGoal = savingsProgress?.goal
-        SavingsGoalEditDialog(
-            initialTitle = currentGoal?.title ?: "Mein Sparziel",
-            initialTarget = currentGoal?.targetAmount ?: 0.0,
-            initialBaseSaved = currentGoal?.initialSavedAmount ?: 0.0,
-            initialMonthlyRate = currentGoal?.monthlyContributionGoal ?: 0.0,
-            initialDueDay = currentGoal?.dueDayOfMonth ?: 1,
-            onDismiss = { showSavingsEditor = false },
-            onSave = { title, target, baseSaved, monthlyRate, dueDay ->
-                onUpdateSavingsGoal(title, target, baseSaved, monthlyRate, dueDay)
-                showSavingsEditor = false
+                editingContract = null
             }
         )
     }
 }
 
+/**
+ * Saubere Vertrags-Karte ohne "Monatslimit: 0,00 €"!
+ * Zeigt strikt den monatlichen Ausgaben-Abzug in Rot/Weiß mit führendem Minuszeichen.
+ */
 @Composable
-private fun CategoryContractCard(
+private fun ContractItemCard(
     category: CategoryTabEntity,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -266,6 +365,23 @@ private fun CategoryContractCard(
         days to fmt
     }
     val accentColor = CategoryIconCatalog.accentColorFor(category.iconKey, category.name)
+
+    val rawAmount = category.defaultAmount ?: 0.0
+    val monthlyAmount = if (category.smoothOver12Months && category.billingInterval == BillingInterval.YEARLY) {
+        rawAmount / 12.0
+    } else if (category.smoothOver12Months && category.billingInterval == BillingInterval.QUARTERLY) {
+        rawAmount / 3.0
+    } else {
+        rawAmount
+    }
+
+    val subtitle = if (category.smoothOver12Months) {
+        val intervalLabel = if (category.billingInterval == BillingInterval.QUARTERLY) "Quartal" else "Jahr"
+        "-${SmartFinanceEngine.formatEuro(monthlyAmount)} / Monat (${SmartFinanceEngine.formatEuro(rawAmount)} / $intervalLabel • 1/12-Glättung aktiv)"
+    } else {
+        val dayPart = category.dueDayOfMonth?.let { " • Abbuchung am $it." } ?: ""
+        "-${SmartFinanceEngine.formatEuro(monthlyAmount)} / Monat$dayPart"
+    }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -283,11 +399,14 @@ private fun CategoryContractCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Surface(
                         shape = CircleShape,
                         color = accentColor.copy(alpha = 0.15f),
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(42.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -298,29 +417,33 @@ private fun CategoryContractCard(
                             )
                         }
                     }
+
                     Spacer(modifier = Modifier.width(12.dp))
+
                     Column {
                         Text(
                             text = category.name,
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        val typeLabel = when (category.categoryType) {
-                            CategoryType.FIXED_EXPENSE -> "Fixkosten / Vertrag"
-                            CategoryType.VARIABLE_EXPENSE -> "Variables Alltagsbudget"
-                            CategoryType.SAVINGS -> "Sparziel / Rücklage"
-                            CategoryType.INCOME -> "Regelmäßige Einnahme / Gehalt"
-                            else -> "Ausgabe"
-                        }
                         Text(
-                            text = typeLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = if (monthlyAmount > 0.0) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "-${SmartFinanceEngine.formatEuro(monthlyAmount)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (monthlyAmount > 0.0) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface
+                    )
+
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Bearbeiten")
                     }
@@ -332,19 +455,7 @@ private fun CategoryContractCard(
                 }
             }
 
-            val details = buildList {
-                add("Monatslimit: ${SmartFinanceEngine.formatEuro(category.monthlyBudgetLimit ?: 0.0)}")
-                add("Dauerbetrag: ${SmartFinanceEngine.formatEuro(category.defaultAmount ?: 0.0)}")
-                category.dueDayOfMonth?.let { add("Abbuchungstag: $it. im Monat") }
-                if (category.smoothOver12Months) add("1/12-Jahresglättung aktiv")
-            }
-
-            Text(
-                text = details.joinToString(" • "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
+            // Vertrags-Wecker (Kündigungsfrist / Stichtag)
             contractInfo?.let { (daysLeft, formattedDate) ->
                 val isUrgent = daysLeft <= 30
                 Surface(
@@ -382,22 +493,91 @@ private fun CategoryContractCard(
     }
 }
 
+/**
+ * Dialog zum Anpassen des festen monatlichen Grundgehalts / Einnahmen.
+ */
 @Composable
-private fun CategoryEditDialog(
+private fun FixedIncomeEditDialog(
+    currentAmount: Double,
+    currentPayDay: Int,
+    onDismiss: () -> Unit,
+    onSave: (amount: Double, payDay: Int) -> Unit
+) {
+    var amountText by remember {
+        mutableStateOf(if (currentAmount > 0.0) String.format(Locale.GERMAN, "%.2f", currentAmount) else "")
+    }
+    var payDayText by remember {
+        mutableStateOf(currentPayDay.toString())
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Gehalt & Feste Einnahmen anpassen",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Trage dein monatliches Nettoeinkommen oder feste Einnahmen ein. Dieser Betrag bildet die positive Basis (+) für dein monatlich freies Budget.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Monatliches Gehalt (€)") },
+                    placeholder = { Text("z. B. 2450,00") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = payDayText,
+                    onValueChange = { payDayText = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Eingangstag im Monat (1–31)") },
+                    placeholder = { Text("z. B. 1 oder 28") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val parsedAmount = amountText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                    val parsedDay = payDayText.toIntOrNull()?.coerceIn(1, 31) ?: 1
+                    onSave(parsedAmount, parsedDay)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color(0xFF003314))
+            ) {
+                Text("Speichern", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
+}
+
+/**
+ * Dialog zum Anlegen oder Bearbeiten eines Fixkosten-Vertrags (ohne "Monatslimit"-Feld!).
+ */
+@Composable
+private fun ContractEditDialog(
     initialCategory: CategoryTabEntity?,
     onDismiss: () -> Unit,
     onSave: (CategoryTabEntity) -> Unit
 ) {
     var name by remember { mutableStateOf(initialCategory?.name ?: "") }
-    var iconKey by remember { mutableStateOf(initialCategory?.iconKey ?: "star") }
-    var categoryType by remember { mutableStateOf(initialCategory?.categoryType ?: CategoryType.VARIABLE_EXPENSE) }
-    var limitText by remember {
-        mutableStateOf(
-            initialCategory?.monthlyBudgetLimit?.takeIf { it > 0.0 }?.let { String.format(Locale.GERMAN, "%.2f", it) } ?: ""
-        )
-    }
+    var iconKey by remember { mutableStateOf(initialCategory?.iconKey ?: "shield") }
     var dueDayText by remember {
-        mutableStateOf(initialCategory?.dueDayOfMonth?.toString() ?: "")
+        mutableStateOf(initialCategory?.dueDayOfMonth?.toString() ?: "1")
     }
     var defaultAmtText by remember {
         mutableStateOf(
@@ -417,18 +597,20 @@ private fun CategoryEditDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (initialCategory == null) "Neue Kategorie / Vertrag anlegen" else "'${initialCategory.name}' bearbeiten",
+                text = if (initialCategory == null) "Neuen Vertrag / Fixkosten anlegen" else "'${initialCategory.name}' bearbeiten",
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Bezeichnung") },
+                    label = { Text("Vertrags-Bezeichnung") },
+                    placeholder = { Text("z. B. Handyvertrag, Miete, Strom") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -456,39 +638,11 @@ private fun CategoryEditDialog(
                     }
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    FilterChip(
-                        selected = categoryType == CategoryType.FIXED_EXPENSE,
-                        onClick = { categoryType = CategoryType.FIXED_EXPENSE },
-                        label = { Text("Fixkosten") }
-                    )
-                    FilterChip(
-                        selected = categoryType == CategoryType.VARIABLE_EXPENSE,
-                        onClick = { categoryType = CategoryType.VARIABLE_EXPENSE },
-                        label = { Text("Variabel") }
-                    )
-                    FilterChip(
-                        selected = categoryType == CategoryType.SAVINGS,
-                        onClick = { categoryType = CategoryType.SAVINGS },
-                        label = { Text("Sparen") }
-                    )
-                    FilterChip(
-                        selected = categoryType == CategoryType.INCOME,
-                        onClick = { categoryType = CategoryType.INCOME },
-                        label = { Text("Einnahme") }
-                    )
-                }
-
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = limitText,
-                        onValueChange = { limitText = it },
-                        label = { Text("Monatslimit (€)") },
+                        value = defaultAmtText,
+                        onValueChange = { defaultAmtText = it },
+                        label = { Text("Betrag (€)") },
                         placeholder = { Text("0,00") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -496,41 +650,39 @@ private fun CategoryEditDialog(
                     OutlinedTextField(
                         value = dueDayText,
                         onValueChange = { dueDayText = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("Fälligkeit (1-31)") },
+                        label = { Text("Abbuchungstag (1–31)") },
                         placeholder = { Text("z. B. 1") },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = defaultAmtText,
-                        onValueChange = { defaultAmtText = it },
-                        label = { Text("Dauerbetrag (€)") },
-                        placeholder = { Text("0,00") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = contractDaysUntilEndText,
-                        onValueChange = { contractDaysUntilEndText = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("Vertrag endet in (Tagen)") },
-                        placeholder = { Text("optional") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                OutlinedTextField(
+                    value = contractDaysUntilEndText,
+                    onValueChange = { contractDaysUntilEndText = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Vertrag endet in (Tagen)") },
+                    placeholder = { Text("optional für Wecker") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Auf 12 Monate glätten (1/12-Jahreskosten)",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Auf 12 Monate glätten (1/12-Jahreskosten)",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Für Jahres- oder Quartalsrechnungen (z. B. Kfz-Versicherung)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Switch(checked = smooth12, onCheckedChange = { smooth12 = it })
                 }
             }
@@ -539,8 +691,7 @@ private fun CategoryEditDialog(
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
-                        val limit = limitText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-                        val due = dueDayText.toIntOrNull()?.coerceIn(1, 31)
+                        val due = dueDayText.toIntOrNull()?.coerceIn(1, 31) ?: 1
                         val defAmt = defaultAmtText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                         val contractEpoch = contractDaysUntilEndText.toLongOrNull()?.let {
                             LocalDate.now().plusDays(it).toEpochDay()
@@ -550,110 +701,19 @@ private fun CategoryEditDialog(
                                 id = initialCategory?.id ?: 0L,
                                 name = name.trim(),
                                 iconKey = iconKey,
-                                colorHex = initialCategory?.colorHex ?: 0xFF38BDF8,
-                                categoryType = categoryType,
-                                monthlyBudgetLimit = limit,
+                                colorHex = CategoryIconCatalog.accentColorFor(iconKey, name).value.toLong(),
+                                categoryType = CategoryType.FIXED_EXPENSE,
+                                monthlyBudgetLimit = defAmt,
                                 dueDayOfMonth = due,
                                 defaultAmount = defAmt,
                                 billingInterval = if (smooth12) BillingInterval.YEARLY else BillingInterval.MONTHLY,
                                 smoothOver12Months = smooth12,
                                 contractEndDateEpochDay = contractEpoch,
                                 isSystemDefault = initialCategory?.isSystemDefault ?: false,
-                                sortOrder = initialCategory?.sortOrder ?: 99
+                                sortOrder = initialCategory?.sortOrder ?: 10
                             )
                         )
                     }
-                }
-            ) {
-                Text("Speichern")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Abbrechen")
-            }
-        }
-    )
-}
-
-@Composable
-private fun SavingsGoalEditDialog(
-    initialTitle: String,
-    initialTarget: Double,
-    initialBaseSaved: Double,
-    initialMonthlyRate: Double,
-    initialDueDay: Int,
-    onDismiss: () -> Unit,
-    onSave: (String, Double, Double, Double, Int) -> Unit
-) {
-    var title by remember { mutableStateOf(initialTitle) }
-    var targetText by remember {
-        mutableStateOf(if (initialTarget > 0.0) String.format(Locale.GERMAN, "%.2f", initialTarget) else "")
-    }
-    var baseText by remember {
-        mutableStateOf(if (initialBaseSaved > 0.0) String.format(Locale.GERMAN, "%.2f", initialBaseSaved) else "")
-    }
-    var rateText by remember {
-        mutableStateOf(if (initialMonthlyRate > 0.0) String.format(Locale.GERMAN, "%.2f", initialMonthlyRate) else "")
-    }
-    var dueDayText by remember { mutableStateOf(initialDueDay.toString()) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Sparziel bearbeiten", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Bezeichnung des Sparziels") },
-                    placeholder = { Text("Mein Sparziel") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = targetText,
-                    onValueChange = { targetText = it },
-                    label = { Text("Zielbetrag (€)") },
-                    placeholder = { Text("0,00") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = baseText,
-                    onValueChange = { baseText = it },
-                    label = { Text("Startguthaben (€)") },
-                    placeholder = { Text("0,00") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = rateText,
-                        onValueChange = { rateText = it },
-                        label = { Text("Monatliche Sparrate (€)") },
-                        placeholder = { Text("0,00") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = dueDayText,
-                        onValueChange = { dueDayText = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("Spar-Tag (1-31)") },
-                        singleLine = true,
-                        modifier = Modifier.width(120.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val target = targetText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-                    val base = baseText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-                    val rate = rateText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-                    val day = (dueDayText.toIntOrNull() ?: 1).coerceIn(1, 31)
-                    onSave(title.ifBlank { "Mein Sparziel" }, target, base, rate, day)
                 }
             ) {
                 Text("Speichern")

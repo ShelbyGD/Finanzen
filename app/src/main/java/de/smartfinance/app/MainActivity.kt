@@ -431,7 +431,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 // Rechts unten ein sauberer FloatingActionButton (+), der das CalculatorNumpadSheet öffnet
                 val showFab = currentDestination == DrawerDestination.COCKPIT &&
                     (selectedBottomTab == BottomNavTab.OVERVIEW ||
-                        selectedBottomTab == BottomNavTab.CONTRACTS ||
                         selectedBottomTab == BottomNavTab.ANALYTICS)
                 if (showFab) {
                     FloatingActionButton(
@@ -485,6 +484,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onSelectTransaction = viewModel::openTransactionActionSheet,
                                     onOpenAddBooking = viewModel::openCalculatorSheet,
                                     onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
+                                    onSaveCategory = viewModel::saveCategoryTab,
                                     onNavigateToAnalytics = {
                                         viewModel.selectBottomTab(BottomNavTab.ANALYTICS)
                                     },
@@ -502,6 +502,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onSaveCategory = viewModel::saveCategoryTab,
                                     onDeleteCategory = viewModel::deleteCategoryTab,
                                     onUpdateSavingsGoal = viewModel::updateSavingsGoal,
+                                    onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                                     onRequestProFeature = { title ->
                                         viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
                                     }
