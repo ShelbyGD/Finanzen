@@ -197,7 +197,7 @@ fun InstallmentsTrackerSheet(
                             )
                         }
 
-                        // Zwei klare Buttons nebeneinander: "Ordner" und "Posten"
+                        // Zwei klare Buttons nebeneinander: "+ Ordner" und "+ Posten" (ohne störende kleine Icons)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -205,15 +205,9 @@ fun InstallmentsTrackerSheet(
                             OutlinedButton(
                                 onClick = { showCreateFolderDialog = true },
                                 shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.CreateNewFolder,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "Ordner", fontWeight = FontWeight.SemiBold)
+                                Text(text = "+ Ordner", fontWeight = FontWeight.SemiBold)
                             }
 
                             Button(
@@ -225,48 +219,81 @@ fun InstallmentsTrackerSheet(
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "Posten", fontWeight = FontWeight.Bold)
+                                Text(text = "+ Posten", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
+                    // Klare Abzugs-Logik: Urspr. Gesamt - Bereits bezahlt = Aktuell noch offen
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Offene Gesamtschuld",
-                                style = MaterialTheme.typography.labelMedium,
+                                text = "Urspr. Gesamtbetrag",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = SmartFinanceEngine.formatEuro(totalOriginalDebt),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1.1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Bereits bezahlt",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF1B873F)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "-${SmartFinanceEngine.formatEuro(totalPaidSoFar)}",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1B873F)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1.2f), horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "Aktuell noch offen",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (totalOpenDebt > 0.0) MaterialTheme.colorScheme.error else Color(0xFF1B873F)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = SmartFinanceEngine.formatEuro(totalOpenDebt),
-                                fontSize = 24.sp,
+                                fontSize = 19.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (totalOpenDebt > 0.0) MaterialTheme.colorScheme.error else Color(0xFF1B873F)
                             )
                         }
+                    }
 
-                        Column(horizontalAlignment = Alignment.End) {
+                    if (monthlyLoadActive > 0.0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "Laufende Raten diesen Monat",
-                                style = MaterialTheme.typography.labelMedium,
+                                text = "Laufende Raten diesen Monat:",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = if (monthlyLoadActive > 0.0) "-${SmartFinanceEngine.formatEuro(monthlyLoadActive)}" else "0,00 €",
-                                fontSize = 20.sp,
+                                text = "-${SmartFinanceEngine.formatEuro(monthlyLoadActive)}",
+                                style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (monthlyLoadActive > 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -451,10 +478,14 @@ fun InstallmentsTrackerSheet(
             initial = editingInstallment,
             availableFolders = allFolderNames,
             preselectedFolder = targetFolderForNewItem ?: allFolderNames.firstOrNull() ?: "Sonstiges",
-            onDismiss = { showAddEditDialog = false },
+            onDismiss = {
+                showAddEditDialog = false
+                editingInstallment = null
+            },
             onConfirm = { saved ->
                 onSaveInstallment(saved)
                 showAddEditDialog = false
+                editingInstallment = null
             }
         )
     }
@@ -1067,24 +1098,24 @@ private fun InstallmentEditDialog(
     val dtf = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
     val monthYearDtf = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.GERMAN) }
 
-    var title by remember { mutableStateOf(initial?.title ?: "") }
-    var selectedFolder by remember {
+    var title by remember(initial) { mutableStateOf(initial?.title ?: "") }
+    var selectedFolder by remember(initial, preselectedFolder) {
         mutableStateOf(initial?.folderName?.ifEmpty { preselectedFolder } ?: preselectedFolder)
     }
-    var totalAmountText by remember {
+    var totalAmountText by remember(initial) {
         mutableStateOf(if (initial != null && initial.totalAmount > 0.0) String.format(Locale.GERMAN, "%.2f", initial.totalAmount) else "")
     }
-    var monthlyRateText by remember {
+    var monthlyRateText by remember(initial) {
         mutableStateOf(if (initial != null && initial.monthlyRate > 0.0) String.format(Locale.GERMAN, "%.2f", initial.monthlyRate) else "")
     }
-    var startDateText by remember {
+    var startDateText by remember(initial) {
         val date = if (initial != null) LocalDate.ofEpochDay(initial.startEpochDay) else LocalDate.now()
         mutableStateOf(date.format(dtf))
     }
-    var extraPaidText by remember {
+    var extraPaidText by remember(initial) {
         mutableStateOf(if (initial != null && initial.extraPaidAmount > 0.0) String.format(Locale.GERMAN, "%.2f", initial.extraPaidAmount) else "")
     }
-    var deductFromBudget by remember {
+    var deductFromBudget by remember(initial) {
         mutableStateOf(initial?.deductFromBudget ?: true)
     }
 
@@ -1365,25 +1396,30 @@ private fun InstallmentEditDialog(
                     val folderNameClean = selectedFolder.trim().ifEmpty { "Sonstiges" }
 
                     isSubmitting = true
-                    val toSave = initial?.copy(
-                        title = trimmedTitle,
-                        totalAmount = totalAmount,
-                        monthlyRate = monthlyRate,
-                        startEpochDay = parsedStartDate.toEpochDay(),
-                        dueDayOfMonth = dueDay,
-                        extraPaidAmount = extraPaid,
-                        deductFromBudget = deductFromBudget,
-                        folderName = folderNameClean
-                    ) ?: InstallmentEntity(
-                        title = trimmedTitle,
-                        totalAmount = totalAmount,
-                        monthlyRate = monthlyRate,
-                        startEpochDay = parsedStartDate.toEpochDay(),
-                        dueDayOfMonth = dueDay,
-                        extraPaidAmount = extraPaid,
-                        deductFromBudget = deductFromBudget,
-                        folderName = folderNameClean
-                    )
+                    val toSave = if (initial != null && initial.id > 0L) {
+                        initial.copy(
+                            title = trimmedTitle,
+                            totalAmount = totalAmount,
+                            monthlyRate = monthlyRate,
+                            startEpochDay = parsedStartDate.toEpochDay(),
+                            dueDayOfMonth = dueDay,
+                            extraPaidAmount = extraPaid,
+                            deductFromBudget = deductFromBudget,
+                            folderName = folderNameClean
+                        )
+                    } else {
+                        InstallmentEntity(
+                            id = initial?.id ?: 0L,
+                            title = trimmedTitle,
+                            totalAmount = totalAmount,
+                            monthlyRate = monthlyRate,
+                            startEpochDay = parsedStartDate.toEpochDay(),
+                            dueDayOfMonth = dueDay,
+                            extraPaidAmount = extraPaid,
+                            deductFromBudget = deductFromBudget,
+                            folderName = folderNameClean
+                        )
+                    }
                     onConfirm(toSave)
                 }
             ) {

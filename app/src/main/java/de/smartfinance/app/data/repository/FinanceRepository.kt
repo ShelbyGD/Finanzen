@@ -349,12 +349,40 @@ class FinanceRepository(
         dao.insertQuickTemplate(template)
     }
 
+    suspend fun getAllInstallmentsOnce(): List<InstallmentEntity> = dao.getAllInstallmentsOnce()
+
     suspend fun saveInstallment(installment: InstallmentEntity): Long {
-        return if (installment.id == 0L) {
-            dao.insertInstallment(installment)
-        } else {
+        val all = dao.getAllInstallmentsOnce()
+        return if (installment.id > 0L) {
             dao.updateInstallment(installment)
             installment.id
+        } else {
+            val duplicate = all.find {
+                it.folderName.trim().equals(installment.folderName.trim(), ignoreCase = true) &&
+                it.title.trim().equals(installment.title.trim(), ignoreCase = true)
+            }
+            if (duplicate != null) {
+                val updated = installment.copy(id = duplicate.id)
+                dao.updateInstallment(updated)
+                duplicate.id
+            } else {
+                dao.insertInstallment(installment)
+            }
+        }
+    }
+
+    suspend fun cleanupDuplicateInstallments() {
+        val all = dao.getAllInstallmentsOnce()
+        val grouped = all.groupBy {
+            "${it.folderName.trim().lowercase()}_${it.title.trim().lowercase()}"
+        }
+        grouped.forEach { (_, items) ->
+            if (items.size > 1) {
+                val keeper = items.maxByOrNull { it.id } ?: items.first()
+                items.filter { it.id != keeper.id }.forEach { duplicate ->
+                    dao.deleteInstallment(duplicate)
+                }
+            }
         }
     }
 

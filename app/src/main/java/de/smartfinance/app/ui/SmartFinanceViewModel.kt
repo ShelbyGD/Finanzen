@@ -191,6 +191,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     init {
         viewModelScope.launch(Dispatchers.IO) {
             repository.ensureInitializedAndSyncRecurring()
+            repository.cleanupDuplicateInstallments()
         }
     }
 
@@ -242,6 +243,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     fun saveInstallment(installment: InstallmentEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.saveInstallment(installment)
+            repository.cleanupDuplicateInstallments()
             _snackbarMessage.value = "Ratenzahlung '${installment.title}' gespeichert."
         }
     }

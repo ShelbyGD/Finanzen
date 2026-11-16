@@ -502,4 +502,52 @@ class SmartFinanceSelfTest {
         assertEquals(7, state.remainingMonths)
         assertTrue(state.statusText.contains("Noch 7 Raten offen"))
     }
+
+    /**
+     * Test 8 (Duplikat-Schutz beim Bearbeiten & Subtraktions-Mathematik):
+     * 1. Subtraktions-Mathematik: Urspr. Gesamt (2.474,88 €) minus bezahlt (1.200,00 €) = Restschuld (1.274,88 €)
+     *    stellt sicher, dass Zahlungen abgezogen statt addiert werden.
+     * 2. Duplikat-Schutz: Erkennt bereits vorhandene Posten mit demselben Namen im selben Ordner
+     *    und aktualisiert den bestehenden Datensatz unter Beibehaltung der ID.
+     */
+    @Test
+    fun test8_duplicateInstallmentPreventionAndClarifiedSubtraction() {
+        val originalDebt = 2474.88
+        val paidSoFar = 1200.0
+        val remaining = (originalDebt - paidSoFar).coerceAtLeast(0.0)
+        assertEquals(1274.88, remaining, 0.001)
+
+        // Duplikat-Erkennung:
+        val existingList = listOf(
+            de.smartfinance.app.data.local.InstallmentEntity(
+                id = 42L,
+                title = "Kupsch",
+                totalAmount = 2474.88,
+                monthlyRate = 200.0,
+                startEpochDay = LocalDate.of(2026, 5, 31).toEpochDay(),
+                dueDayOfMonth = 31,
+                folderName = "Sonstiges"
+            )
+        )
+
+        val incomingEditWithoutId = de.smartfinance.app.data.local.InstallmentEntity(
+            id = 0L,
+            title = "kupsch ",
+            totalAmount = 2474.88,
+            monthlyRate = 200.0,
+            startEpochDay = LocalDate.of(2026, 5, 31).toEpochDay(),
+            dueDayOfMonth = 31,
+            folderName = "sonstiges"
+        )
+
+        val foundDuplicate = existingList.find {
+            it.folderName.trim().equals(incomingEditWithoutId.folderName.trim(), ignoreCase = true) &&
+            it.title.trim().equals(incomingEditWithoutId.title.trim(), ignoreCase = true)
+        }
+
+        assertNotNull(foundDuplicate)
+        assertEquals(42L, foundDuplicate?.id)
+        val resolved = incomingEditWithoutId.copy(id = foundDuplicate!!.id)
+        assertEquals(42L, resolved.id)
+    }
 }

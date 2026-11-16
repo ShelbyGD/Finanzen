@@ -361,11 +361,12 @@ object AppHelpRegistry {
             buildNumber = 16,
             date = "16.11.2026",
             newFeatures = listOf(
+                "Keine Duplikate beim Bearbeiten: Feste ID-Bindung und intelligenter Duplikat-Schutz (gleicher Name im selben Ordner überschreibt bestehenden Eintrag statt Duplikate anzulegen). Automatische Selbstbereinigung überzähliger Alt-Duplikate.",
+                "Glasklare Subtraktions-Logik in der Kopf-Kachel: 'Urspr. Gesamtbetrag' minus 'Bereits bezahlt / getilgt' (grün) ergibt unmissverständlich 'Aktuell noch offen' (Restbetrag).",
                 "Vollständiges Startdatum (TT.MM.JJJJ): Ersetzt das alte 'Fällig am (Tag)'-Feld durch ein vollwertiges Datumsfeld inklusive klickbarem Kalender-Icon (DatePickerDialog) und manueller Direkteingabe.",
                 "Rückwirkende Automatik-Berechnung: Vergangene Fälligkeitstage seit dem Startdatum werden exakt berechnet (inkl. automatischem Tag-31-Schutz für kürzere Monate), um bereits getilgte Raten sofort abzuziehen.",
-                "Live-Rechenbox im Dialog: Dynamische Vorschau direkt beim Ausfüllen ('Bereits getilgt', 'Aktuell noch offen', 'Voraussichtlich abbezahlt').",
-                "Übersichtliche 3-Zeilen-Karten in den Ordnern: Zeile 1 mit prominentem Restbetrag in Warnfarbe/Grün, Zeile 2 mit Startdatum und Monatsende-Hinweis, Zeile 3 mit Ratenzähler, Fortschrittsbalken und Aktions-Icons (Bearbeiten, Ablösen, Löschen).",
-                "Bereinigte Header-Buttons: Doppelter Plus-Text (+ + Posten) entfernt – klare Buttons 'Ordner' und 'Posten' mit Vector-Icons."
+                "Live-Rechenbox im Dialog & 3-Zeilen-Karten in den Ordnern: Dynamische Tilgungsvorschau im Dialog sowie aufgeräumte Karten mit prominentem Restbetrag und Schnell-Aktionen (Bearbeiten, Ablösen, Löschen).",
+                "Bereinigte Header-Buttons: Ordner-Icon vor '+ Ordner' entfernt – klare, bündige Buttons '+ Ordner' und '+ Posten'."
             )
         ),
         ChangelogEntry(
