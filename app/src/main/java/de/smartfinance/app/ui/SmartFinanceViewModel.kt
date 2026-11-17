@@ -552,6 +552,62 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    fun saveSavingsGoal(goal: SavingsGoalEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val toSave = if (goal.id == 0L && goal.startEpochDay == 0L) {
+                goal.copy(startEpochDay = LocalDate.now().withDayOfMonth(1).toEpochDay())
+            } else {
+                goal
+            }
+            repository.saveSavingsGoal(toSave)
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "Sparziel '${goal.title}' gespeichert."
+            }
+        }
+    }
+
+    fun deleteSavingsGoal(goal: SavingsGoalEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteSavingsGoal(goal)
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "Sparziel '${goal.title}' gelöscht."
+            }
+        }
+    }
+
+    fun addExtraSavingsBoostToGoal(goal: SavingsGoalEntity, amount: Double) {
+        val absAmount = kotlin.math.abs(amount)
+        if (absAmount <= 0.0) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedGoal = goal.copy(extraSavedAmount = goal.extraSavedAmount + absAmount)
+            repository.saveSavingsGoal(updatedGoal)
+
+            val savingsCat = categories.value.firstOrNull { it.categoryType == CategoryType.SAVINGS }
+                ?: categories.value.firstOrNull { it.name.contains("Sparen", ignoreCase = true) }
+                ?: categories.value.firstOrNull()
+
+            if (savingsCat != null) {
+                val today = LocalDate.now()
+                repository.addTransaction(
+                    TransactionEntity(
+                        title = "Spar-Einzahlung: ${goal.title}",
+                        amount = absAmount,
+                        transactionType = TransactionType.SAVINGS,
+                        categoryId = savingsCat.id,
+                        categoryName = savingsCat.name,
+                        dateEpochDay = today.toEpochDay(),
+                        dueDayOfMonth = today.dayOfMonth,
+                        note = "[goalId:${goal.id}] [icon:${goal.iconKey}]"
+                    )
+                )
+            }
+
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "Sonderzahlung +${SmartFinanceEngine.formatEuro(absAmount)} auf '${goal.title}' verbucht!"
+            }
+        }
+    }
+
     fun updateSavingsGoal(
         title: String,
         targetAmount: Double,
@@ -575,10 +631,11 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     targetAmount = targetAmount,
                     initialSavedAmount = initialSavedAmount,
                     monthlyContributionGoal = monthlyRate,
-                    dueDayOfMonth = dueDay.coerceIn(1, 31)
+                    dueDayOfMonth = dueDay.coerceIn(1, 31),
+                    startEpochDay = LocalDate.now().withDayOfMonth(1).toEpochDay()
                 )
             }
-            repository.updateSavingsGoal(updated)
+            repository.saveSavingsGoal(updated)
             withContext(Dispatchers.Main) {
                 _snackbarMessage.value = "Etappen-Sparziel aktualisiert."
             }

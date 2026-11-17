@@ -40,11 +40,15 @@ class FinanceRepository(
         if (existingGoals.isEmpty()) {
             dao.insertSavingsGoal(
                 SavingsGoalEntity(
-                    title = "Mein Sparziel",
-                    targetAmount = 0.0,
-                    initialSavedAmount = 0.0,
-                    monthlyContributionGoal = 0.0,
-                    dueDayOfMonth = 1
+                    title = "Tagesgeld-Notgroschen",
+                    targetAmount = 3000.0,
+                    initialSavedAmount = 500.0,
+                    monthlyContributionGoal = 150.0,
+                    dueDayOfMonth = 1,
+                    bankName = "BW-Bank",
+                    iconKey = "savings",
+                    colorHex = 0xFF06B6D4,
+                    startEpochDay = LocalDate.now().withDayOfMonth(1).toEpochDay()
                 )
             )
         }
@@ -338,12 +342,26 @@ class FinanceRepository(
         dao.deleteCategoryTab(tab)
     }
 
-    suspend fun updateSavingsGoal(goal: SavingsGoalEntity) {
-        if (goal.id == 0L) {
-            dao.insertSavingsGoal(goal)
+    suspend fun saveSavingsGoal(goal: SavingsGoalEntity): Long {
+        return if (goal.id == 0L) {
+            val toInsert = if (goal.startEpochDay == 0L) {
+                goal.copy(startEpochDay = LocalDate.now().withDayOfMonth(1).toEpochDay())
+            } else {
+                goal
+            }
+            dao.insertSavingsGoal(toInsert)
         } else {
             dao.updateSavingsGoal(goal)
+            goal.id
         }
+    }
+
+    suspend fun updateSavingsGoal(goal: SavingsGoalEntity) {
+        saveSavingsGoal(goal)
+    }
+
+    suspend fun deleteSavingsGoal(goal: SavingsGoalEntity) {
+        dao.deleteSavingsGoal(goal)
     }
 
     suspend fun addQuickTemplate(template: QuickTemplateEntity) {

@@ -80,6 +80,12 @@ interface SmartFinanceDao {
     @Update
     suspend fun updateSavingsGoal(goal: SavingsGoalEntity)
 
+    @Delete
+    suspend fun deleteSavingsGoal(goal: SavingsGoalEntity)
+
+    @Query("DELETE FROM savings_goals WHERE id = :id")
+    suspend fun deleteSavingsGoalById(id: Long)
+
     @Query("DELETE FROM savings_goals")
     suspend fun deleteAllSavingsGoals()
 

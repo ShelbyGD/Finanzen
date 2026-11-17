@@ -109,7 +109,12 @@ data class SavingsGoalEntity(
     val targetAmount: Double,
     val initialSavedAmount: Double,
     val monthlyContributionGoal: Double,
-    val dueDayOfMonth: Int = 1
+    val dueDayOfMonth: Int = 1,
+    val bankName: String = "",
+    val iconKey: String = "savings",
+    val colorHex: Long = 0xFF06B6D4,
+    val extraSavedAmount: Double = 0.0,
+    val startEpochDay: Long = 0L
 )
 
 /**

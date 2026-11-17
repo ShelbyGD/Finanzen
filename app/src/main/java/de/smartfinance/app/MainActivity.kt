@@ -503,24 +503,15 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             }
 
                             BottomNavTab.SAVINGS_BOOSTER -> {
-                                val savingsCategory = remember(categories) {
-                                    categories.firstOrNull { it.name.contains("Sparen", ignoreCase = true) }
-                                        ?: categories.firstOrNull()
-                                }
                                 SavingsBoosterTabScreen(
-                                    savingsProgress = currentSnapshot.savingsProgress,
+                                    savingsGoals = savingsGoals,
                                     allTransactions = allTransactions,
-                                    onUpdateSavingsGoal = viewModel::updateSavingsGoal,
-                                    onAddExtraSavingsBoost = { amount ->
-                                        savingsCategory?.let { cat ->
-                                            viewModel.addBooking(
-                                                title = "Extra-Sparbooster Einzahlung",
-                                                amount = amount,
-                                                transactionType = TransactionType.SAVINGS,
-                                                category = cat,
-                                                dueDayOfMonth = java.time.LocalDate.now().dayOfMonth
-                                            )
-                                        }
+                                    categories = categories,
+                                    savingsProgress = currentSnapshot.savingsProgress,
+                                    onSaveSavingsGoal = viewModel::saveSavingsGoal,
+                                    onDeleteSavingsGoal = viewModel::deleteSavingsGoal,
+                                    onAddExtraSavingsBoost = { goal, amount ->
+                                        viewModel.addExtraSavingsBoostToGoal(goal, amount)
                                     },
                                     onOpenHelpId = viewModel::openHelpCardById
                                 )

@@ -213,19 +213,22 @@ object AppHelpRegistry {
         HelpEntry(
             id = ID_SAVINGS_GOAL_TRACKER,
             moduleNumber = 7,
-            title = "7. Sparbooster: Etappen-Sparziel-Tracker & Dauer-Sparraten",
+            title = "7. Sparbooster: Mehrere flexible Sparziele, Bank-Optionen & Sofort-Einzahlungen",
             category = "Sparen & Vermögensaufbau",
-            shortSummary = "Eigener 'Sparbooster'-Tab in der unteren Navigationsleiste für dein individuelles Etappen-Sparziel (Start bei 0,00 €) inklusive KI-Berechnung des Zieldatums.",
+            shortSummary = "Vollflexibler 'Sparbooster'-Tab mit Summen-Kopfzeile, beliebig vielen individuellen Sparzielen inkl. Bank/Speicherort, Bearbeiten, Löschen und zielgenauen 1-Tap Einzahlungen.",
             stepByStepGuide = listOf(
-                "Wechsle über die untere 5er-Navigationsleiste in den Tab 'Sparbooster'.",
-                "Tippe auf 'Sparziel anpassen', um deinen eigenen Zielbetrag, deinen aktuellen Startbestand und deine monatliche Dauer-Sparrate einzutragen.",
-                "Nutze die 1-Tap-Sparbooster-Buttons (+25 €, +50 €, +100 €), um spontan zusätzliches Geld auf dein Etappen-Ziel einzuzahlen."
+                "Wechsle über die untere Navigationsleiste in den Tab 'Sparbooster'.",
+                "Tippe oben auf '+ Neues Sparziel', um ein individuelles Ziel mit Name, Bank/Speicherort (z. B. BW-Bank, WeltSparen), Zielbetrag, Startkapital, monatlicher Sparrate und Wunschfarbe anzulegen.",
+                "Jede Spar-Karte kann direkt per Stift-Icon bearbeitet und per Papierkorb gelöscht werden.",
+                "Nutze die 1-Tap Schnell-Einzahlungen (+25 €, +50 €, +100 € oder individueller Betrag) direkt auf der jeweiligen Karte, um genau diesem Ziel Geld gutzuschreiben.",
+                "Die Summen-Kopfzeile ganz oben zeigt stets dein gesamtes Erspartes sowie deine monatliche Gesamt-Sparrate über alle Konten hinweg."
             ),
             exampleTips = listOf(
-                "Alle Sparziel-Werte starten standardmäßig sauber bei 0,00 € und werden sofort nach deiner Eingabe berechnet."
+                "Dank automatischer Monatswachstums-Berechnung wächst dein Erspartes monatlich passend zum gewählten Spar-Tag ohne manuellen Aufwand.",
+                "Alle Sparziele werden dauerhaft lokal in deiner sicheren Room-Datenbank gespeichert."
             ),
             requiredTier = AppTier.LITE_FREE,
-            addedInVersion = "1.0.1"
+            addedInVersion = "1.2.2"
         ),
         HelpEntry(
             id = ID_HYBRID_AI_CHAT,
@@ -360,6 +363,17 @@ object AppHelpRegistry {
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.3.6",
+            buildNumber = 18,
+            date = "17.11.2026",
+            newFeatures = listOf(
+                "Vollflexibler Sparbooster mit Mehr-Karten-Verwaltung: Lege beliebig viele individuelle Sparziele mit Titel, Bank/Speicherort (z. B. BW-Bank, WeltSparen), Zielbetrag, Startkapital, monatlicher Sparrate und Wunschfarbe an.",
+                "Karten-Aktionen & Zielgenaue Einzahlungen: Jede Karte verfügt über Bearbeiten- und Löschen-Aktionen sowie direkte Sofort-Einzahlungs-Buttons (+25 €, +50 €, +100 € oder freier Betrag), die dem Ziel live gutgeschrieben werden.",
+                "Summen-Kopfzeile: Sofortiger Überblick über die Gesamtsumme aller Ersparnisse und die monatliche Gesamtrate über alle Sparziele hinweg.",
+                "Automatischer Monatszuwachs: Fällige monatliche Sparraten fließen stichtagsgenau in den Fortschrittsbalken und die Berechnung ein."
+            )
+        ),
         ChangelogEntry(
             versionName = "1.3.5",
             buildNumber = 17,

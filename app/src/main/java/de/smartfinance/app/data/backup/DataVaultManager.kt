@@ -106,6 +106,11 @@ class DataVaultManager(
                     put("initialSavedAmount", g.initialSavedAmount)
                     put("monthlyContributionGoal", g.monthlyContributionGoal)
                     put("dueDayOfMonth", g.dueDayOfMonth)
+                    put("bankName", g.bankName)
+                    put("iconKey", g.iconKey)
+                    put("colorHex", g.colorHex)
+                    put("extraSavedAmount", g.extraSavedAmount)
+                    put("startEpochDay", g.startEpochDay)
                 }
             )
         }
@@ -205,7 +210,12 @@ class DataVaultManager(
                         targetAmount = obj.getDouble("targetAmount"),
                         initialSavedAmount = obj.optDouble("initialSavedAmount", 0.0),
                         monthlyContributionGoal = obj.optDouble("monthlyContributionGoal", 100.0),
-                        dueDayOfMonth = obj.optInt("dueDayOfMonth", 1)
+                        dueDayOfMonth = obj.optInt("dueDayOfMonth", 1),
+                        bankName = obj.optString("bankName", ""),
+                        iconKey = obj.optString("iconKey", "savings"),
+                        colorHex = obj.optLong("colorHex", 0xFF06B6D4),
+                        extraSavedAmount = obj.optDouble("extraSavedAmount", 0.0),
+                        startEpochDay = obj.optLong("startEpochDay", 0L)
                     )
                 )
             }

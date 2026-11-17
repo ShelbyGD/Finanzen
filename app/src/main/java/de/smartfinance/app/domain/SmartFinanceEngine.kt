@@ -160,6 +160,7 @@ data class DashboardAnalysisSnapshot(
     val radarAlerts: List<RadarAnomalyAlert>,
     val contractAlerts: List<ContractExpiryAlert>,
     val savingsProgress: SavingsGoalProgress?,
+    val savingsProgressList: List<SavingsGoalProgress> = emptyList(),
     val categoryTotalsThisMonth: Map<Long, Double>,
     val categoryHistoricalAvg3M: Map<Long, Double>,
     val timeRangeMode: TimeRangeMode = TimeRangeMode.MONTH,
@@ -271,6 +272,43 @@ object SmartFinanceEngine {
             progressFraction = progressFraction,
             isFullyPaid = isFullyPaid,
             statusText = statusText
+        )
+    }
+
+    fun calculateSavingsGoalProgress(
+        goal: SavingsGoalEntity,
+        today: LocalDate = LocalDate.now()
+    ): SavingsGoalProgress {
+        val startDate = if (goal.startEpochDay > 0L) LocalDate.ofEpochDay(goal.startEpochDay) else today.withDayOfMonth(1)
+        val monthsPassed = calculateMonthsPassed(startDate, goal.dueDayOfMonth, today)
+        val autoMonthlySavings = monthsPassed * goal.monthlyContributionGoal
+        val totalSaved = goal.initialSavedAmount + autoMonthlySavings + goal.extraSavedAmount
+        val remaining = (goal.targetAmount - totalSaved).coerceAtLeast(0.0)
+        val fraction = if (goal.targetAmount > 0.0) {
+            (totalSaved / goal.targetAmount).toFloat().coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+        val effectiveRate = if (goal.monthlyContributionGoal > 0.0) goal.monthlyContributionGoal else 50.0
+        val monthsLeft = if (remaining <= 0.0 || goal.monthlyContributionGoal <= 0.0) 0 else ceil(remaining / effectiveRate).toInt()
+        val currentYm = YearMonth.from(today)
+        val targetYm = currentYm.plusMonths(monthsLeft.toLong())
+        val completionText = if (remaining <= 0.0) {
+            "Etappen-Sparziel vollständig erreicht!"
+        } else if (goal.monthlyContributionGoal <= 0.0) {
+            "Sparrate pausiert"
+        } else {
+            "Zieldatum: ${targetYm.format(germanMonthFormatter).replaceFirstChar { it.uppercase() }} (in $monthsLeft ${if (monthsLeft == 1) "Monat" else "Monaten"})"
+        }
+        return SavingsGoalProgress(
+            goal = goal,
+            totalSaved = totalSaved,
+            targetAmount = goal.targetAmount,
+            progressFraction = fraction,
+            remainingAmount = remaining,
+            effectiveMonthlyRate = goal.monthlyContributionGoal,
+            estimatedMonthsRemaining = monthsLeft,
+            estimatedCompletionText = completionText
         )
     }
 
@@ -482,36 +520,8 @@ object SmartFinanceEngine {
         val radarAlerts = computeRadarAnomalies(categories, categoryTotalsThisMonth, categoryHistoricalAvg3M)
         val contractAlerts = computeContractExpiryAlerts(categories, today)
 
-        val savingsProgress = savingsGoals.firstOrNull()?.let { goal ->
-            val allSavingsTxSum = allTransactions
-                .filter { it.transactionType == TransactionType.SAVINGS }
-                .sumOf { it.amount }
-            val totalSaved = goal.initialSavedAmount + allSavingsTxSum
-            val remaining = (goal.targetAmount - totalSaved).coerceAtLeast(0.0)
-            val fraction = if (goal.targetAmount > 0.0) {
-                (totalSaved / goal.targetAmount).toFloat().coerceIn(0f, 1f)
-            } else {
-                1f
-            }
-            val effectiveRate = max(goal.monthlyContributionGoal, 50.0)
-            val monthsLeft = if (remaining <= 0.0) 0 else ceil(remaining / effectiveRate).toInt()
-            val targetYm = currentYm.plusMonths(monthsLeft.toLong())
-            val completionText = if (monthsLeft == 0) {
-                "Etappen-Sparziel vollständig erreicht!"
-            } else {
-                "Zieldatum: ${targetYm.format(germanMonthFormatter).replaceFirstChar { it.uppercase() }} (in $monthsLeft ${if (monthsLeft == 1) "Monat" else "Monaten"})"
-            }
-            SavingsGoalProgress(
-                goal = goal,
-                totalSaved = totalSaved,
-                targetAmount = goal.targetAmount,
-                progressFraction = fraction,
-                remainingAmount = remaining,
-                effectiveMonthlyRate = goal.monthlyContributionGoal,
-                estimatedMonthsRemaining = monthsLeft,
-                estimatedCompletionText = completionText
-            )
-        }
+        val savingsProgressList = savingsGoals.map { calculateSavingsGoalProgress(it, today) }
+        val savingsProgress = savingsProgressList.firstOrNull()
 
         val rawMonthTitle = selectedYearMonth.format(germanMonthFormatter)
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.GERMAN) else it.toString() }
@@ -560,6 +570,7 @@ object SmartFinanceEngine {
             radarAlerts = radarAlerts,
             contractAlerts = contractAlerts,
             savingsProgress = savingsProgress,
+            savingsProgressList = savingsProgressList,
             categoryTotalsThisMonth = categoryTotalsThisMonth,
             categoryHistoricalAvg3M = categoryHistoricalAvg3M,
             timeRangeMode = TimeRangeMode.MONTH,
