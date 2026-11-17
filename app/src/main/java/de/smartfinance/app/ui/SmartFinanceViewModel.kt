@@ -58,7 +58,6 @@ import java.time.format.DateTimeFormatter
  */
 enum class BottomNavTab(val label: String) {
     OVERVIEW("Übersicht"),
-    CONTRACTS("Verträge"),
     AI_COACH("KI-Coach"),
     SAVINGS_BOOSTER("Sparbooster")
 }

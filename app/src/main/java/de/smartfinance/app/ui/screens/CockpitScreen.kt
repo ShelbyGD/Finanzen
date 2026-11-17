@@ -514,23 +514,12 @@ private fun VioletHeroBudgetCard(
                             .clip(RoundedCornerShape(4.dp))
                     )
 
-                    Text(
-                        text = "Fixkosten/Verträge: -${SmartFinanceEngine.formatEuro(snapshot.fixedCostsTotal)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White.copy(alpha = 0.90f)
-                    )
-                    Text(
-                        text = "Ausgaben: -${SmartFinanceEngine.formatEuro(snapshot.additionalExpensesTotal)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White.copy(alpha = 0.90f)
-                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Column {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -551,6 +540,14 @@ private fun VioletHeroBudgetCard(
                                 tint = HeroTurquoiseAccent,
                                 modifier = Modifier.size(13.dp)
                             )
+                        }
+                        Text(
+                            text = "Ausgaben: -${SmartFinanceEngine.formatEuro(snapshot.additionalExpensesTotal)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.90f),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
                         }
                         Text(
                             text = "Heute frei: ${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag",

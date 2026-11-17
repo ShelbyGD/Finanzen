@@ -388,21 +388,15 @@ object SmartFinanceEngine {
             .filter { !it.isFullyPaid && it.installment.deductFromBudget && isInstallmentRateActive(it.installment, today) }
             .sumOf { it.installment.monthlyRate }
 
-        val totalCommittedFixedAndSavings =
-            bookedFixedExpenses + openUpcomingFixedTotal + smoothedMonthlyReserveTotal + max(bookedSavings, plannedSavings) + activeInstallmentsRateTotal
-
-        val totalDisposableMonthBudget = effectiveIncome - totalCommittedFixedAndSavings
+        // Ehrliche, direkte Rechnung: nur echte Buchungen der Liste + aktive Raten (keine Geister-Fixkosten)
+        val totalExpensesDirect = monthTransactions
+            .filter { !it.isIncome }
+            .sumOf { abs(it.amount) } + activeInstallmentsRateTotal
+        val totalDisposableMonthBudget = effectiveIncome - totalExpensesDirect
         val baseDailyBudget = totalDisposableMonthBudget / totalDaysInMonth.toDouble()
-
-        val totalExpensesBooked = nonSmoothedExpenses + smoothedMonthlyReserveTotal + bookedSavings
-        val remainingFreeBudgetMonth = if (isFutureMonth) {
-            totalDisposableMonthBudget
-        } else {
-            effectiveIncome - totalExpensesBooked - openUpcomingFixedTotal - activeInstallmentsRateTotal
-        }
-
-        val fixedCostsDisplay = bookedFixedExpenses + openUpcomingFixedTotal + smoothedMonthlyReserveTotal + activeInstallmentsRateTotal
-        val additionalExpensesDisplay = effectiveIncome - fixedCostsDisplay - remainingFreeBudgetMonth
+        val remainingFreeBudgetMonth = totalDisposableMonthBudget
+        val fixedCostsDisplay = 0.0
+        val additionalExpensesDisplay = totalExpensesDirect
 
         val dynamicDailyBudgetToday = (remainingFreeBudgetMonth / remainingDaysInMonth.toDouble()).coerceAtLeast(0.0)
         val rolloverDeltaPerDay = dynamicDailyBudgetToday - baseDailyBudget

@@ -21,6 +21,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
@@ -88,6 +93,8 @@ fun CalculatorNumpadSheet(
     onParseVoiceCommand: suspend (String) -> VoiceParseResult,
     onBookVoiceProposals: (List<VoiceBookingProposal>) -> Unit,
     onRequestProFeature: (String) -> Unit,
+    onSaveCategory: (CategoryTabEntity) -> Unit = {},
+    onDeleteCategory: (CategoryTabEntity) -> Unit = {},
     onConfirmBooking: (
         title: String,
         amount: Double,
@@ -150,6 +157,9 @@ fun CalculatorNumpadSheet(
                 ?: categories.firstOrNull()
         }
     }
+    var showCategoryNameDialog by remember { mutableStateOf(false) }
+    var showManageCategoriesDialog by remember { mutableStateOf(false) }
+    var categoryDialogTarget by remember { mutableStateOf<CategoryTabEntity?>(null) }
     var selectedCategory by remember(defaultCategory) { mutableStateOf(defaultCategory) }
     var isFixedRecurring by remember(selectedCategory) {
         mutableStateOf(selectedCategory?.categoryType == CategoryType.FIXED_EXPENSE)
@@ -160,6 +170,76 @@ fun CalculatorNumpadSheet(
     var smoothOver12Months by remember { mutableStateOf(false) }
 
     val evaluatedAmount = remember(expression) { evaluateCalculatorExpression(expression) }
+
+    if (showCategoryNameDialog) {
+        var nameInput by remember(categoryDialogTarget) { mutableStateOf(categoryDialogTarget?.name ?: "") }
+        AlertDialog(
+            onDismissRequest = { showCategoryNameDialog = false },
+            title = { Text(if (categoryDialogTarget == null) "Eigene Kategorie anlegen" else "Kategorie umbenennen") },
+            text = {
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    label = { Text("Name (z. B. Tanken, Bäcker, Strom)") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = nameInput.trim().isNotEmpty(),
+                    onClick = {
+                        val clean = nameInput.trim()
+                        val target = categoryDialogTarget
+                        if (target != null) {
+                            onSaveCategory(target.copy(name = clean))
+                        } else if (categories.none { it.name.equals(clean, ignoreCase = true) }) {
+                            onSaveCategory(
+                                CategoryTabEntity(
+                                    name = clean,
+                                    iconKey = if (isExpenseSelected) "cart" else "income",
+                                    colorHex = 0xFF6366F1,
+                                    categoryType = if (isExpenseSelected) CategoryType.VARIABLE_EXPENSE else CategoryType.INCOME
+                                )
+                            )
+                        }
+                        showCategoryNameDialog = false
+                    }
+                ) { Text("Speichern") }
+            },
+            dismissButton = { TextButton(onClick = { showCategoryNameDialog = false }) { Text("Abbrechen") } }
+        )
+    }
+
+    if (showManageCategoriesDialog) {
+        AlertDialog(
+            onDismissRequest = { showManageCategoriesDialog = false },
+            title = { Text("Kategorien verwalten") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    displayedCategories.forEach { cat ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(cat.name, modifier = Modifier.weight(1f))
+                            IconButton(onClick = {
+                                categoryDialogTarget = cat
+                                showCategoryNameDialog = true
+                            }) { Icon(Icons.Default.Edit, contentDescription = "Umbenennen") }
+                            IconButton(onClick = {
+                                if (selectedCategory?.id == cat.id) selectedCategory = null
+                                onDeleteCategory(cat)
+                            }) { Icon(Icons.Default.Delete, contentDescription = "Löschen") }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showManageCategoriesDialog = false }) { Text("Fertig") } }
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -534,6 +614,18 @@ fun CalculatorNumpadSheet(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                FilterChip(
+                    selected = false,
+                    onClick = { categoryDialogTarget = null; showCategoryNameDialog = true },
+                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    label = { Text("+ Eigene Kategorie") }
+                )
+                FilterChip(
+                    selected = false,
+                    onClick = { showManageCategoriesDialog = true },
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    label = { Text("Verwalten") }
+                )
                 displayedCategories.forEach { cat ->
                     FilterChip(
                         selected = selectedCategory?.id == cat.id,

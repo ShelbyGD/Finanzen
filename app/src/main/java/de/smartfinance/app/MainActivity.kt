@@ -89,7 +89,6 @@ import de.smartfinance.app.ui.components.NotificationsBottomSheet
 import de.smartfinance.app.ui.components.ProFeatureLockedDialog
 import de.smartfinance.app.ui.components.ReceiptScannerSheet
 import de.smartfinance.app.ui.components.TransactionActionBottomSheet
-import de.smartfinance.app.ui.screens.CategoriesContractsScreen
 import de.smartfinance.app.ui.screens.CockpitScreen
 import de.smartfinance.app.ui.screens.DataVaultScreen
 import de.smartfinance.app.ui.screens.HelpChangelogScreen
@@ -398,7 +397,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             val isSelected = currentDestination == DrawerDestination.COCKPIT && selectedBottomTab == tab
                             val icon = when (tab) {
                                 BottomNavTab.OVERVIEW -> Icons.Outlined.Home
-                                BottomNavTab.CONTRACTS -> Icons.Outlined.Description
                                 BottomNavTab.AI_COACH -> Icons.Outlined.AutoAwesome
                                 BottomNavTab.SAVINGS_BOOSTER -> Icons.Outlined.Savings
                             }
@@ -483,24 +481,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                                     onSaveCategory = viewModel::saveCategoryTab,
                                     onNavigateToAnalytics = {},
-                                    onNavigateToContracts = {
-                                        viewModel.selectBottomTab(BottomNavTab.CONTRACTS)
-                                    }
-                                )
-                            }
-
-                            BottomNavTab.CONTRACTS -> {
-                                CategoriesContractsScreen(
-                                    categories = categories,
-                                    savingsProgress = currentSnapshot.savingsProgress,
-                                    activeTier = activeTier,
-                                    onSaveCategory = viewModel::saveCategoryTab,
-                                    onDeleteCategory = viewModel::deleteCategoryTab,
-                                    onUpdateSavingsGoal = viewModel::updateSavingsGoal,
-                                    onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
-                                    onRequestProFeature = { title ->
-                                        viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
-                                    }
+                                    onNavigateToContracts = {}
                                 )
                             }
 
@@ -623,6 +604,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             onRequestProFeature = { title ->
                 viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
             },
+            onSaveCategory = viewModel::saveCategoryTab,
+            onDeleteCategory = viewModel::deleteCategoryTab,
             onConfirmBooking = { title, amount, txType, category, dueDay, isFixed, interval, smooth12 ->
                 viewModel.addBooking(
                     title = title,
@@ -707,7 +690,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             },
             onOpenContractsTab = {
                 viewModel.closeNotificationsSheet()
-                viewModel.selectBottomTab(BottomNavTab.CONTRACTS)
+                viewModel.selectBottomTab(BottomNavTab.OVERVIEW)
             },
             onDismiss = viewModel::closeNotificationsSheet
         )

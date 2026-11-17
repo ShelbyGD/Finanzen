@@ -601,7 +601,7 @@ class SmartFinanceSelfTest {
         assertEquals(2500.0, snap.remainingFreeBudgetMonth, 0.001)
     }
 
-    /** Vertrag (Kfz 45,33 €) + zugehörige Buchung dürfen nur 1x abgezogen werden, unabhängig vom Betrag/Flag der Buchung. */
+    /** Direkte Rechnung: nur echte Buchungen zählen. Vertrag ohne Buchung zieht nichts ab, mit Buchung genau 1x. */
     @Test
     fun testC_contractNeverDeductedTwice() {
         val today = LocalDate.of(2026, 11, 16)
@@ -616,8 +616,8 @@ class SmartFinanceSelfTest {
             dueDayOfMonth = 20, billingInterval = BillingInterval.MONTHLY
         )
         val cats = listOf(income, kfz)
-        fun analyze(txs: List<TransactionEntity>) = SmartFinanceEngine.analyzeMonth(
-            selectedYearMonth = YearMonth.from(today), today = today, billingStartDay = 15,
+        fun analyze(txs: List<TransactionEntity>, billingDay: Int = 1) = SmartFinanceEngine.analyzeMonth(
+            selectedYearMonth = YearMonth.from(today), today = today, billingStartDay = billingDay,
             avgWindowMonths = 3, categories = cats, allTransactions = txs,
             savingsGoals = emptyList(), installments = emptyList()
         )
@@ -626,26 +626,45 @@ class SmartFinanceSelfTest {
             id = 1L, title = "Gehalt", amount = 2000.0, transactionType = TransactionType.INCOME,
             categoryId = 1L, categoryName = "Gehalt", dateEpochDay = epoch
         )
-        // Nur Vertrag, keine Buchung: 1x abgezogen
-        assertEquals(2000.0 - 45.33, analyze(listOf(salary)).remainingFreeBudgetMonth, 0.01)
-        // Zusätzliche Buchung desselben Vertrags (anderer Flag): weiterhin nur 1x
+        // Keine Geister-Fixkosten: Vertrag ohne Buchung zieht nichts ab
+        assertEquals(2000.0, analyze(listOf(salary)).remainingFreeBudgetMonth, 0.001)
         val kfzTx = TransactionEntity(
             id = 2L, title = "Kfz", amount = -45.33, categoryId = 2L,
             categoryName = "Kfz-Versicherung", dateEpochDay = epoch
         )
         val snap = analyze(listOf(salary, kfzTx))
-        assertEquals(2000.0 - 45.33, snap.remainingFreeBudgetMonth, 0.01)
-        // Transparente Formel: Verfügbar = Einnahmen - Fixkosten - Ausgaben
-        assertEquals(
-            2000.0 - snap.fixedCostsTotal - snap.additionalExpensesTotal,
-            snap.remainingFreeBudgetMonth, 0.001
+        assertEquals(2000.0 - 45.33, snap.remainingFreeBudgetMonth, 0.001)
+        assertEquals(45.33, snap.additionalExpensesTotal, 0.001)
+        assertEquals(snap.remainingFreeBudgetMonth, analyze(listOf(salary, kfzTx), 15).remainingFreeBudgetMonth, 0.001)
+    }
+
+    /** Beispiel: 2.154,67 € Einnahmen, Ausgaben 31,01 + 45,33 + 100 + 37,98 = 214,32 € -> 1.940,35 € verfügbar. */
+    @Test
+    fun testD_directMath_available_equals_income_minus_expenses() {
+        val today = LocalDate.of(2026, 11, 16)
+        val income = CategoryTabEntity(
+            id = 1L, name = "Gehalt", iconKey = "income", colorHex = 0xFF10B981,
+            categoryType = CategoryType.INCOME, defaultAmount = 2154.67,
+            billingInterval = BillingInterval.MONTHLY
         )
-        // Abrechnungstag darf das Ergebnis nicht mehr verändern
-        val snap1 = SmartFinanceEngine.analyzeMonth(
+        val exp = CategoryTabEntity(
+            id = 2L, name = "Sonstiges", iconKey = "cart", colorHex = 0xFFEF4444,
+            categoryType = CategoryType.VARIABLE_EXPENSE
+        )
+        val epoch = LocalDate.of(2026, 11, 15).toEpochDay()
+        val txs = listOf(
+            TransactionEntity(id = 1L, title = "Gehalt", amount = 2154.67, transactionType = TransactionType.INCOME,
+                categoryId = 1L, categoryName = "Gehalt", dateEpochDay = epoch)
+        ) + listOf(31.01, 45.33, 100.0, 37.98).mapIndexed { i, a ->
+            TransactionEntity(id = 10L + i, title = "Ausgabe $i", amount = -a, categoryId = 2L,
+                categoryName = "Sonstiges", dateEpochDay = epoch)
+        }
+        val snap = SmartFinanceEngine.analyzeMonth(
             selectedYearMonth = YearMonth.from(today), today = today, billingStartDay = 1,
-            avgWindowMonths = 3, categories = cats, allTransactions = listOf(salary, kfzTx),
+            avgWindowMonths = 3, categories = listOf(income, exp), allTransactions = txs,
             savingsGoals = emptyList(), installments = emptyList()
         )
-        assertEquals(snap1.remainingFreeBudgetMonth, snap.remainingFreeBudgetMonth, 0.001)
+        assertEquals(214.32, snap.additionalExpensesTotal, 0.001)
+        assertEquals(1940.35, snap.remainingFreeBudgetMonth, 0.001)
     }
 }

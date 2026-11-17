@@ -74,6 +74,7 @@ object AppHelpRegistry {
                 "Ordner lassen sich per Fingertipp auf- und zuklappen und über das Stift- bzw. Mülleimer-Icon umbenennen oder löschen.",
                 "Über 'Auf Stichtags-Automatik zurücksetzen' stellt man manuell abgehakte Raten mit einem Tap auf die automatische Kalender-Erkennung zurück.",
                 "Rate 0 € = Offener Posten (Ratenstart noch offen). Mit \"Ratenzahlung planen / später starten\" setzt du Rate und zukünftiges Startdatum; vor dem Startmonat wird nichts vom Budget abgezogen. Maximal 120 Raten werden berechnet.",
+                "Vereinfachung: Unten gibt es nur noch 3 Reiter (Übersicht, KI-Coach, Sparbooster). Verfügbar = Einnahmen - Ausgaben (alle Buchungen in 'Letzte Buchungen' plus aktive Raten). Im '+'-Menü legst du mit '+ Eigene Kategorie' eigene Kategorien an und löschst oder benennst sie über 'Verwalten' um.",
                 "Berechnung: Verfügbar = Einnahmen - Fixkosten/Verträge - Ausgaben (Hero-Karte zeigt alle drei Zeilen). Verträge werden pro Monat nur 1x abgezogen, auch wenn eine passende Buchung existiert. Der Abrechnungs-Starttag ist entfernt; es zählt immer der volle Kalendermonat.",
                 "Navigation verschlankt: 4 Reiter unten (Übersicht, Verträge, KI-Coach, Sparbooster); der tote Menüpunkt 'Kategorien, Sparziele & Verträge' und der Tab 'Analysen' sind entfernt. Jeder Vertrag hat ein Papierkorb-Icon mit Löschbestätigung.",
                 "Auf der Startseite ('Übersicht') ist die Raten-Summenkarte ebenfalls einklappbar.",
