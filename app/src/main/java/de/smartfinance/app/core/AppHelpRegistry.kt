@@ -3,7 +3,7 @@ package de.smartfinance.app.core
 import de.smartfinance.app.BuildConfig
 
 /**
- * Zentrale Hilfe-, Feature- & Changelog-Datenbank ("Single Source of Truth") für SmartFinance 2026.
+ * Zentrale Hilfe-, Feature- & Changelog-Datenbank ("Single Source of Truth") für NovaFinance.
  *
  * WICHTIGE PFLICHT-REGEL FÜR ZUKÜNFTIGE UPDATES:
  * "Jedes Mal, wenn in einem zukünftigen Update eine neue Funktion hinzugefügt oder geändert wird,
@@ -201,7 +201,7 @@ object AppHelpRegistry {
             shortSummary = "Legt jährliche oder vierteljährliche Großrechnungen (z. B. Kfz-Versicherung) virtuell auf 12 Monate um – einsehbar in den Tabs 'Verträge' und 'Analysen'.",
             stepByStepGuide = listOf(
                 "Aktiviere beim Anlegen einer Buchung oder eines Vertrags den Schalter 'Auf 12 Monate glätten (1/12-Rücklage)'.",
-                "SmartFinance zieht jeden Monat automatisch exakt 1/12 (bei Jahreszahlung) bzw. 1/3 (bei Quartalszahlung) als virtuelle Rücklage von deinem freien Budget ab.",
+                "NovaFinance zieht jeden Monat automatisch exakt 1/12 (bei Jahreszahlung) bzw. 1/3 (bei Quartalszahlung) als virtuelle Rücklage von deinem freien Budget ab.",
                 "In den Tabs 'Verträge' und 'Analysen' siehst du jederzeit transparent die monatlich reservierte 1/12-Rücklage."
             ),
             exampleTips = listOf(
@@ -363,6 +363,17 @@ object AppHelpRegistry {
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.3.7",
+            buildNumber = 19,
+            date = "17.11.2026",
+            newFeatures = listOf(
+                "Offizielles Rebranding in 'NovaFinance': Zeitloser, moderner Markenauftritt ohne Jahreszahl in der gesamten App, im Android-Manifest und im Menü.",
+                "Neues Material 3 Expressive Icon: Dynamische Schild-Form mit Violett/Smaragdgrün-Elementen und Sicherheits-Grid im modernen M3-Squircle-Design.",
+                "UI-Cleanup im Sparbooster: Untere Historien-Liste restlos entfernt – der Tab endet nun clean nach der letzten Sparziel-Karte.",
+                "Bereinigter Sparziel-Button: Überflüssiges doppeltes Plus entfernt für einen sauberen Button '+ Neues Sparziel anlegen'."
+            )
+        ),
         ChangelogEntry(
             versionName = "1.3.6",
             buildNumber = 18,

@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.sp
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.SavingsGoalEntity
 import de.smartfinance.app.data.local.TransactionEntity
-import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.domain.SavingsGoalProgress
 import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.ui.theme.BudgetRingGreen
@@ -123,12 +122,6 @@ fun SavingsBoosterTabScreen(
         (totalSavedSum / totalTargetSum).toFloat().coerceIn(0f, 1f)
     } else {
         1f
-    }
-
-    val savingsBookings = remember(allTransactions) {
-        allTransactions
-            .filter { it.transactionType == TransactionType.SAVINGS }
-            .sortedByDescending { it.dateEpochDay }
     }
 
     var goalToEdit by remember { mutableStateOf<SavingsGoalEntity?>(null) }
@@ -247,7 +240,7 @@ fun SavingsBoosterTabScreen(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("+ Neues Sparziel anlegen", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("Neues Sparziel anlegen", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
 
@@ -456,94 +449,6 @@ fun SavingsBoosterTabScreen(
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Text("+ ...", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 4. Gruppierte Liste der Spar-Buchungen
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Gebuchte Spar-Einzahlungen",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (savingsBookings.isEmpty()) {
-                        Text(
-                            text = "Noch keine Spar-Buchungen vorhanden – nutze oben die '+25 € / +50 € / +100 €'-Buttons, um Geld zurückzulegen.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(18.dp)
-                        )
-                    } else {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            val visibleSavings = savingsBookings.take(20)
-                            val savingsAccent = CategoryIconCatalog.accentColorFor("savings", "Sparen")
-                            visibleSavings.forEachIndexed { idx, tx ->
-                                val dateStr = LocalDate.ofEpochDay(tx.dateEpochDay)
-                                    .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 13.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = savingsAccent.copy(alpha = 0.15f),
-                                            modifier = Modifier.size(38.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.Savings,
-                                                    contentDescription = null,
-                                                    tint = savingsAccent,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
-                                            Text(
-                                                text = tx.title,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Text(
-                                                text = dateStr,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-
-                                    Text(
-                                        text = "+${SmartFinanceEngine.formatEuro(tx.amount)}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = BudgetRingGreen
-                                    )
-                                }
-                                if (idx < visibleSavings.lastIndex) {
-                                    HorizontalDivider(
-                                        thickness = 0.5.dp,
-                                        color = MaterialTheme.colorScheme.outlineVariant,
-                                        modifier = Modifier.padding(start = 66.dp, end = 16.dp)
-                                    )
                                 }
                             }
                         }
