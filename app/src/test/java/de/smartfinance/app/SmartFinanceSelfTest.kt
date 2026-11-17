@@ -600,4 +600,52 @@ class SmartFinanceSelfTest {
         assertEquals(0.0, snap.activeInstallmentsRateTotal, 0.001)
         assertEquals(2500.0, snap.remainingFreeBudgetMonth, 0.001)
     }
+
+    /** Vertrag (Kfz 45,33 €) + zugehörige Buchung dürfen nur 1x abgezogen werden, unabhängig vom Betrag/Flag der Buchung. */
+    @Test
+    fun testC_contractNeverDeductedTwice() {
+        val today = LocalDate.of(2026, 11, 16)
+        val income = CategoryTabEntity(
+            id = 1L, name = "Gehalt", iconKey = "income", colorHex = 0xFF10B981,
+            categoryType = CategoryType.INCOME, defaultAmount = 2000.0,
+            billingInterval = BillingInterval.MONTHLY
+        )
+        val kfz = CategoryTabEntity(
+            id = 2L, name = "Kfz-Versicherung", iconKey = "car", colorHex = 0xFFEF4444,
+            categoryType = CategoryType.FIXED_EXPENSE, defaultAmount = 45.33,
+            dueDayOfMonth = 20, billingInterval = BillingInterval.MONTHLY
+        )
+        val cats = listOf(income, kfz)
+        fun analyze(txs: List<TransactionEntity>) = SmartFinanceEngine.analyzeMonth(
+            selectedYearMonth = YearMonth.from(today), today = today, billingStartDay = 15,
+            avgWindowMonths = 3, categories = cats, allTransactions = txs,
+            savingsGoals = emptyList(), installments = emptyList()
+        )
+        val epoch = LocalDate.of(2026, 11, 15).toEpochDay()
+        val salary = TransactionEntity(
+            id = 1L, title = "Gehalt", amount = 2000.0, transactionType = TransactionType.INCOME,
+            categoryId = 1L, categoryName = "Gehalt", dateEpochDay = epoch
+        )
+        // Nur Vertrag, keine Buchung: 1x abgezogen
+        assertEquals(2000.0 - 45.33, analyze(listOf(salary)).remainingFreeBudgetMonth, 0.01)
+        // Zusätzliche Buchung desselben Vertrags (anderer Flag): weiterhin nur 1x
+        val kfzTx = TransactionEntity(
+            id = 2L, title = "Kfz", amount = -45.33, categoryId = 2L,
+            categoryName = "Kfz-Versicherung", dateEpochDay = epoch
+        )
+        val snap = analyze(listOf(salary, kfzTx))
+        assertEquals(2000.0 - 45.33, snap.remainingFreeBudgetMonth, 0.01)
+        // Transparente Formel: Verfügbar = Einnahmen - Fixkosten - Ausgaben
+        assertEquals(
+            2000.0 - snap.fixedCostsTotal - snap.additionalExpensesTotal,
+            snap.remainingFreeBudgetMonth, 0.001
+        )
+        // Abrechnungstag darf das Ergebnis nicht mehr verändern
+        val snap1 = SmartFinanceEngine.analyzeMonth(
+            selectedYearMonth = YearMonth.from(today), today = today, billingStartDay = 1,
+            avgWindowMonths = 3, categories = cats, allTransactions = listOf(salary, kfzTx),
+            savingsGoals = emptyList(), installments = emptyList()
+        )
+        assertEquals(snap1.remainingFreeBudgetMonth, snap.remainingFreeBudgetMonth, 0.001)
+    }
 }

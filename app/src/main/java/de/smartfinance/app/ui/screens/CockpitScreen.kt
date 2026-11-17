@@ -514,6 +514,18 @@ private fun VioletHeroBudgetCard(
                             .clip(RoundedCornerShape(4.dp))
                     )
 
+                    Text(
+                        text = "Fixkosten/Verträge: -${SmartFinanceEngine.formatEuro(snapshot.fixedCostsTotal)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.90f)
+                    )
+                    Text(
+                        text = "Ausgaben: -${SmartFinanceEngine.formatEuro(snapshot.additionalExpensesTotal)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.90f)
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -528,7 +540,7 @@ private fun VioletHeroBudgetCard(
                                 .padding(vertical = 2.dp, horizontal = 4.dp)
                         ) {
                             Text(
-                                text = "Einnahmen: ${SmartFinanceEngine.formatEuro(effectiveIncome)}",
+                                text = "Einnahmen: +${SmartFinanceEngine.formatEuro(effectiveIncome)}",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White.copy(alpha = 0.90f)

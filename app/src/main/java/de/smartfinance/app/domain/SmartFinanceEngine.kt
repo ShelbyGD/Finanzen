@@ -140,6 +140,8 @@ data class DashboardAnalysisSnapshot(
     val nextDebitHeadline: String,
     val nextDebitSubline: String,
     val remainingFreeBudgetMonth: Double,
+    val fixedCostsTotal: Double = 0.0,
+    val additionalExpensesTotal: Double = 0.0,
     val baseDailyBudget: Double,
     val dynamicDailyBudgetToday: Double,
     val rolloverDeltaPerDay: Double,
@@ -318,16 +320,21 @@ object SmartFinanceEngine {
 
         val actualExpensesRaw = expenseTransactions.sumOf { abs(it.amount) }
 
+        // Kategorien, die bereits als 1/12-Rücklage zählen, dürfen nicht zusätzlich als Buchung zählen
+        val smoothedCategoryIds = categories
+            .filter { it.smoothOver12Months && (it.defaultAmount ?: 0.0) > 0.0 }
+            .map { it.id }
+            .toSet()
         val nonSmoothedExpenses = expenseTransactions
-            .filter { !it.smoothOver12Months }
+            .filter { !it.smoothOver12Months && it.categoryId !in smoothedCategoryIds }
             .sumOf { abs(it.amount) }
 
         val bookedFixedExpenses = expenseTransactions
-            .filter { it.isFixedRecurring && !it.smoothOver12Months }
+            .filter { it.isFixedRecurring && !it.smoothOver12Months && it.categoryId !in smoothedCategoryIds }
             .sumOf { abs(it.amount) }
 
         val variableExpensesSoFar = expenseTransactions
-            .filter { !it.isFixedRecurring && !it.smoothOver12Months }
+            .filter { !it.isFixedRecurring && !it.smoothOver12Months && it.categoryId !in smoothedCategoryIds }
             .sumOf { abs(it.amount) }
 
         val bookedSavings = savingsTransactions.sumOf { abs(it.amount) }
@@ -393,6 +400,9 @@ object SmartFinanceEngine {
         } else {
             effectiveIncome - totalExpensesBooked - openUpcomingFixedTotal - activeInstallmentsRateTotal
         }
+
+        val fixedCostsDisplay = bookedFixedExpenses + openUpcomingFixedTotal + smoothedMonthlyReserveTotal + activeInstallmentsRateTotal
+        val additionalExpensesDisplay = effectiveIncome - fixedCostsDisplay - remainingFreeBudgetMonth
 
         val dynamicDailyBudgetToday = (remainingFreeBudgetMonth / remainingDaysInMonth.toDouble()).coerceAtLeast(0.0)
         val rolloverDeltaPerDay = dynamicDailyBudgetToday - baseDailyBudget
@@ -541,6 +551,8 @@ object SmartFinanceEngine {
             rolloverDeltaPerDay = rolloverDeltaPerDay,
             remainingDaysInMonth = remainingDaysInMonth,
             avgWindowMonths = window,
+            fixedCostsTotal = fixedCostsDisplay,
+            additionalExpensesTotal = additionalExpensesDisplay,
             historicalAvgIncome = histAvgIncome,
             historicalAvgExpense = histAvgExpense,
             weekdayBurnRate = weekdayBurn,
@@ -888,7 +900,8 @@ object SmartFinanceEngine {
     }
 
     fun computeBillingPeriod(yearMonth: YearMonth, billingStartDay: Int): Pair<LocalDate, LocalDate> {
-        if (billingStartDay <= 1) {
+        // Abrechnungs-Starttag entfernt: immer voller Kalendermonat (billingStartDay wird ignoriert)
+        if (true) {
             return yearMonth.atDay(1) to yearMonth.atEndOfMonth()
         }
         val prevYm = yearMonth.minusMonths(1)
@@ -972,8 +985,14 @@ object SmartFinanceEngine {
 
             val effectiveDueDay = min(dueDay, maxDay)
             if (effectiveDueDay > referenceDay) {
+                // Jede Buchung des Monats, die zu diesem Vertrag gehört (Kategorie, Name oder Betrag), zählt als gebucht -> nur 1x abziehen
                 val alreadyBooked = monthTransactions.any {
-                    it.categoryId == cat.id && it.isFixedRecurring && abs(it.amount - defaultAmt) < 1.0
+                    !it.isIncome && (
+                        it.categoryId == cat.id ||
+                        it.categoryName.trim().equals(cat.name.trim(), ignoreCase = true) ||
+                        it.title.trim().equals(cat.name.trim(), ignoreCase = true) ||
+                        (abs(abs(it.amount) - defaultAmt) < 0.01 && it.title.contains(cat.name, ignoreCase = true))
+                    )
                 }
                 if (!alreadyBooked) {
                     val dueDate = selectedYearMonth.atDay(effectiveDueDay)

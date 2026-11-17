@@ -198,56 +198,6 @@ fun SettingsDemoScreen(
             }
         }
 
-        // 2. Abrechnungs-Starttag (1., 15. oder 28.)
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.CalendarMonth,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Abrechnungs-Starttag im Monat",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Text(
-                        text = "Lege fest, an welchem Kalendertag dein Finanzmonat startet (z. B. am 1., 15. oder 28.).",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(1, 15, 28).forEach { day ->
-                            FilterChip(
-                                selected = settingsState.billingStartDay == day,
-                                onClick = { onUpdateBillingDay(day) },
-                                label = { Text("Ab $day. des Monats") },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
         // 3. Netto-Stundenlohn für den Arbeitsstunden-Umrechner
         item {
             Card(
@@ -301,50 +251,6 @@ fun SettingsDemoScreen(
                             }
                         ) {
                             Text("Speichern")
-                        }
-                    }
-                }
-            }
-        }
-
-        // 4. Historischer Vergleichs-Zeitraum (3 / 6 / 12 Monate)
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Analytics,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Historischer Monatsdurchschnitt im Analysen-Tab",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(3, 6, 12).forEach { months ->
-                            FilterChip(
-                                selected = settingsState.averageMonthsWindow == months,
-                                onClick = { onUpdateAvgWindow(months) },
-                                label = { Text("$months Monate Ø") },
-                                modifier = Modifier.weight(1f)
-                            )
                         }
                     }
                 }

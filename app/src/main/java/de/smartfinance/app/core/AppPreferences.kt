@@ -29,7 +29,7 @@ class AppPreferences(context: Context) {
     val settingsState: StateFlow<UserSettingsState> = _settingsState.asStateFlow()
 
     private fun loadState(): UserSettingsState {
-        val billingDay = prefs.getInt(KEY_BILLING_START_DAY, 1).coerceIn(1, 28)
+        val billingDay = 1 // fest: voller Kalendermonat
         val wage = prefs.getFloat(KEY_HOURLY_WAGE, 0.0f).toDouble().coerceAtLeast(0.0)
         val avgWindow = prefs.getInt(KEY_AVG_WINDOW, 3)
         val lastSeenVersion = prefs.getInt(KEY_LAST_SEEN_VERSION_CODE, -1)
@@ -49,7 +49,7 @@ class AppPreferences(context: Context) {
     }
 
     fun setBillingStartDay(day: Int) {
-        val validDay = day.coerceIn(1, 28)
+        val validDay = 1 // Abrechnungs-Starttag entfernt: immer voller Kalendermonat
         prefs.edit().putInt(KEY_BILLING_START_DAY, validDay).apply()
         _settingsState.value = _settingsState.value.copy(billingStartDay = validDay)
     }
