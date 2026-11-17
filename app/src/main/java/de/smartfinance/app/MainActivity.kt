@@ -699,6 +699,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     selectedTransactionForAction?.let { selectedTx ->
         TransactionActionBottomSheet(
             transaction = selectedTx,
+            categories = categories,
             onUpdateTransaction = viewModel::updateExistingTransaction,
             onDeleteTransaction = viewModel::deleteTransaction,
             onDismiss = viewModel::closeTransactionActionSheet

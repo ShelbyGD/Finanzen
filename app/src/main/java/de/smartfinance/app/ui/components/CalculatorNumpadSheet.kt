@@ -18,8 +18,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -82,7 +86,7 @@ import java.util.Locale
  * - 1-Tap-Schnellvorlagen für den Alltag
  * - Großer Taschenrechner-Zahlenblock inkl. 1/12-Glätter & Fälligkeitstag.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CalculatorNumpadSheet(
     categories: List<CategoryTabEntity>,
@@ -172,15 +176,16 @@ fun CalculatorNumpadSheet(
     val evaluatedAmount = remember(expression) { evaluateCalculatorExpression(expression) }
 
     if (showCategoryNameDialog) {
-        var nameInput by remember(categoryDialogTarget) { mutableStateOf(categoryDialogTarget?.name ?: "") }
+        val target = categoryDialogTarget
+        var nameInput by remember(target) { mutableStateOf(target?.name ?: "") }
         AlertDialog(
             onDismissRequest = { showCategoryNameDialog = false },
-            title = { Text(if (categoryDialogTarget == null) "Eigene Kategorie anlegen" else "Kategorie umbenennen") },
+            title = { Text(if (target == null) "Eigene Kategorie anlegen" else "Kategorie bearbeiten") },
             text = {
                 OutlinedTextField(
                     value = nameInput,
                     onValueChange = { nameInput = it },
-                    label = { Text("Name (z. B. Tanken, Bäcker, Strom)") },
+                    label = { Text("Name korrigieren") },
                     singleLine = true
                 )
             },
@@ -189,9 +194,9 @@ fun CalculatorNumpadSheet(
                     enabled = nameInput.trim().isNotEmpty(),
                     onClick = {
                         val clean = nameInput.trim()
-                        val target = categoryDialogTarget
                         if (target != null) {
                             onSaveCategory(target.copy(name = clean))
+                            if (selectedCategory?.id == target.id) selectedCategory = target.copy(name = clean)
                         } else if (categories.none { it.name.equals(clean, ignoreCase = true) }) {
                             onSaveCategory(
                                 CategoryTabEntity(
@@ -206,33 +211,72 @@ fun CalculatorNumpadSheet(
                     }
                 ) { Text("Speichern") }
             },
-            dismissButton = { TextButton(onClick = { showCategoryNameDialog = false }) { Text("Abbrechen") } }
+            dismissButton = {
+                Row {
+                    if (target != null) {
+                        IconButton(onClick = {
+                            if (selectedCategory?.id == target.id) selectedCategory = null
+                            onDeleteCategory(target)
+                            showCategoryNameDialog = false
+                        }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Kategorie löschen", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { showCategoryNameDialog = false }) { Text("Abbrechen") }
+                }
+            }
         )
     }
 
     if (showManageCategoriesDialog) {
+        var newName by remember { mutableStateOf("") }
+        val addNew = {
+            val clean = newName.trim()
+            if (clean.isNotEmpty() && categories.none { it.name.equals(clean, ignoreCase = true) }) {
+                onSaveCategory(
+                    CategoryTabEntity(
+                        name = clean,
+                        iconKey = if (isExpenseSelected) "cart" else "income",
+                        colorHex = 0xFF6366F1,
+                        categoryType = if (isExpenseSelected) CategoryType.VARIABLE_EXPENSE else CategoryType.INCOME
+                    )
+                )
+            }
+            newName = ""
+        }
         AlertDialog(
             onDismissRequest = { showManageCategoriesDialog = false },
-            title = { Text("Kategorien verwalten") },
+            title = { Text("Kategorien") },
             text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    displayedCategories.forEach { cat ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(cat.name, modifier = Modifier.weight(1f))
-                            IconButton(onClick = {
-                                categoryDialogTarget = cat
-                                showCategoryNameDialog = true
-                            }) { Icon(Icons.Default.Edit, contentDescription = "Umbenennen") }
-                            IconButton(onClick = {
-                                if (selectedCategory?.id == cat.id) selectedCategory = null
-                                onDeleteCategory(cat)
-                            }) { Icon(Icons.Default.Delete, contentDescription = "Löschen") }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = newName,
+                            onValueChange = { newName = it },
+                            label = { Text("Neue Kategorie") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(enabled = newName.trim().isNotEmpty(), onClick = { addNew() }) { Text("+ Hinzufügen") }
+                    }
+                    Column(
+                        modifier = Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())
+                    ) {
+                        displayedCategories.forEach { cat ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(cat.name, modifier = Modifier.weight(1f))
+                                IconButton(onClick = {
+                                    categoryDialogTarget = cat
+                                    showCategoryNameDialog = true
+                                }) { Icon(Icons.Default.Edit, contentDescription = "Umbenennen") }
+                                IconButton(onClick = {
+                                    if (selectedCategory?.id == cat.id) selectedCategory = null
+                                    onDeleteCategory(cat)
+                                }) { Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error) }
+                            }
                         }
                     }
                 }
@@ -614,22 +658,15 @@ fun CalculatorNumpadSheet(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(
-                    selected = false,
-                    onClick = { categoryDialogTarget = null; showCategoryNameDialog = true },
-                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                    label = { Text("+ Eigene Kategorie") }
-                )
-                FilterChip(
-                    selected = false,
-                    onClick = { showManageCategoriesDialog = true },
-                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                    label = { Text("Verwalten") }
-                )
                 displayedCategories.forEach { cat ->
-                    FilterChip(
-                        selected = selectedCategory?.id == cat.id,
-                        onClick = {
+                    val isSel = selectedCategory?.id == cat.id
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSel) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        border = if (isSel) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.combinedClickable(
+                            onLongClick = { categoryDialogTarget = cat; showCategoryNameDialog = true },
+                            onClick = {
                             selectedCategory = cat
                             isFixedRecurring = cat.categoryType == CategoryType.FIXED_EXPENSE
                             if (cat.dueDayOfMonth != null) {
@@ -638,17 +675,21 @@ fun CalculatorNumpadSheet(
                             if (expression.isEmpty() && cat.defaultAmount != null && cat.defaultAmount > 0.0) {
                                 expression = String.format(Locale.GERMAN, "%.2f", cat.defaultAmount)
                             }
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = CategoryIconCatalog.iconForKey(cat.iconKey),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        label = { Text(cat.name) }
-                    )
+                            }
+                        )
+                    ) {
+                        Text(
+                            cat.name,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
                 }
+                FilterChip(
+                    selected = false,
+                    onClick = { showManageCategoriesDialog = true },
+                    label = { Text("+ / ✏️ Kategorien") }
+                )
             }
 
             Row(

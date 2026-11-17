@@ -47,7 +47,11 @@ import de.smartfinance.app.BuildConfig
 import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.core.HelpEntry
+import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.TransactionEntity
+import de.smartfinance.app.data.local.TransactionType
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
 import de.smartfinance.app.domain.ContractExpiryAlert
 import de.smartfinance.app.domain.RadarAnomalyAlert
 import de.smartfinance.app.domain.SmartFinanceEngine
@@ -460,6 +464,7 @@ fun NotificationsBottomSheet(
 @Composable
 fun TransactionActionBottomSheet(
     transaction: TransactionEntity,
+    categories: List<CategoryTabEntity> = emptyList(),
     onUpdateTransaction: (TransactionEntity) -> Unit,
     onDeleteTransaction: (TransactionEntity) -> Unit,
     onDismiss: () -> Unit
@@ -468,6 +473,11 @@ fun TransactionActionBottomSheet(
     var titleText by remember(transaction) { mutableStateOf(transaction.title) }
     var amountText by remember(transaction) {
         mutableStateOf(String.format(Locale.GERMAN, "%.2f", transaction.amount))
+    }
+    var isIncomeSel by remember(transaction) { mutableStateOf(transaction.isIncome) }
+    var catSel by remember(transaction) { mutableStateOf(categories.firstOrNull { it.id == transaction.categoryId }) }
+    var dayText by remember(transaction) {
+        mutableStateOf(LocalDate.ofEpochDay(transaction.dateEpochDay).dayOfMonth.toString())
     }
     val dateFormatted = remember(transaction) {
         LocalDate.ofEpochDay(transaction.dateEpochDay)
@@ -512,6 +522,30 @@ fun TransactionActionBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !isIncomeSel, onClick = { isIncomeSel = false }, label = { Text("Ausgabe") })
+                FilterChip(selected = isIncomeSel, onClick = { isIncomeSel = true }, label = { Text("Einnahme") })
+            }
+
+            OutlinedTextField(
+                value = dayText,
+                onValueChange = { dayText = it.filter(Char::isDigit).take(2) },
+                label = { Text("Tag im Monat (1–31)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (categories.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    categories.forEach { c ->
+                        FilterChip(selected = catSel?.id == c.id, onClick = { catSel = c }, label = { Text(c.name) })
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -535,10 +569,18 @@ fun TransactionActionBottomSheet(
                 Button(
                     onClick = {
                         val parsedAmount = amountText.replace(",", ".").toDoubleOrNull() ?: transaction.amount
+                        val oldDate = LocalDate.ofEpochDay(transaction.dateEpochDay)
+                        val day = (dayText.toIntOrNull() ?: oldDate.dayOfMonth)
+                            .coerceIn(1, oldDate.lengthOfMonth())
                         onUpdateTransaction(
                             transaction.copy(
                                 title = titleText.ifBlank { transaction.title },
-                                amount = parsedAmount.coerceAtLeast(0.01)
+                                amount = parsedAmount.coerceAtLeast(0.01),
+                                transactionType = if (isIncomeSel) TransactionType.INCOME else TransactionType.EXPENSE,
+                                categoryId = catSel?.id ?: transaction.categoryId,
+                                categoryName = catSel?.name ?: transaction.categoryName,
+                                dateEpochDay = oldDate.withDayOfMonth(day).toEpochDay(),
+                                dueDayOfMonth = day
                             )
                         )
                     },

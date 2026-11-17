@@ -55,6 +55,9 @@ interface SmartFinanceDao {
     @Delete
     suspend fun deleteTransaction(transaction: TransactionEntity)
 
+    @Query("UPDATE transactions SET categoryName = :name WHERE categoryId = :categoryId")
+    suspend fun renameTransactionsCategory(categoryId: Long, name: String)
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: Long)
 

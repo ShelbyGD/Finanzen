@@ -329,6 +329,7 @@ class FinanceRepository(
             dao.insertCategoryTab(tab)
         } else {
             dao.updateCategoryTab(tab)
+            dao.renameTransactionsCategory(tab.id, tab.name.trim())
         }
         processDueRecurringBookings(LocalDate.now())
     }
