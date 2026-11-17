@@ -151,6 +151,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val geminiVaultState by viewModel.geminiVaultState.collectAsStateWithLifecycle()
     val activeTier by viewModel.activeTier.collectAsStateWithLifecycle()
     val currentSnapshot by viewModel.currentSnapshot.collectAsStateWithLifecycle()
+    val transactionSortType by viewModel.transactionSortType.collectAsStateWithLifecycle()
 
     val showCalculatorSheet by viewModel.showCalculatorSheet.collectAsStateWithLifecycle()
     val showAiChatSheet by viewModel.showAiChatSheet.collectAsStateWithLifecycle()
@@ -474,6 +475,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     allTransactions = allTransactions,
                                     selectedCategoryId = selectedCategoryId,
                                     settingsState = settingsState,
+                                    sortType = transactionSortType,
+                                    onSelectSortType = viewModel::setTransactionSortType,
                                     onSelectMonthPage = viewModel::setSelectedMonthPage,
                                     onSelectCategoryFilter = viewModel::selectCategoryFilter,
                                     onSelectTransaction = viewModel::openTransactionActionSheet,

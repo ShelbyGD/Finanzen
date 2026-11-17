@@ -245,43 +245,7 @@ fun SavingsBoosterTabScreen(
         }
 
         // 3. Karten der einzelnen Sparziele
-        if (savingsGoals.isEmpty()) {
-            item {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showCreateDialog = true }
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Text(
-                            text = "Noch keine Sparziele vorhanden",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Tippe hier oder oben auf '+ Neues Sparziel anlegen', um dein erstes flexibles Sparziel zu erstellen.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        } else {
-            items(goalProgressList, key = { it.goal.id }) { prog ->
+        items(goalProgressList, key = { it.goal.id }) { prog ->
                 val goal = prog.goal
                 val cardAccent = Color(goal.colorHex)
 
@@ -455,7 +419,6 @@ fun SavingsBoosterTabScreen(
                     }
                 }
             }
-        }
     }
 
     // Dialog: Neues Sparziel anlegen

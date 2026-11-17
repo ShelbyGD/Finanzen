@@ -71,6 +71,12 @@ enum class DrawerDestination(val title: String) {
     LITE_PRO_OVERVIEW("Lite vs. Pro Übersicht")
 }
 
+enum class SortType(val label: String) {
+    DATE("Nach Datum"),
+    AMOUNT("Nach Summe"),
+    NAME("Nach Name")
+}
+
 data class ChatMessage(
     val id: Long = System.nanoTime(),
     val senderIsUser: Boolean,
@@ -146,6 +152,13 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     private val _highlightChangelogOnHelpScreen = MutableStateFlow(false)
     val highlightChangelogOnHelpScreen: StateFlow<Boolean> = _highlightChangelogOnHelpScreen.asStateFlow()
+
+    private val _transactionSortType = MutableStateFlow(SortType.DATE)
+    val transactionSortType: StateFlow<SortType> = _transactionSortType.asStateFlow()
+
+    fun setTransactionSortType(type: SortType) {
+        _transactionSortType.value = type
+    }
 
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
         listOf(
@@ -1407,5 +1420,34 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         const val ACTION_QUICK_EXPENSE = "de.smartfinance.app.ACTION_QUICK_EXPENSE"
         const val ACTION_SCAN_RECEIPT = "de.smartfinance.app.ACTION_SCAN_RECEIPT"
         const val ACTION_AI_CHAT = "de.smartfinance.app.ACTION_AI_CHAT"
+
+        fun sortTransactions(
+            transactions: List<TransactionEntity>,
+            sortType: SortType
+        ): List<TransactionEntity> {
+            return transactions.sortedWith { a, b ->
+                // Priorität 1: Einnahmen immer ganz oben anpinnen
+                val aIncome = a.isIncome
+                val bIncome = b.isIncome
+                if (aIncome != bIncome) {
+                    return@sortedWith if (aIncome) -1 else 1
+                }
+                // Priorität 2: Nach gewähltem SortType
+                when (sortType) {
+                    SortType.DATE -> {
+                        val dateCmp = b.dateEpochDay.compareTo(a.dateEpochDay)
+                        if (dateCmp != 0) dateCmp else b.id.compareTo(a.id)
+                    }
+                    SortType.AMOUNT -> {
+                        val amtCmp = b.amount.compareTo(a.amount)
+                        if (amtCmp != 0) amtCmp else b.dateEpochDay.compareTo(a.dateEpochDay)
+                    }
+                    SortType.NAME -> {
+                        val nameCmp = a.title.compareTo(b.title, ignoreCase = true)
+                        if (nameCmp != 0) nameCmp else b.dateEpochDay.compareTo(a.dateEpochDay)
+                    }
+                }
+            }
+        }
     }
 }

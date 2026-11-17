@@ -364,6 +364,16 @@ object AppHelpRegistry {
 
     val changelogEntries: List<ChangelogEntry> = listOf(
         ChangelogEntry(
+            versionName = "1.3.8",
+            buildNumber = 20,
+            date = "17.11.2026",
+            newFeatures = listOf(
+                "Sparbooster UI-Entschlackung: Redundante leere Platzhalter-Karte entfernt – der Screen bleibt unter dem '+ Neues Sparziel anlegen'-Button absolut sauber.",
+                "Sortier-Menü in 'Letzte Buchungen': Neues dezentes Sortier-Icon mit DropdownMenu ('Nach Datum', 'Nach Summe', 'Nach Name').",
+                "Festgepinnte Einnahmen (Priorität 1): Einnahmen (wie das grüne Gehalt) bleiben unabhängig vom gewählten Sortiermodus stets unverrückbar ganz oben an Position 1."
+            )
+        ),
+        ChangelogEntry(
             versionName = "1.3.7",
             buildNumber = 19,
             date = "17.11.2026",

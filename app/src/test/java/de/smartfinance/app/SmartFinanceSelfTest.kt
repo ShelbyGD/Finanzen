@@ -7,6 +7,8 @@ import de.smartfinance.app.data.local.TransactionEntity
 import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.domain.TimeRangeMode
+import de.smartfinance.app.ui.SmartFinanceViewModel
+import de.smartfinance.app.ui.SortType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -666,5 +668,53 @@ class SmartFinanceSelfTest {
         )
         assertEquals(214.32, snap.additionalExpensesTotal, 0.001)
         assertEquals(1940.35, snap.remainingFreeBudgetMonth, 0.001)
+    }
+
+    /**
+     * Test E (Sortier-Check & Pinned Incomes):
+     * Einnahmen (isIncome == true) MÜSSEN immer an Position 1 (oben) stehen,
+     * danach sortieren sich die Ausgaben nach dem gewählten SortType (Datum, Summe, Name).
+     */
+    @Test
+    fun testE_transactionSorting_incomesAlwaysPinnedAtTop() {
+        val expenseYesterday = TransactionEntity(
+            id = 1L, title = "Bäcker", amount = 5.0, transactionType = TransactionType.EXPENSE,
+            categoryId = 10L, categoryName = "Lebensmittel", dateEpochDay = 20000L
+        )
+        val expenseTodayExpensive = TransactionEntity(
+            id = 2L, title = "Tanken", amount = 80.0, transactionType = TransactionType.EXPENSE,
+            categoryId = 11L, categoryName = "Auto", dateEpochDay = 20001L
+        )
+        val expenseOldCheapest = TransactionEntity(
+            id = 3L, title = "Abo", amount = 2.0, transactionType = TransactionType.EXPENSE,
+            categoryId = 12L, categoryName = "Verträge", dateEpochDay = 19999L
+        )
+        val salary = TransactionEntity(
+            id = 4L, title = "Gehalt", amount = 2800.0, transactionType = TransactionType.INCOME,
+            categoryId = 1L, categoryName = "Gehalt", dateEpochDay = 19998L
+        )
+
+        val txs = listOf(expenseYesterday, expenseTodayExpensive, expenseOldCheapest, salary)
+
+        // 1. Sort by DATE: Gehalt (Income) pinned first, then Today (20001), Yesterday (20000), Old (19999)
+        val sortedByDate = SmartFinanceViewModel.sortTransactions(txs, SortType.DATE)
+        assertEquals("Gehalt", sortedByDate[0].title)
+        assertEquals("Tanken", sortedByDate[1].title)
+        assertEquals("Bäcker", sortedByDate[2].title)
+        assertEquals("Abo", sortedByDate[3].title)
+
+        // 2. Sort by AMOUNT: Gehalt (Income) pinned first, then 80€ (Tanken), 5€ (Bäcker), 2€ (Abo)
+        val sortedByAmount = SmartFinanceViewModel.sortTransactions(txs, SortType.AMOUNT)
+        assertEquals("Gehalt", sortedByAmount[0].title)
+        assertEquals("Tanken", sortedByAmount[1].title)
+        assertEquals("Bäcker", sortedByAmount[2].title)
+        assertEquals("Abo", sortedByAmount[3].title)
+
+        // 3. Sort by NAME: Gehalt (Income) pinned first, then Abo (A), Bäcker (B), Tanken (T)
+        val sortedByName = SmartFinanceViewModel.sortTransactions(txs, SortType.NAME)
+        assertEquals("Gehalt", sortedByName[0].title)
+        assertEquals("Abo", sortedByName[1].title)
+        assertEquals("Bäcker", sortedByName[2].title)
+        assertEquals("Tanken", sortedByName[3].title)
     }
 }

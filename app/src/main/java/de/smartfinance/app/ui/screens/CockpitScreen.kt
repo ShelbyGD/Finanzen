@@ -26,6 +26,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
@@ -39,6 +40,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -80,6 +83,8 @@ import de.smartfinance.app.domain.DashboardAnalysisSnapshot
 import de.smartfinance.app.domain.SavingsGoalProgress
 import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.domain.TimeRangeMode
+import de.smartfinance.app.ui.SmartFinanceViewModel
+import de.smartfinance.app.ui.SortType
 import de.smartfinance.app.ui.components.CashflowWaveChart
 import de.smartfinance.app.ui.theme.BudgetRingGreen
 import de.smartfinance.app.ui.theme.BudgetRingOrange
@@ -111,6 +116,8 @@ fun CockpitScreen(
     allTransactions: List<TransactionEntity>,
     selectedCategoryId: Long?,
     settingsState: UserSettingsState,
+    sortType: SortType = SortType.DATE,
+    onSelectSortType: (SortType) -> Unit = {},
     onSelectMonthPage: (Int) -> Unit,
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
@@ -151,6 +158,8 @@ fun CockpitScreen(
             allTransactions = allTransactions,
             selectedCategoryId = selectedCategoryId,
             settingsState = settingsState,
+            sortType = sortType,
+            onSelectSortType = onSelectSortType,
             onSelectCategoryFilter = onSelectCategoryFilter,
             onSelectTransaction = onSelectTransaction,
             onOpenAddBooking = onOpenAddBooking,
@@ -169,6 +178,8 @@ private fun OverviewMonthContent(
     allTransactions: List<TransactionEntity>,
     selectedCategoryId: Long?,
     settingsState: UserSettingsState,
+    sortType: SortType = SortType.DATE,
+    onSelectSortType: (SortType) -> Unit = {},
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onOpenAddBooking: () -> Unit,
@@ -183,18 +194,15 @@ private fun OverviewMonthContent(
         categories.firstOrNull { it.categoryType == CategoryType.INCOME }
     }
 
-    val periodTransactions = remember(allTransactions, snapshot.selectedYearMonth, selectedCategoryId) {
-        allTransactions
+    val periodTransactions = remember(allTransactions, snapshot.selectedYearMonth, selectedCategoryId, sortType) {
+        val filtered = allTransactions
             .filter { tx ->
                 YearMonth.from(LocalDate.ofEpochDay(tx.dateEpochDay)) == snapshot.selectedYearMonth
             }
             .filter { tx ->
                 selectedCategoryId == null || tx.categoryId == selectedCategoryId
             }
-            .sortedWith(
-                compareByDescending<TransactionEntity> { it.dateEpochDay }
-                    .thenByDescending { it.id }
-            )
+        SmartFinanceViewModel.sortTransactions(filtered, sortType)
     }
 
     val categoryById = remember(categories) {
@@ -314,6 +322,8 @@ private fun OverviewMonthContent(
                 categoryById = categoryById,
                 selectedCategoryName = selectedCategoryId?.let { categoryById[it]?.name },
                 showIcons = settingsState.showBookingCategoryIcons,
+                sortType = sortType,
+                onSelectSortType = onSelectSortType,
                 onClearFilter = { onSelectCategoryFilter(null) },
                 onSelectTransaction = onSelectTransaction,
                 onEmptyClick = onOpenAddBooking
@@ -1313,6 +1323,8 @@ private fun RecentBookingsGroupedSection(
     categoryById: Map<Long, CategoryTabEntity>,
     selectedCategoryName: String?,
     showIcons: Boolean = true,
+    sortType: SortType = SortType.DATE,
+    onSelectSortType: (SortType) -> Unit = {},
     onClearFilter: () -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onEmptyClick: () -> Unit
@@ -1338,20 +1350,62 @@ private fun RecentBookingsGroupedSection(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            if (selectedCategoryName != null) {
-                Text(
-                    text = "Filter aufheben",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onClearFilter() }
-                )
-            } else {
-                Text(
-                    text = "${transactions.size} Einträge",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (selectedCategoryName != null) {
+                    Text(
+                        text = "Filter aufheben",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { onClearFilter() }
+                    )
+                } else {
+                    Text(
+                        text = "${transactions.size} Einträge",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Box {
+                    var showSortMenu by remember { mutableStateOf(false) }
+
+                    IconButton(
+                        onClick = { showSortMenu = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = "Buchungen sortieren",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        SortType.entries.forEach { type ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = type.label,
+                                        fontWeight = if (type == sortType) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (type == sortType) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    onSelectSortType(type)
+                                    showSortMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
 
