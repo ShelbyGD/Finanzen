@@ -74,6 +74,7 @@ object AppHelpRegistry {
                 "Ordner lassen sich per Fingertipp auf- und zuklappen und über das Stift- bzw. Mülleimer-Icon umbenennen oder löschen.",
                 "Über 'Auf Stichtags-Automatik zurücksetzen' stellt man manuell abgehakte Raten mit einem Tap auf die automatische Kalender-Erkennung zurück.",
                 "Rate 0 € = Offener Posten (Ratenstart noch offen). Mit \"Ratenzahlung planen / später starten\" setzt du Rate und zukünftiges Startdatum; vor dem Startmonat wird nichts vom Budget abgezogen. Maximal 120 Raten werden berechnet.",
+                "Navigation verschlankt: 4 Reiter unten (Übersicht, Verträge, KI-Coach, Sparbooster); der tote Menüpunkt 'Kategorien, Sparziele & Verträge' und der Tab 'Analysen' sind entfernt. Jeder Vertrag hat ein Papierkorb-Icon mit Löschbestätigung.",
                 "Auf der Startseite ('Übersicht') ist die Raten-Summenkarte ebenfalls einklappbar.",
                 "Die Kopfzeile zeigt jederzeit deine offene Gesamtschuld, die laufende Monatsbelastung und den Tilgungsfortschritt in Prozent."
             ),
@@ -109,7 +110,7 @@ object AppHelpRegistry {
             stepByStepGuide = listOf(
                 "Wische in der Übersicht horizontal nach links (vergangene Monate) oder rechts (aktueller Monat & Prognose-Monate) oder nutze oben unter 'Übersicht' den Monats-Umschalter '< November 2026 >'.",
                 "Die violette Hero-Karte zeigt sofort das noch verfügbare Budget, die verbleibenden Tage bis Monatsende und deinen aktuellen Tagessatz ('Heute frei: XX,XX € / Tag').",
-                "Tippe auf die violette Hero-Karte oder unten in der 5er-Navigationsleiste auf 'Analysen', um Soll/Ist-Vergleiche und den historischen 3-, 6- oder 12-Monats-Durchschnitt einzusehen."
+                "Die untere Navigationsleiste hat 4 Reiter (Übersicht, Verträge, KI-Coach, Sparbooster); der Analysen-Tab wurde entfernt. Auf der Übersicht siehst du Soll/Ist-Vergleiche und den historischen 3-, 6- oder 12-Monats-Durchschnitt einzusehen."
             ),
             exampleTips = listOf(
                 "Tipp: Kommt dein Gehalt am 28. des Vormonats, stelle den Abrechnungstag unter 'Einstellungen' auf den 28. ein.",
@@ -144,7 +145,7 @@ object AppHelpRegistry {
             shortSummary = "Gruppierte Karte 'Nächste Abbuchungen (Wächter)' auf der Startseite plus große interaktive 31-Tage-Belastungswelle im Tab 'Analysen'.",
             stepByStepGuide = listOf(
                 "Auf der Startseite ('Übersicht') zeigt die Sektion 'Nächste Abbuchungen (Wächter)' die nächsten anstehenden Fixkosten-Lastschriften mit Countdown und Betrag.",
-                "Tippe auf 'Belastungswelle öffnen >' oder wechsle unten in den Tab 'Analysen', um das große Canvas-Wellendiagramm (Tag 1 bis 31) zu öffnen.",
+                "Tippe auf 'Belastungswelle öffnen >', um das große Canvas-Wellendiagramm (Tag 1 bis 31) zu öffnen.",
                 "Im Diagramm trennt die vertikale 'Heute'-Linie bereits abgebuchte Posten (links) von noch offenen Abbuchungsspitzen (rechts)."
             ),
             exampleTips = listOf(

@@ -59,14 +59,12 @@ import java.time.format.DateTimeFormatter
 enum class BottomNavTab(val label: String) {
     OVERVIEW("Übersicht"),
     CONTRACTS("Verträge"),
-    ANALYTICS("Analysen"),
     AI_COACH("KI-Coach"),
     SAVINGS_BOOSTER("Sparbooster")
 }
 
 enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
-    CATEGORIES_CONTRACTS("Kategorien, Sparziele & Verträge"),
     INSTALLMENTS("Ratenzahlungen & Offene Posten"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen"),
@@ -310,9 +308,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         _currentDestination.value = destination
         if (destination == DrawerDestination.COCKPIT) {
             _selectedBottomTab.value = BottomNavTab.OVERVIEW
-        } else if (destination == DrawerDestination.CATEGORIES_CONTRACTS) {
-            _currentDestination.value = DrawerDestination.COCKPIT
-            _selectedBottomTab.value = BottomNavTab.CONTRACTS
         }
     }
 

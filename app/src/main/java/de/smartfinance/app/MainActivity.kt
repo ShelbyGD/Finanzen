@@ -89,7 +89,6 @@ import de.smartfinance.app.ui.components.NotificationsBottomSheet
 import de.smartfinance.app.ui.components.ProFeatureLockedDialog
 import de.smartfinance.app.ui.components.ReceiptScannerSheet
 import de.smartfinance.app.ui.components.TransactionActionBottomSheet
-import de.smartfinance.app.ui.screens.AnalyticsTabScreen
 import de.smartfinance.app.ui.screens.CategoriesContractsScreen
 import de.smartfinance.app.ui.screens.CockpitScreen
 import de.smartfinance.app.ui.screens.DataVaultScreen
@@ -400,7 +399,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             val icon = when (tab) {
                                 BottomNavTab.OVERVIEW -> Icons.Outlined.Home
                                 BottomNavTab.CONTRACTS -> Icons.Outlined.Description
-                                BottomNavTab.ANALYTICS -> Icons.Outlined.BarChart
                                 BottomNavTab.AI_COACH -> Icons.Outlined.AutoAwesome
                                 BottomNavTab.SAVINGS_BOOSTER -> Icons.Outlined.Savings
                             }
@@ -429,8 +427,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             floatingActionButton = {
                 // Rechts unten ein sauberer FloatingActionButton (+), der das CalculatorNumpadSheet öffnet
                 val showFab = currentDestination == DrawerDestination.COCKPIT &&
-                    (selectedBottomTab == BottomNavTab.OVERVIEW ||
-                        selectedBottomTab == BottomNavTab.ANALYTICS)
+                    selectedBottomTab == BottomNavTab.OVERVIEW
                 if (showFab) {
                     FloatingActionButton(
                         onClick = viewModel::openCalculatorSheet,
@@ -485,9 +482,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onOpenAddBooking = viewModel::openCalculatorSheet,
                                     onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                                     onSaveCategory = viewModel::saveCategoryTab,
-                                    onNavigateToAnalytics = {
-                                        viewModel.selectBottomTab(BottomNavTab.ANALYTICS)
-                                    },
+                                    onNavigateToAnalytics = {},
                                     onNavigateToContracts = {
                                         viewModel.selectBottomTab(BottomNavTab.CONTRACTS)
                                     }
@@ -503,19 +498,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onDeleteCategory = viewModel::deleteCategoryTab,
                                     onUpdateSavingsGoal = viewModel::updateSavingsGoal,
                                     onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
-                                    onRequestProFeature = { title ->
-                                        viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
-                                    }
-                                )
-                            }
-
-                            BottomNavTab.ANALYTICS -> {
-                                AnalyticsTabScreen(
-                                    snapshot = currentSnapshot,
-                                    settingsState = settingsState,
-                                    activeTier = activeTier,
-                                    onChangeAvgWindow = viewModel::updateAverageWindow,
-                                    onOpenHelpId = viewModel::openHelpCardById,
                                     onRequestProFeature = { title ->
                                         viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
                                     }
@@ -563,20 +545,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                 )
                             }
                         }
-                    }
-
-                    DrawerDestination.CATEGORIES_CONTRACTS -> {
-                        CategoriesContractsScreen(
-                            categories = categories,
-                            savingsProgress = currentSnapshot.savingsProgress,
-                            activeTier = activeTier,
-                            onSaveCategory = viewModel::saveCategoryTab,
-                            onDeleteCategory = viewModel::deleteCategoryTab,
-                            onUpdateSavingsGoal = viewModel::updateSavingsGoal,
-                            onRequestProFeature = { title ->
-                                viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
-                            }
-                        )
                     }
 
                     DrawerDestination.INSTALLMENTS -> {

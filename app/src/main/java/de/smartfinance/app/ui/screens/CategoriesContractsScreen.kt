@@ -357,6 +357,23 @@ private fun ContractItemCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Eintrag löschen?") },
+            text = { Text("'${category.name}' wirklich löschen?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    onDelete()
+                }) { Text("Löschen") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Abbrechen") }
+            }
+        )
+    }
     val today = LocalDate.now()
     val contractInfo = category.contractEndDateEpochDay?.let { epoch ->
         val endDate = LocalDate.ofEpochDay(epoch)
@@ -447,10 +464,8 @@ private fun ContractItemCard(
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Bearbeiten")
                     }
-                    if (!category.isSystemDefault) {
-                        IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = "Löschen")
-                        }
+                    IconButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Löschen")
                     }
                 }
             }
