@@ -75,6 +75,27 @@ data class TransactionEntity(
 ) {
     val isIncome: Boolean
         get() = transactionType == TransactionType.INCOME
+
+    val customIconKey: String?
+        get() = Regex("\\[icon:([a-zA-Z0-9_-]+)\\]").find(note)?.groupValues?.get(1)
+
+    fun resolveIconKey(categoryIconKey: String? = null): String {
+        return customIconKey ?: categoryIconKey ?: when (transactionType) {
+            TransactionType.INCOME -> "income"
+            TransactionType.SAVINGS -> "savings"
+            else -> "cart"
+        }
+    }
+
+    fun withCustomIcon(iconKey: String?): TransactionEntity {
+        val cleanNote = note.replace(Regex("\\[icon:([a-zA-Z0-9_-]+)\\]\\s*"), "").trim()
+        val updatedNote = if (!iconKey.isNullOrBlank()) {
+            if (cleanNote.isEmpty()) "[icon:$iconKey]" else "[icon:$iconKey] $cleanNote"
+        } else {
+            cleanNote
+        }
+        return this.copy(note = updatedNote)
+    }
 }
 
 /**

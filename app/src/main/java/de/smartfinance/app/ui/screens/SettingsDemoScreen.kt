@@ -64,6 +64,7 @@ fun SettingsDemoScreen(
     onUpdateBillingDay: (Int) -> Unit,
     onUpdateHourlyWage: (Double) -> Unit,
     onUpdateAvgWindow: (Int) -> Unit,
+    onToggleShowBookingCategoryIcons: (Boolean) -> Unit = {},
     onResetAllData: () -> Unit
 ) {
     var incomeInput by remember(plannedMonthlyIncome) {
@@ -255,6 +256,14 @@ fun SettingsDemoScreen(
                     }
                 }
             }
+        }
+
+        // 4. Runde Kategorie-Icons in Buchungsliste anzeigen
+        item {
+            BookingIconsToggleCard(
+                showIcons = settingsState.showBookingCategoryIcons,
+                onToggleShowIcons = onToggleShowBookingCategoryIcons
+            )
         }
 
         // 5. Alle Daten auf 0,00 € zurücksetzen

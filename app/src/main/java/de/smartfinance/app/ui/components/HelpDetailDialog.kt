@@ -1,7 +1,10 @@
 package de.smartfinance.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,10 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -50,7 +55,7 @@ import de.smartfinance.app.core.HelpEntry
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.TransactionEntity
 import de.smartfinance.app.data.local.TransactionType
-import androidx.compose.foundation.horizontalScroll
+import de.smartfinance.app.ui.theme.CategoryIconCatalog
 import androidx.compose.material3.FilterChip
 import de.smartfinance.app.domain.ContractExpiryAlert
 import de.smartfinance.app.domain.RadarAnomalyAlert
@@ -479,6 +484,11 @@ fun TransactionActionBottomSheet(
     var dayText by remember(transaction) {
         mutableStateOf(LocalDate.ofEpochDay(transaction.dateEpochDay).dayOfMonth.toString())
     }
+    var selectedIconKey by remember(transaction, catSel) {
+        mutableStateOf(
+            transaction.customIconKey ?: catSel?.iconKey ?: if (transaction.isIncome) "income" else "cart"
+        )
+    }
     val dateFormatted = remember(transaction) {
         LocalDate.ofEpochDay(transaction.dateEpochDay)
             .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
@@ -491,17 +501,18 @@ fun TransactionActionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
+                .padding(horizontal = 18.dp, vertical = 10.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Buchung bearbeiten oder löschen",
+                text = "Buchung bearbeiten",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = "Kategorie: ${transaction.categoryName} • Datum: $dateFormatted",
+                text = "Kategorie: ${catSel?.name ?: transaction.categoryName} • Datum: $dateFormatted",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -514,66 +525,122 @@ fun TransactionActionBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
-                value = amountText,
-                onValueChange = { amountText = it },
-                label = { Text("Betrag (€)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Betrag (€)") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !isIncomeSel, onClick = { isIncomeSel = false }, label = { Text("Ausgabe") })
-                FilterChip(selected = isIncomeSel, onClick = { isIncomeSel = true }, label = { Text("Einnahme") })
+                OutlinedTextField(
+                    value = dayText,
+                    onValueChange = { dayText = it.filter(Char::isDigit).take(2) },
+                    label = { Text("Tag (1–31)") },
+                    singleLine = true,
+                    modifier = Modifier.width(96.dp)
+                )
             }
 
-            OutlinedTextField(
-                value = dayText,
-                onValueChange = { dayText = it.filter(Char::isDigit).take(2) },
-                label = { Text("Tag im Monat (1–31)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !isIncomeSel,
+                    onClick = {
+                        isIncomeSel = false
+                        if (selectedIconKey == "income") selectedIconKey = catSel?.iconKey ?: "cart"
+                    },
+                    label = { Text("Ausgabe") }
+                )
+                FilterChip(
+                    selected = isIncomeSel,
+                    onClick = {
+                        isIncomeSel = true
+                        selectedIconKey = "income"
+                    },
+                    label = { Text("Einnahme") }
+                )
+            }
 
             if (categories.isNotEmpty()) {
+                Text(
+                    text = "Kategorie zuweisen",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     categories.forEach { c ->
-                        FilterChip(selected = catSel?.id == c.id, onClick = { catSel = c }, label = { Text(c.name) })
+                        FilterChip(
+                            selected = catSel?.id == c.id,
+                            onClick = {
+                                catSel = c
+                                selectedIconKey = c.iconKey
+                            },
+                            label = { Text(c.name) }
+                        )
                     }
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { onDeleteTransaction(transaction) },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Löschen")
-                }
+            Text(
+                text = "Passendes Icon wählen",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-                Button(
-                    onClick = {
-                        val parsedAmount = amountText.replace(",", ".").toDoubleOrNull() ?: transaction.amount
-                        val oldDate = LocalDate.ofEpochDay(transaction.dateEpochDay)
-                        val day = (dayText.toIntOrNull() ?: oldDate.dayOfMonth)
-                            .coerceIn(1, oldDate.lengthOfMonth())
-                        onUpdateTransaction(
-                            transaction.copy(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CategoryIconCatalog.availableIcons.forEach { (key, label) ->
+                    val isIconSelected = selectedIconKey.equals(key, ignoreCase = true)
+                    val iconColor = CategoryIconCatalog.accentColorFor(key, label)
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isIconSelected) iconColor.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = if (isIconSelected) BorderStroke(2.dp, iconColor) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clickable { selectedIconKey = key }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = CategoryIconCatalog.iconForKey(key),
+                                contentDescription = label,
+                                tint = if (isIconSelected) iconColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Button(
+                onClick = {
+                    val parsedAmount = amountText.replace(",", ".").toDoubleOrNull() ?: transaction.amount
+                    val oldDate = LocalDate.ofEpochDay(transaction.dateEpochDay)
+                    val day = (dayText.toIntOrNull() ?: oldDate.dayOfMonth)
+                        .coerceIn(1, oldDate.lengthOfMonth())
+                    onUpdateTransaction(
+                        transaction
+                            .withCustomIcon(selectedIconKey)
+                            .copy(
                                 title = titleText.ifBlank { transaction.title },
                                 amount = parsedAmount.coerceAtLeast(0.01),
                                 transactionType = if (isIncomeSel) TransactionType.INCOME else TransactionType.EXPENSE,
@@ -582,12 +649,32 @@ fun TransactionActionBottomSheet(
                                 dateEpochDay = oldDate.withDayOfMonth(day).toEpochDay(),
                                 dueDayOfMonth = day
                             )
-                        )
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Speichern")
-                }
+                    )
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Speichern")
+            }
+
+            Button(
+                onClick = {
+                    onDeleteTransaction(transaction)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Buchung löschen", fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(16.dp))

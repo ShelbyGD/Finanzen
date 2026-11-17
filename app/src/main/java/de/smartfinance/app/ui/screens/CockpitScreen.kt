@@ -150,6 +150,7 @@ fun CockpitScreen(
             categories = categories,
             allTransactions = allTransactions,
             selectedCategoryId = selectedCategoryId,
+            settingsState = settingsState,
             onSelectCategoryFilter = onSelectCategoryFilter,
             onSelectTransaction = onSelectTransaction,
             onOpenAddBooking = onOpenAddBooking,
@@ -167,6 +168,7 @@ private fun OverviewMonthContent(
     categories: List<CategoryTabEntity>,
     allTransactions: List<TransactionEntity>,
     selectedCategoryId: Long?,
+    settingsState: UserSettingsState,
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onOpenAddBooking: () -> Unit,
@@ -311,6 +313,7 @@ private fun OverviewMonthContent(
                 transactions = periodTransactions,
                 categoryById = categoryById,
                 selectedCategoryName = selectedCategoryId?.let { categoryById[it]?.name },
+                showIcons = settingsState.showBookingCategoryIcons,
                 onClearFilter = { onSelectCategoryFilter(null) },
                 onSelectTransaction = onSelectTransaction,
                 onEmptyClick = onOpenAddBooking
@@ -1309,6 +1312,7 @@ private fun RecentBookingsGroupedSection(
     transactions: List<TransactionEntity>,
     categoryById: Map<Long, CategoryTabEntity>,
     selectedCategoryName: String?,
+    showIcons: Boolean = true,
     onClearFilter: () -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onEmptyClick: () -> Unit
@@ -1383,11 +1387,7 @@ private fun RecentBookingsGroupedSection(
                     val visibleTransactions = transactions.take(25)
                     visibleTransactions.forEachIndexed { index, tx ->
                         val cat = categoryById[tx.categoryId]
-                        val iconKey = cat?.iconKey ?: when (tx.transactionType) {
-                            TransactionType.INCOME -> "salary"
-                            TransactionType.SAVINGS -> "savings"
-                            else -> "cart"
-                        }
+                        val iconKey = tx.resolveIconKey(cat?.iconKey)
                         val isIncome = tx.transactionType == TransactionType.INCOME
                         val dateStr = LocalDate.ofEpochDay(tx.dateEpochDay)
                             .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
@@ -1409,24 +1409,26 @@ private fun RecentBookingsGroupedSection(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                val circleBg = if (isIncome) Color(0xFF00E676).copy(alpha = 0.20f) else accentColor.copy(alpha = 0.15f)
-                                val iconTint = if (isIncome) Color(0xFF00E676) else accentColor
-                                Surface(
-                                    shape = CircleShape,
-                                    color = circleBg,
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = CategoryIconCatalog.iconForKey(iconKey),
-                                            contentDescription = tx.title,
-                                            tint = iconTint,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                if (showIcons) {
+                                    val circleBg = if (isIncome) Color(0xFF00E676).copy(alpha = 0.20f) else accentColor.copy(alpha = 0.15f)
+                                    val iconTint = if (isIncome) Color(0xFF00E676) else accentColor
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = circleBg,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = CategoryIconCatalog.iconForKey(iconKey),
+                                                contentDescription = tx.title,
+                                                tint = iconTint,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
-                                }
 
-                                Spacer(modifier = Modifier.width(12.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                }
 
                                 Column {
                                     Text(

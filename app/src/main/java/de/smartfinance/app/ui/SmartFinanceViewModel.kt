@@ -1249,6 +1249,17 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         preferences.setAverageMonthsWindow(months)
     }
 
+    fun setShowBookingCategoryIcons(show: Boolean) {
+        preferences.setShowBookingCategoryIcons(show)
+        _snackbarMessage.value = if (show) "Kategorie-Icons in Buchungsliste eingeblendet." else "Kategorie-Icons ausgeblendet."
+    }
+
+    fun toggleShowBookingCategoryIcons() {
+        preferences.toggleShowBookingCategoryIcons()
+        val next = preferences.settingsState.value.showBookingCategoryIcons
+        _snackbarMessage.value = if (next) "Kategorie-Icons in Buchungsliste eingeblendet." else "Kategorie-Icons ausgeblendet."
+    }
+
     fun resetAllData() {
         viewModelScope.launch(Dispatchers.IO) {
             repository.resetAllData()

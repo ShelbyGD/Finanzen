@@ -571,6 +571,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             onUpdateBillingDay = viewModel::updateBillingStartDay,
                             onUpdateHourlyWage = viewModel::updateHourlyWage,
                             onUpdateAvgWindow = viewModel::updateAverageWindow,
+                            onToggleShowBookingCategoryIcons = viewModel::setShowBookingCategoryIcons,
                             onResetAllData = viewModel::resetAllData
                         )
                     }

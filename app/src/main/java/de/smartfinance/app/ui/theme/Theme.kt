@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.LocalGasStation
@@ -102,39 +103,39 @@ fun SmartFinanceTheme(
 
 object CategoryIconCatalog {
     val availableIcons: List<Pair<String, String>> = listOf(
-        "shield" to "Versicherung",
-        "phone" to "Handyvertrag",
-        "car" to "Kfz & Mobilität",
-        "cart" to "Lebensmittel",
-        "home" to "Wohnen & Fixkosten",
+        "home" to "Haus / Wohnen",
+        "car" to "Auto / Kfz",
+        "shield" to "Schild / Versicherung",
+        "cart" to "Einkaufswagen",
+        "income" to "Geld / Einnahmen",
+        "phone" to "Smartphone",
+        "heart" to "Herz / Gesundheit",
+        "leisure" to "Freizeit & Hobby",
         "savings" to "Sparen & Etappen",
-        "income" to "Gehalt & Einnahmen",
         "bolt" to "Strom & Energie",
-        "leisure" to "Freizeit & Gaming",
         "food" to "Restaurant",
-        "cafe" to "Bäcker & Café",
+        "cafe" to "Café & Bäcker",
         "fuel" to "Tanken",
-        "health" to "Gesundheit",
         "pets" to "Haustiere",
         "star" to "Sonstiges"
     )
 
     fun iconForKey(key: String): ImageVector = when (key.lowercase()) {
-        "shield" -> Icons.Default.Shield
-        "phone" -> Icons.Default.PhoneAndroid
-        "car" -> Icons.Default.DirectionsCar
-        "cart" -> Icons.Default.ShoppingCart
-        "home" -> Icons.Default.Home
-        "savings" -> Icons.Default.Savings
-        "income", "salary" -> Icons.Default.Payments
-        "bolt" -> Icons.Default.Bolt
-        "leisure" -> Icons.Default.SportsEsports
-        "food" -> Icons.Default.Restaurant
-        "cafe" -> Icons.Default.LocalCafe
-        "fuel" -> Icons.Default.LocalGasStation
-        "health" -> Icons.Default.LocalHospital
-        "pets" -> Icons.Default.Pets
-        "star" -> Icons.Default.Star
+        "shield", "schild" -> Icons.Default.Shield
+        "phone", "smartphone", "handy" -> Icons.Default.PhoneAndroid
+        "car", "auto", "kfz" -> Icons.Default.DirectionsCar
+        "cart", "einkaufswagen", "supermarkt" -> Icons.Default.ShoppingCart
+        "home", "haus", "wohnen", "miete" -> Icons.Default.Home
+        "savings", "sparen" -> Icons.Default.Savings
+        "income", "salary", "geld", "einnahmen" -> Icons.Default.Payments
+        "bolt", "strom", "energie" -> Icons.Default.Bolt
+        "leisure", "freizeit", "gaming" -> Icons.Default.SportsEsports
+        "food", "restaurant" -> Icons.Default.Restaurant
+        "cafe", "kaffee", "baecker" -> Icons.Default.LocalCafe
+        "fuel", "tanken", "benzin" -> Icons.Default.LocalGasStation
+        "health", "heart", "herz", "gesundheit" -> Icons.Default.Favorite
+        "pets", "haustiere", "tier" -> Icons.Default.Pets
+        "star", "sonstiges" -> Icons.Default.Star
         else -> Icons.Default.AccountBalanceWallet
     }
 
@@ -172,16 +173,19 @@ object CategoryIconCatalog {
         if (lowerText.contains("freizeit") || lowerText.contains("kino") || lowerText.contains("restaurant")) {
             return CategoryColorRose
         }
+        if (lowerText.contains("herz") || lowerText.contains("gesundheit")) {
+            return CategoryColorRose
+        }
 
         return when (iconKey.lowercase()) {
-            "cart", "cafe", "income", "salary" -> CategoryColorEmerald
-            "phone" -> CategoryColorBlue
-            "bolt" -> CategoryColorAmber
-            "car", "fuel" -> CategoryColorCoralRed
-            "shield" -> CategoryColorIndigo
-            "savings" -> CategoryColorTurquoise
-            "leisure", "food" -> CategoryColorRose
-            "home" -> CategoryColorPurple
+            "cart", "cafe", "income", "salary", "geld", "einkaufswagen" -> CategoryColorEmerald
+            "phone", "smartphone", "handy" -> CategoryColorBlue
+            "bolt", "strom", "energie" -> CategoryColorAmber
+            "car", "fuel", "auto", "kfz", "tanken" -> CategoryColorCoralRed
+            "shield", "schild" -> CategoryColorIndigo
+            "savings", "sparen" -> CategoryColorTurquoise
+            "leisure", "food", "heart", "health", "herz", "freizeit" -> CategoryColorRose
+            "home", "haus", "wohnen", "miete" -> CategoryColorPurple
             else -> CategoryColorIndigo
         }
     }

@@ -48,6 +48,7 @@ class DataVaultManager(
             put("billingStartDay", settings.billingStartDay)
             put("hourlyWage", settings.hourlyWage)
             put("averageMonthsWindow", settings.averageMonthsWindow)
+            put("showBookingCategoryIcons", settings.showBookingCategoryIcons)
         }
         root.put("settings", settingsObj)
 
@@ -138,7 +139,8 @@ class DataVaultManager(
                 preferences.importFromMap(
                     billingStartDay = settingsObj.optInt("billingStartDay", 1),
                     hourlyWage = settingsObj.optDouble("hourlyWage", 15.75),
-                    averageMonthsWindow = settingsObj.optInt("averageMonthsWindow", 3)
+                    averageMonthsWindow = settingsObj.optInt("averageMonthsWindow", 3),
+                    showBookingCategoryIcons = settingsObj.optBoolean("showBookingCategoryIcons", true)
                 )
             }
 
