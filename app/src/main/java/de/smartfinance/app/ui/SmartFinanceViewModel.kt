@@ -151,7 +151,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         listOf(
             ChatMessage(
                 senderIsUser = false,
-                text = "Willkommen im SmartFinance Hybrid KI-Coach.\n\n" +
+                text = "Willkommen im NovaFinance Hybrid KI-Coach.\n\n" +
                     "Frag mich zum Beispiel:\n" +
                     "• Wie viel habe ich heute noch frei?\n" +
                     "• Wann geht die nächste Zahlung ab?\n" +

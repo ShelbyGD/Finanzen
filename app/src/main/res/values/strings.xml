@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SmartFinance 2026</string>
+    <string name="app_name">NovaFinance</string>
     <string name="shortcut_quick_expense_short">Schnell-Ausgabe</string>
     <string name="shortcut_quick_expense_long">Schnell-Ausgabe buchen</string>
     <string name="shortcut_scan_receipt_short">Beleg scannen</string>

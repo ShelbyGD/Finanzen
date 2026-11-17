@@ -198,7 +198,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "SmartFinance 2026",
+                            text = "NovaFinance",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
