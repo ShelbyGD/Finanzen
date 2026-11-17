@@ -218,7 +218,7 @@ object AppHelpRegistry {
             shortSummary = "Vollflexibler 'Sparbooster'-Tab mit Summen-Kopfzeile, beliebig vielen individuellen Sparzielen inkl. Bank/Speicherort, Bearbeiten, Löschen und zielgenauen 1-Tap Einzahlungen.",
             stepByStepGuide = listOf(
                 "Wechsle über die untere Navigationsleiste in den Tab 'Sparbooster'.",
-                "Tippe oben auf '+ Neues Sparziel', um ein individuelles Ziel mit Name, Bank/Speicherort (z. B. BW-Bank, WeltSparen), Zielbetrag, Startkapital, monatlicher Sparrate und Wunschfarbe anzulegen.",
+                "Tippe oben auf '+ Neues Sparziel', um ein individuelles Ziel mit Name, Bank/Speicherort (z. B. Sparkasse, Tagesgeld), Zielbetrag, Startkapital, monatlicher Sparrate und Wunschfarbe anzulegen.",
                 "Jede Spar-Karte kann direkt per Stift-Icon bearbeitet und per Papierkorb gelöscht werden.",
                 "Nutze die 1-Tap Schnell-Einzahlungen (+25 €, +50 €, +100 € oder individueller Betrag) direkt auf der jeweiligen Karte, um genau diesem Ziel Geld gutzuschreiben.",
                 "Die Summen-Kopfzeile ganz oben zeigt stets dein gesamtes Erspartes sowie deine monatliche Gesamt-Sparrate über alle Konten hinweg."
@@ -371,7 +371,8 @@ object AppHelpRegistry {
                 "Sparbooster UI-Entschlackung: Redundante leere Platzhalter-Karte entfernt – der Screen bleibt unter dem '+ Neues Sparziel anlegen'-Button absolut sauber.",
                 "Sortier-Menü in 'Letzte Buchungen': Neues dezentes Sortier-Icon mit DropdownMenu ('Nach Datum', 'Nach Summe', 'Nach Name').",
                 "Festgepinnte Einnahmen (Priorität 1): Einnahmen (wie das grüne Gehalt) bleiben unabhängig vom gewählten Sortiermodus stets unverrückbar ganz oben an Position 1.",
-                "Farb-Klarheit in der Buchungsliste: Ausgaben-Beträge werden nun unmissverständlich in Rot dargestellt, während Einnahmen leuchtend grün bleiben."
+                "Farb-Klarheit in der Buchungsliste: Ausgaben-Beträge werden nun unmissverständlich in Rot dargestellt, während Einnahmen leuchtend grün bleiben.",
+                "Clean-Slate & Zombie-Daten-Bereinigung: Vollständige Entfernung aller hardcodierten Dummy-/Fallback-Daten (wie 'BW-Bank / Notgroschen'). Gelöschte Einträge bleiben physisch und dauerhaft gelöscht."
             )
         ),
         ChangelogEntry(
@@ -390,7 +391,7 @@ object AppHelpRegistry {
             buildNumber = 18,
             date = "17.11.2026",
             newFeatures = listOf(
-                "Vollflexibler Sparbooster mit Mehr-Karten-Verwaltung: Lege beliebig viele individuelle Sparziele mit Titel, Bank/Speicherort (z. B. BW-Bank, WeltSparen), Zielbetrag, Startkapital, monatlicher Sparrate und Wunschfarbe an.",
+                "Vollflexibler Sparbooster mit Mehr-Karten-Verwaltung: Lege beliebig viele individuelle Sparziele mit Titel, Bank/Speicherort (z. B. Sparkasse, Tagesgeld), Zielbetrag, Startkapital, monatlicher Sparrate und Wunschfarbe an.",
                 "Karten-Aktionen & Zielgenaue Einzahlungen: Jede Karte verfügt über Bearbeiten- und Löschen-Aktionen sowie direkte Sofort-Einzahlungs-Buttons (+25 €, +50 €, +100 € oder freier Betrag), die dem Ziel live gutgeschrieben werden.",
                 "Summen-Kopfzeile: Sofortiger Überblick über die Gesamtsumme aller Ersparnisse und die monatliche Gesamtrate über alle Sparziele hinweg.",
                 "Automatischer Monatszuwachs: Fällige monatliche Sparraten fließen stichtagsgenau in den Fortschrittsbalken und die Berechnung ein."

@@ -36,22 +36,6 @@ class FinanceRepository(
         if (existingCategories.isEmpty()) {
             seedCleanCategories()
         }
-        val existingGoals = dao.getAllSavingsGoalsOnce()
-        if (existingGoals.isEmpty()) {
-            dao.insertSavingsGoal(
-                SavingsGoalEntity(
-                    title = "Tagesgeld-Notgroschen",
-                    targetAmount = 3000.0,
-                    initialSavedAmount = 500.0,
-                    monthlyContributionGoal = 150.0,
-                    dueDayOfMonth = 1,
-                    bankName = "BW-Bank",
-                    iconKey = "savings",
-                    colorHex = 0xFF06B6D4,
-                    startEpochDay = LocalDate.now().withDayOfMonth(1).toEpochDay()
-                )
-            )
-        }
         processDueRecurringBookings(LocalDate.now())
     }
 
@@ -193,19 +177,6 @@ class FinanceRepository(
         dao.insertCategoryTabs(cleanTabs)
         val savedCategories = dao.getAllCategoryTabsOnce()
         val byName = savedCategories.associateBy { it.name }
-
-        dao.deleteAllQuickTemplates()
-        dao.deleteAllSavingsGoals()
-        dao.insertSavingsGoal(
-            SavingsGoalEntity(
-                title = "Mein Sparziel",
-                targetAmount = 0.0,
-                initialSavedAmount = 0.0,
-                monthlyContributionGoal = 0.0,
-                dueDayOfMonth = 1
-            )
-        )
-
         return byName
     }
 
@@ -296,6 +267,10 @@ class FinanceRepository(
     suspend fun resetAllData() {
         dao.deleteAllTransactions()
         dao.deleteAllQuickTemplates()
+        dao.deleteAllSavingsGoals()
+        dao.deleteAllInstallments()
+        dao.deleteAllInstallmentFolders()
+        dao.deleteAllCategoryTabs()
         seedCleanCategories()
     }
 
@@ -304,6 +279,9 @@ class FinanceRepository(
     }
 
     suspend fun deleteTransaction(transaction: TransactionEntity) {
+        if (transaction.id > 0L) {
+            dao.deleteTransactionById(transaction.id)
+        }
         dao.deleteTransaction(transaction)
     }
 
@@ -339,6 +317,9 @@ class FinanceRepository(
     }
 
     suspend fun deleteCategoryTab(tab: CategoryTabEntity) {
+        if (tab.id > 0L) {
+            dao.deleteCategoryTabById(tab.id)
+        }
         dao.deleteCategoryTab(tab)
     }
 
@@ -361,6 +342,9 @@ class FinanceRepository(
     }
 
     suspend fun deleteSavingsGoal(goal: SavingsGoalEntity) {
+        if (goal.id > 0L) {
+            dao.deleteSavingsGoalById(goal.id)
+        }
         dao.deleteSavingsGoal(goal)
     }
 
@@ -416,6 +400,9 @@ class FinanceRepository(
     }
 
     suspend fun deleteInstallment(installment: InstallmentEntity) {
+        if (installment.id > 0L) {
+            dao.deleteInstallmentById(installment.id)
+        }
         dao.deleteInstallment(installment)
     }
 
@@ -443,6 +430,9 @@ class FinanceRepository(
     }
 
     suspend fun deleteInstallmentFolder(folder: InstallmentFolderEntity, deleteItems: Boolean = false) {
+        if (folder.id > 0L) {
+            dao.deleteInstallmentFolderById(folder.id)
+        }
         dao.deleteInstallmentFolder(folder)
         if (deleteItems) {
             dao.deleteInstallmentsByFolderName(folder.name)

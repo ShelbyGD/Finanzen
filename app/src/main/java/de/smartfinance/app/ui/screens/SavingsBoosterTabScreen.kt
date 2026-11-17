@@ -572,7 +572,7 @@ fun SavingsGoalEditDialog(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Titel des Sparziels *") },
-                    placeholder = { Text("z. B. Tagesgeld-Notgroschen") },
+                    placeholder = { Text("z. B. Notgroschen, Urlaub") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -581,7 +581,7 @@ fun SavingsGoalEditDialog(
                     value = bankName,
                     onValueChange = { bankName = it },
                     label = { Text("Bank / Speicherort") },
-                    placeholder = { Text("z. B. BW-Bank, WeltSparen, Girokonto") },
+                    placeholder = { Text("z. B. Sparkasse, Tagesgeld, Girokonto") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

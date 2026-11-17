@@ -30,6 +30,9 @@ interface SmartFinanceDao {
     @Delete
     suspend fun deleteCategoryTab(tab: CategoryTabEntity)
 
+    @Query("DELETE FROM category_tabs WHERE id = :id")
+    suspend fun deleteCategoryTabById(id: Long)
+
     @Query("DELETE FROM category_tabs")
     suspend fun deleteAllCategoryTabs()
 
@@ -148,6 +151,9 @@ interface SmartFinanceDao {
 
     @Query("DELETE FROM installment_folders WHERE id = :id")
     suspend fun deleteInstallmentFolderById(id: Long)
+
+    @Query("DELETE FROM installment_folders")
+    suspend fun deleteAllInstallmentFolders()
 
     @Query("UPDATE installments SET folderName = :newName WHERE folderName = :oldName")
     suspend fun renameInstallmentFolderInItems(oldName: String, newName: String)
