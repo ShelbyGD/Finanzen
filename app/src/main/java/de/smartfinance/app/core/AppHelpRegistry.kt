@@ -370,7 +370,8 @@ object AppHelpRegistry {
             newFeatures = listOf(
                 "Sparbooster UI-Entschlackung: Redundante leere Platzhalter-Karte entfernt – der Screen bleibt unter dem '+ Neues Sparziel anlegen'-Button absolut sauber.",
                 "Sortier-Menü in 'Letzte Buchungen': Neues dezentes Sortier-Icon mit DropdownMenu ('Nach Datum', 'Nach Summe', 'Nach Name').",
-                "Festgepinnte Einnahmen (Priorität 1): Einnahmen (wie das grüne Gehalt) bleiben unabhängig vom gewählten Sortiermodus stets unverrückbar ganz oben an Position 1."
+                "Festgepinnte Einnahmen (Priorität 1): Einnahmen (wie das grüne Gehalt) bleiben unabhängig vom gewählten Sortiermodus stets unverrückbar ganz oben an Position 1.",
+                "Farb-Klarheit in der Buchungsliste: Ausgaben-Beträge werden nun unmissverständlich in Rot dargestellt, während Einnahmen leuchtend grün bleiben."
             )
         ),
         ChangelogEntry(

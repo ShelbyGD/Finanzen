@@ -1511,7 +1511,7 @@ private fun RecentBookingsGroupedSection(
                             val amountColor = if (isIncome) {
                                 Color(0xFF00E676)
                             } else {
-                                MaterialTheme.colorScheme.onSurface
+                                MaterialTheme.colorScheme.error
                             }
                             Text(
                                 text = "$prefix${SmartFinanceEngine.formatEuro(kotlin.math.abs(tx.amount))}",
