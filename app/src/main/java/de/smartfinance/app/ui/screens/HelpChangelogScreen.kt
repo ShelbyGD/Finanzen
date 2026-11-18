@@ -132,7 +132,7 @@ fun HelpChangelogScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("Alle 13 Funktionen & Anleitungen durchsuchen...") },
+                label = { Text("Funktionen & Anleitungen durchsuchen...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
@@ -140,10 +140,10 @@ fun HelpChangelogScreen(
             )
         }
 
-        // 4. Alle 13 aufklappbaren Erklär-Karten aus AppHelpRegistry.kt
+        // 4. Aufklappbare Erklär-Karten aus AppHelpRegistry.kt
         item {
             Text(
-                text = "Alle ${filteredEntries.size} Funktions-Module (Antippen zum Aufklappen):",
+                text = "Hilfe & Anleitungen (${filteredEntries.size}):",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -335,7 +335,7 @@ private fun ChangelogSectionCard() {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Version v${log.versionName} (Build #${log.buildNumber})",
+                                text = "Version ${log.versionName} (Build #${log.buildNumber})",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
