@@ -31,10 +31,10 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.automirrored.filled.List
@@ -43,7 +43,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
@@ -250,6 +249,36 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
+
+                    if (destination == DrawerDestination.SETTINGS_DEMO) {
+                        NavigationDrawerItem(
+                            icon = {
+                                Icon(
+                                    imageVector = if (settingsState.isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = "Erscheinungsbild (Hell/Dunkel)",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            },
+                            badge = {
+                                Text(
+                                    text = if (settingsState.isDarkMode) "Dunkel" else "Hell",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            selected = false,
+                            onClick = {
+                                viewModel.toggleThemeMode()
+                            },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -360,18 +389,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     contentDescription = "Benachrichtigungen, Update-Info & Vertrags-Wecker"
                                 )
                             }
-                        }
-
-                        // 3. Light/Dark-Mode-Umschalter
-                        IconButton(onClick = viewModel::toggleThemeMode) {
-                            Icon(
-                                imageVector = if (settingsState.isDarkMode) {
-                                    Icons.Outlined.LightMode
-                                } else {
-                                    Icons.Outlined.DarkMode
-                                },
-                                contentDescription = "Light/Dark-Mode umschalten"
-                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -600,19 +617,10 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                     }
 
                     DrawerDestination.SETTINGS_DEMO -> {
-                        val incomeCategory = remember(categories) {
-                            categories.firstOrNull { it.categoryType == de.smartfinance.app.data.local.CategoryType.INCOME }
-                        }
                         SettingsDemoScreen(
                             settingsState = settingsState,
                             vaultState = geminiVaultState,
-                            plannedMonthlyIncome = incomeCategory?.defaultAmount ?: 0.0,
-                            plannedPayDay = incomeCategory?.dueDayOfMonth ?: 1,
                             onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
-                            onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
-                            onUpdateBillingDay = viewModel::updateBillingStartDay,
-                            onUpdateHourlyWage = viewModel::updateHourlyWage,
-                            onUpdateAvgWindow = viewModel::updateAverageWindow,
                             onToggleShowBookingCategoryIcons = viewModel::setShowBookingCategoryIcons,
                             onResetAllData = viewModel::resetAllData
                         )
