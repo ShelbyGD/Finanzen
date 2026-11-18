@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -103,6 +104,7 @@ import de.smartfinance.app.ui.screens.HelpChangelogScreen
 import de.smartfinance.app.ui.screens.InstallmentsTrackerSheet
 import de.smartfinance.app.ui.screens.SavingsBoosterTabScreen
 import de.smartfinance.app.ui.screens.SettingsDemoScreen
+import de.smartfinance.app.ui.screens.YearlyOverviewScreen
 import de.smartfinance.app.ui.theme.SmartFinanceTheme
 import kotlinx.coroutines.launch
 
@@ -221,6 +223,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 DrawerDestination.entries.forEach { destination ->
                     val destinationIcon = when (destination) {
                         DrawerDestination.COCKPIT -> Icons.Default.Home
+                        DrawerDestination.YEARLY_OVERVIEW -> Icons.Default.DateRange
                         DrawerDestination.INSTALLMENTS -> Icons.AutoMirrored.Filled.List
                         DrawerDestination.ARCHIVE -> Icons.Default.Archive
                         DrawerDestination.DATA_VAULT -> Icons.Default.Lock
@@ -555,6 +558,17 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                 )
                             }
                         }
+                    }
+
+                    DrawerDestination.YEARLY_OVERVIEW -> {
+                        val yearlyState by viewModel.yearlyOverviewState.collectAsStateWithLifecycle()
+                        YearlyOverviewScreen(
+                            state = yearlyState,
+                            categories = categories,
+                            onSelectCategory = viewModel::selectYearlyCategoryFilter,
+                            onPreviousYear = viewModel::previousYearlyOverviewYear,
+                            onNextYear = viewModel::nextYearlyOverviewYear
+                        )
                     }
 
                     DrawerDestination.ARCHIVE -> {

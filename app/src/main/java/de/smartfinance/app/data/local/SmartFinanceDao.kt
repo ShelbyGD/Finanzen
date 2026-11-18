@@ -67,6 +67,16 @@ interface SmartFinanceDao {
     @Query("SELECT * FROM transactions WHERE isArchived = 1 ORDER BY dateEpochDay DESC, id DESC")
     fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE isArchived = 0 
+          AND transactionType != 'INCOME' 
+          AND dateEpochDay >= :startEpochDay 
+          AND dateEpochDay <= :endEpochDay 
+        ORDER BY dateEpochDay ASC
+    """)
+    fun observeYearlyExpenses(startEpochDay: Long, endEpochDay: Long): Flow<List<TransactionEntity>>
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: Long)
 

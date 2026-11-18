@@ -48,6 +48,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
@@ -64,12 +67,28 @@ enum class BottomNavTab(val label: String) {
 
 enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
+    YEARLY_OVERVIEW("Jahres-Rückblick"),
     INSTALLMENTS("Ratenzahlungen & Offene Posten"),
     ARCHIVE("Archiv (Zwischenspeicher)"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen"),
     HELP_CHANGELOG("Hilfe, Features & Was ist neu?")
 }
+
+data class MonthlyExpenseBreakdown(
+    val month: Int,
+    val monthName: String,
+    val amount: Double,
+    val ratio: Float
+)
+
+data class YearlyOverviewUiState(
+    val year: Int = LocalDate.now().year,
+    val selectedCategoryId: Long? = null,
+    val totalExpense: Double = 0.0,
+    val averageMonthlyExpense: Double = 0.0,
+    val monthlyBreakdown: List<MonthlyExpenseBreakdown> = emptyList()
+)
 
 enum class SortType(val label: String) {
     DATE("Nach Datum"),
@@ -200,6 +219,92 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     val installmentFolders: StateFlow<List<InstallmentFolderEntity>> = repository.installmentFoldersFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val germanMonthNames = listOf(
+        "Januar", "Februar", "März", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember"
+    )
+
+    private val _selectedYearlyOverviewYear = MutableStateFlow(LocalDate.now().year)
+    val selectedYearlyOverviewYear: StateFlow<Int> = _selectedYearlyOverviewYear.asStateFlow()
+
+    private val _selectedYearlyCategoryFilterId = MutableStateFlow<Long?>(null)
+    val selectedYearlyCategoryFilterId: StateFlow<Long?> = _selectedYearlyCategoryFilterId.asStateFlow()
+
+    fun setYearlyOverviewYear(year: Int) {
+        _selectedYearlyOverviewYear.value = year
+    }
+
+    fun previousYearlyOverviewYear() {
+        _selectedYearlyOverviewYear.value -= 1
+    }
+
+    fun nextYearlyOverviewYear() {
+        _selectedYearlyOverviewYear.value += 1
+    }
+
+    fun selectYearlyCategoryFilter(categoryId: Long?) {
+        _selectedYearlyCategoryFilterId.value = categoryId
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val yearlyOverviewState: StateFlow<YearlyOverviewUiState> = combine(
+        _selectedYearlyOverviewYear.flatMapLatest { year ->
+            repository.observeYearlyExpenses(year).map { txs -> year to txs }
+        },
+        _selectedYearlyCategoryFilterId
+    ) { (year, rawExpenses), filterCatId ->
+        val filtered = if (filterCatId == null) {
+            rawExpenses
+        } else {
+            rawExpenses.filter { it.categoryId == filterCatId }
+        }
+
+        val monthTotals = DoubleArray(12) { 0.0 }
+        for (tx in filtered) {
+            val date = LocalDate.ofEpochDay(tx.dateEpochDay)
+            val monthIdx = date.monthValue - 1
+            if (monthIdx in 0..11) {
+                monthTotals[monthIdx] += tx.amount
+            }
+        }
+
+        val totalExpense = monthTotals.sum()
+        val averageMonthly = totalExpense / 12.0
+
+        val monthlyBreakdown = (1..12).map { month ->
+            val amt = monthTotals[month - 1]
+            val ratio = if (totalExpense > 0.0) (amt / totalExpense).toFloat().coerceIn(0f, 1f) else 0f
+            MonthlyExpenseBreakdown(
+                month = month,
+                monthName = germanMonthNames[month - 1],
+                amount = amt,
+                ratio = ratio
+            )
+        }
+
+        YearlyOverviewUiState(
+            year = year,
+            selectedCategoryId = filterCatId,
+            totalExpense = totalExpense,
+            averageMonthlyExpense = averageMonthly,
+            monthlyBreakdown = monthlyBreakdown
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        YearlyOverviewUiState(
+            year = LocalDate.now().year,
+            monthlyBreakdown = (1..12).map { month ->
+                MonthlyExpenseBreakdown(
+                    month = month,
+                    monthName = germanMonthNames[month - 1],
+                    amount = 0.0,
+                    ratio = 0f
+                )
+            }
+        )
+    )
 
     init {
         viewModelScope.launch(Dispatchers.IO) {

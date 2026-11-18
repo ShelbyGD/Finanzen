@@ -31,6 +31,12 @@ class FinanceRepository(
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()
     val installmentsFlow: Flow<List<InstallmentEntity>> = dao.observeInstallments()
 
+    fun observeYearlyExpenses(year: Int): Flow<List<TransactionEntity>> {
+        val startEpochDay = LocalDate.of(year, 1, 1).toEpochDay()
+        val endEpochDay = LocalDate.of(year, 12, 31).toEpochDay()
+        return dao.observeYearlyExpenses(startEpochDay, endEpochDay)
+    }
+
     suspend fun ensureInitializedAndSyncRecurring() {
         deduplicateCategories()
         val existingCategories = dao.getAllCategoryTabsOnce()
