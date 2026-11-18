@@ -65,8 +65,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import de.smartfinance.app.core.AppTier
-import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
@@ -91,12 +89,10 @@ import java.util.Locale
 fun CalculatorNumpadSheet(
     categories: List<CategoryTabEntity>,
     quickTemplates: List<QuickTemplateEntity>,
-    activeTier: AppTier,
     onDismiss: () -> Unit,
     onExecuteQuickTemplate: (QuickTemplateEntity) -> Unit,
     onParseVoiceCommand: suspend (String) -> VoiceParseResult,
     onBookVoiceProposals: (List<VoiceBookingProposal>) -> Unit,
-    onRequestProFeature: (String) -> Unit,
     onSaveCategory: (CategoryTabEntity) -> Unit = {},
     onDeleteCategory: (CategoryTabEntity) -> Unit = {},
     onConfirmBooking: (
@@ -374,10 +370,6 @@ fun CalculatorNumpadSheet(
 
                 FilledTonalButton(
                     onClick = {
-                        if (!FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)) {
-                            onRequestProFeature("1-Tap Sprach-Buchung (Smart Voice Entry)")
-                            return@FilledTonalButton
-                        }
                         runCatching {
                             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                 putExtra(
@@ -730,21 +722,11 @@ fun CalculatorNumpadSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Auf 12 Monate glätten (1/12-Jahreskosten)",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            if (!FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = "PRO",
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
+                        Text(
+                            text = "Auf 12 Monate glätten (1/12-Jahreskosten)",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
                         Text(
                             text = "Zieht monatlich virtuell 1/12 als Rücklage vom freien Budget ab",
                             style = MaterialTheme.typography.bodySmall,
@@ -754,11 +736,7 @@ fun CalculatorNumpadSheet(
                     Switch(
                         checked = smoothOver12Months,
                         onCheckedChange = { checked ->
-                            if (FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)) {
-                                smoothOver12Months = checked
-                            } else {
-                                onRequestProFeature("1/12-Jahreskosten-Glätter")
-                            }
+                            smoothOver12Months = checked
                         }
                     )
                 }

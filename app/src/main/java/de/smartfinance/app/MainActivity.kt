@@ -84,7 +84,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import de.smartfinance.app.core.AppTier
 import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.ui.BottomNavTab
 import de.smartfinance.app.ui.DrawerDestination
@@ -159,7 +158,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val quickTemplates by viewModel.quickTemplates.collectAsStateWithLifecycle()
     val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
     val geminiVaultState by viewModel.geminiVaultState.collectAsStateWithLifecycle()
-    val activeTier by viewModel.activeTier.collectAsStateWithLifecycle()
     val currentSnapshot by viewModel.currentSnapshot.collectAsStateWithLifecycle()
     val transactionSortType by viewModel.transactionSortType.collectAsStateWithLifecycle()
 
@@ -520,9 +518,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     },
                                     onOpenAddBooking = viewModel::openCalculatorSheet,
                                     onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
-                                    onSaveCategory = viewModel::saveCategoryTab,
-                                    onNavigateToAnalytics = {},
-                                    onNavigateToContracts = {}
+                                    onSaveCategory = viewModel::saveCategoryTab
                                 )
                             }
 
@@ -620,13 +616,9 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         DataVaultScreen(
                             transactionsCount = allTransactions.size,
                             categoriesCount = categories.size,
-                            activeTier = activeTier,
                             onExportBackupUri = { uri -> viewModel.exportBackupToUri(context, uri) },
                             onImportBackupUri = { uri -> viewModel.importBackupFromUri(context, uri) },
-                            onImportBankCsvUri = { uri -> viewModel.importBankCsvFromUri(context, uri) },
-                            onRequestProFeature = { title ->
-                                viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
-                            }
+                            onImportBankCsvUri = { uri -> viewModel.importBankCsvFromUri(context, uri) }
                         )
                     }
 
@@ -655,14 +647,10 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         CalculatorNumpadSheet(
             categories = categories,
             quickTemplates = quickTemplates,
-            activeTier = activeTier,
             onDismiss = viewModel::closeCalculatorSheet,
             onExecuteQuickTemplate = viewModel::executeQuickTemplate,
             onParseVoiceCommand = viewModel::parseVoiceCommand,
             onBookVoiceProposals = viewModel::bookVoiceProposals,
-            onRequestProFeature = { title ->
-                viewModel.runIfUnlockedOrShowProDialog(AppTier.PRO_FULL, title) {}
-            },
             onSaveCategory = viewModel::saveCategoryTab,
             onDeleteCategory = viewModel::deleteCategoryTab,
             onConfirmBooking = { title, amount, txType, category, dueDay, isFixed, interval, smooth12 ->

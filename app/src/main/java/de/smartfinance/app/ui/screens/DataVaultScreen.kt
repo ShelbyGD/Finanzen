@@ -36,8 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import de.smartfinance.app.core.AppTier
-import de.smartfinance.app.core.FeatureGate
 import java.time.LocalDate
 
 /**
@@ -48,14 +46,10 @@ import java.time.LocalDate
 fun DataVaultScreen(
     transactionsCount: Int,
     categoriesCount: Int,
-    activeTier: AppTier,
     onExportBackupUri: (Uri) -> Unit,
     onImportBackupUri: (Uri) -> Unit,
-    onImportBankCsvUri: (Uri) -> Unit,
-    onRequestProFeature: (String) -> Unit
+    onImportBankCsvUri: (Uri) -> Unit
 ) {
-    val isProUnlocked = FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)
-
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -126,18 +120,17 @@ fun DataVaultScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    val proBadge = if (!isProUnlocked) " (PRO)" else ""
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = if (isProUnlocked) Icons.Outlined.SaveAlt else Icons.Outlined.Lock,
+                            imageVector = Icons.Outlined.SaveAlt,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "1-Tap JSON-Komplett-Backup & Wiederherstellung$proBadge",
+                            text = "1-Tap JSON-Komplett-Backup & Wiederherstellung",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -154,12 +147,8 @@ fun DataVaultScreen(
                     ) {
                         Button(
                             onClick = {
-                                if (isProUnlocked) {
-                                    val fileName = "SmartFinance2026_Backup_${LocalDate.now()}.json"
-                                    createBackupLauncher.launch(fileName)
-                                } else {
-                                    onRequestProFeature("1-Tap JSON-Backup-Tresor")
-                                }
+                                val fileName = "SmartFinance2026_Backup_${LocalDate.now()}.json"
+                                createBackupLauncher.launch(fileName)
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -170,11 +159,7 @@ fun DataVaultScreen(
 
                         FilledTonalButton(
                             onClick = {
-                                if (isProUnlocked) {
-                                    openBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
-                                } else {
-                                    onRequestProFeature("JSON-Backup wiederherstellen")
-                                }
+                                openBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -199,7 +184,6 @@ fun DataVaultScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    val proBadge = if (!isProUnlocked) " (PRO)" else ""
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -210,7 +194,7 @@ fun DataVaultScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Bank-CSV Kontoauszug-Import$proBadge",
+                            text = "Bank-CSV Kontoauszug-Import",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -223,11 +207,7 @@ fun DataVaultScreen(
 
                     Button(
                         onClick = {
-                            if (isProUnlocked) {
-                                openCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*"))
-                            } else {
-                                onRequestProFeature("Bank-CSV Kontoauszug-Import")
-                            }
+                            openCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*"))
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

@@ -80,8 +80,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import de.smartfinance.app.core.AppTier
-import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.core.UserSettingsState
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
@@ -93,7 +91,6 @@ import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.domain.TimeRangeMode
 import de.smartfinance.app.ui.SmartFinanceViewModel
 import de.smartfinance.app.ui.SortType
-import de.smartfinance.app.ui.components.CashflowWaveChart
 import de.smartfinance.app.ui.theme.BudgetRingGreen
 import de.smartfinance.app.ui.theme.BudgetRingOrange
 import de.smartfinance.app.ui.theme.BudgetRingRed
@@ -131,9 +128,7 @@ fun CockpitScreen(
     onArchiveTransaction: (TransactionEntity) -> Unit = {},
     onOpenAddBooking: () -> Unit,
     onUpdatePlannedIncome: (Double, Int?) -> Unit,
-    onSaveCategory: (CategoryTabEntity) -> Unit = {},
-    onNavigateToAnalytics: () -> Unit,
-    onNavigateToContracts: () -> Unit
+    onSaveCategory: (CategoryTabEntity) -> Unit = {}
 ) {
     val pagerState = rememberPagerState(
         initialPage = selectedMonthPage,
@@ -174,9 +169,7 @@ fun CockpitScreen(
             onArchiveTransaction = onArchiveTransaction,
             onOpenAddBooking = onOpenAddBooking,
             onUpdatePlannedIncome = onUpdatePlannedIncome,
-            onSaveCategory = onSaveCategory,
-            onNavigateToAnalytics = onNavigateToAnalytics,
-            onNavigateToContracts = onNavigateToContracts
+            onSaveCategory = onSaveCategory
         )
     }
 }
@@ -196,9 +189,7 @@ private fun OverviewMonthContent(
     onArchiveTransaction: (TransactionEntity) -> Unit = {},
     onOpenAddBooking: () -> Unit,
     onUpdatePlannedIncome: (Double, Int?) -> Unit,
-    onSaveCategory: (CategoryTabEntity) -> Unit = {},
-    onNavigateToAnalytics: () -> Unit,
-    onNavigateToContracts: () -> Unit
+    onSaveCategory: (CategoryTabEntity) -> Unit = {}
 ) {
     var showIncomeDialog by remember { mutableStateOf(false) }
 
@@ -233,7 +224,7 @@ private fun OverviewMonthContent(
         item {
             HeroBudgetCard(
                 snapshot = snapshot,
-                onClickHero = onNavigateToAnalytics,
+                onClickHero = {},
                 onClickEditIncome = { showIncomeDialog = true }
             )
         }
@@ -1620,293 +1611,3 @@ private fun SwipeableTransactionItem(
     )
 }
 
-/**
- * Tab 3: "Analysen"
- * - Große grafische Monats-Belastungswelle Tag 1–31 (CashflowWaveChart)
- * - Einnahmen/Ausgaben-Soll/Ist & 3M/6M/12M-Durchschnitte
- * - Rollover-Formel & 1/12-Jahreskosten-Glätter
- */
-@Composable
-fun AnalyticsTabScreen(
-    snapshot: DashboardAnalysisSnapshot,
-    settingsState: UserSettingsState,
-    activeTier: AppTier,
-    onChangeAvgWindow: (Int) -> Unit,
-    onOpenHelpId: (String) -> Unit,
-    onRequestProFeature: (String) -> Unit
-) {
-    val isProUnlocked = FeatureGate.isUnlocked(AppTier.PRO_FULL, activeTier)
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        // 1. Große grafische Monats-Belastungswelle (Tag 1–31)
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Monats-Belastungswelle (Tag 1–31)",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = snapshot.nextDebitHeadline,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        IconButton(onClick = { onOpenHelpId("cashflow_wave") }) {
-                            Icon(
-                                imageVector = Icons.Outlined.HelpOutline,
-                                contentDescription = "Hilfe zur Belastungswelle"
-                            )
-                        }
-                    }
-
-                    CashflowWaveChart(
-                        dayPoints = snapshot.dayLoadPoints,
-                        loadStartThird = snapshot.loadStartThird,
-                        loadMiddleThird = snapshot.loadMiddleThird,
-                        loadEndThird = snapshot.loadEndThird
-                    )
-                }
-            }
-        }
-
-        // 2. Einnahmen/Ausgaben Soll/Ist & 3M/6M/12M-Durchschnitte
-        item {
-            val effectiveIncome = max(snapshot.actualIncome, snapshot.targetIncome)
-            val totalExpenses = snapshot.effectiveOperatingExpenses + snapshot.openUpcomingFixedTotal
-            val rolloverPrefix = if (snapshot.rolloverDeltaPerDay >= 0.0) "+" else ""
-
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Soll/Ist & Durchschnitt",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(3, 6, 12).forEach { window ->
-                                val isProWindow = window > 3
-                                val label = if (isProWindow && !isProUnlocked) "${window}M PRO" else "${window}M-Ø"
-                                FilterChip(
-                                    selected = settingsState.averageMonthsWindow == window,
-                                    onClick = {
-                                        if (isProWindow && !isProUnlocked) {
-                                            onRequestProFeature("$window-Monats-Durchschnitt")
-                                        } else {
-                                            onChangeAvgWindow(window)
-                                        }
-                                    },
-                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) }
-                                )
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFF00E676).copy(alpha = 0.14f),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = "Einnahmen (Soll/Ist)",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "+${SmartFinanceEngine.formatEuro(effectiveIncome)}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF00E676)
-                                )
-                                Text(
-                                    text = "${snapshot.avgWindowMonths}M-Ø: ${SmartFinanceEngine.formatEuro(snapshot.historicalAvgIncome)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = BudgetRingOrange.copy(alpha = 0.14f),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = "Ausgaben (Ist + Offen)",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "-${SmartFinanceEngine.formatEuro(totalExpenses)}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = BudgetRingOrange
-                                )
-                                Text(
-                                    text = "${snapshot.avgWindowMonths}M-Ø: ${SmartFinanceEngine.formatEuro(snapshot.historicalAvgExpense)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-
-                    AnalyticsKeyValueRow(
-                        label = "Monatsend-Prognose (Freier Puffer)",
-                        value = SmartFinanceEngine.formatEuro(snapshot.projectedEndOfMonthBalance),
-                        highlightColor = if (snapshot.projectedEndOfMonthBalance >= 0) BudgetRingGreen else BudgetRingRed
-                    )
-                    AnalyticsKeyValueRow(
-                        label = "Täglicher Rollover-Effekt vs. Basis",
-                        value = "$rolloverPrefix${SmartFinanceEngine.formatEuro(snapshot.rolloverDeltaPerDay)} / Tag"
-                    )
-                    AnalyticsKeyValueRow(
-                        label = "Dauer-Sparrate im Monat",
-                        value = "-${SmartFinanceEngine.formatEuro(snapshot.savingsThisMonth)}"
-                    )
-                    AnalyticsKeyValueRow(
-                        label = "Dynamisches Tagesbudget (${snapshot.remainingDaysInMonth} Resttage)",
-                        value = "${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag",
-                        highlightColor = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-
-        // 3. 1/12-Jahreskosten-Glätter Karte
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.TrendingUp,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "1/12-Jahreskosten-Glätter",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        IconButton(onClick = { onOpenHelpId("annual_smoother") }) {
-                            Icon(
-                                imageVector = Icons.Outlined.HelpOutline,
-                                contentDescription = "Hilfe zum 1/12-Glätter"
-                            )
-                        }
-                    }
-                    Text(
-                        text = "Jährliche Großrechnungen (z. B. Kfz-Versicherung 720 €/Jahr) werden automatisch mit 1/12 pro Monat im Budget berücksichtigt, damit der Fälligkeitsmonat dein Tagesbudget nicht sprengt.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Monatliche 1/12-Rücklage:",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "${SmartFinanceEngine.formatEuro(snapshot.smoothedMonthlyReserveTotal)} / Monat",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnalyticsKeyValueRow(
-    label: String,
-    value: String,
-    highlightColor: Color = MaterialTheme.colorScheme.onSurface
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = highlightColor
-        )
-    }
-}

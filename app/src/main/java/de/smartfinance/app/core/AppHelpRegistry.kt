@@ -13,7 +13,6 @@ data class HelpEntry(
     val shortSummary: String,
     val stepByStepGuide: List<String>,
     val exampleTips: List<String>,
-    val requiredTier: AppTier,
     val addedInVersion: String
 )
 
@@ -25,7 +24,7 @@ data class ChangelogEntry(
 )
 
 /**
- * Single Source of Truth für Hilfe-Karten, den Lite-vs.-Pro-Vergleich und das Update-Changelog.
+ * Single Source of Truth für Hilfe-Karten und das Update-Changelog.
  */
 object AppHelpRegistry {
 
@@ -68,7 +67,6 @@ object AppHelpRegistry {
                 "Einnahmen stehen immer fest oben in leuchtendem Grün.",
                 "Ausgaben werden mit rotem Betrag unmissverständlich dargestellt."
             ),
-            requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.2.0"
         ),
         HelpEntry(
@@ -87,7 +85,6 @@ object AppHelpRegistry {
                 "100 % Datenschutz: Deine Finanzzahlen bleiben vollständig auf deinem Gerät.",
                 "Optional kannst du im Tresor einen eigenen Google Gemini API-Key hinterlegen."
             ),
-            requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.2.0"
         ),
         HelpEntry(
@@ -105,7 +102,6 @@ object AppHelpRegistry {
             exampleTips = listOf(
                 "Die Summen-Karte ganz oben zeigt dir jederzeit deine Gesamtersparnis und monatliche Sparrate über alle Ziele hinweg."
             ),
-            requiredTier = AppTier.LITE_FREE,
             addedInVersion = "1.2.0"
         )
     )

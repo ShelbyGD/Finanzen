@@ -49,8 +49,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.smartfinance.app.BuildConfig
-import de.smartfinance.app.core.AppTier
-import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.core.HelpEntry
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.TransactionEntity

@@ -8,8 +8,6 @@ import androidx.lifecycle.viewModelScope
 import de.smartfinance.app.core.ApiKeyManager
 import de.smartfinance.app.core.AppHelpRegistry
 import de.smartfinance.app.core.AppPreferences
-import de.smartfinance.app.core.AppTier
-import de.smartfinance.app.core.FeatureGate
 import de.smartfinance.app.core.GeminiVaultState
 import de.smartfinance.app.core.HelpEntry
 import de.smartfinance.app.core.UserSettingsState
@@ -163,9 +161,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     private val _activeHelpEntryModal = MutableStateFlow<HelpEntry?>(null)
     val activeHelpEntryModal: StateFlow<HelpEntry?> = _activeHelpEntryModal.asStateFlow()
 
-    private val _proLockedFeatureDialog = MutableStateFlow<String?>(null)
-    val proLockedFeatureDialog: StateFlow<String?> = _proLockedFeatureDialog.asStateFlow()
-
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
 
@@ -195,7 +190,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     )
     val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
 
-    val activeTier: StateFlow<AppTier> = FeatureGate.currentTier
     val settingsState: StateFlow<UserSettingsState> = preferences.settingsState
     val geminiVaultState: StateFlow<GeminiVaultState> = apiKeyManager.vaultState
 
@@ -489,22 +483,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         _selectedTransactionForAction.value = null
     }
 
-    fun runIfUnlockedOrShowProDialog(
-        requiredTier: AppTier,
-        featureTitle: String,
-        action: () -> Unit
-    ) {
-        if (FeatureGate.isUnlocked(requiredTier)) {
-            action()
-        } else {
-            _proLockedFeatureDialog.value = featureTitle
-        }
-    }
-
-    fun dismissProLockedDialog() {
-        _proLockedFeatureDialog.value = null
-    }
-
     fun openHelpCardById(helpId: String) {
         _activeHelpEntryModal.value = AppHelpRegistry.findById(helpId)
     }
@@ -522,12 +500,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun openAiChatSheet() {
-        runIfUnlockedOrShowProDialog(
-            requiredTier = AppTier.PRO_FULL,
-            featureTitle = "Lokale Smart Finance Hybrid-KI & Was-wäre-wenn-Simulator"
-        ) {
-            _showAiChatSheet.value = true
-        }
+        _showAiChatSheet.value = true
     }
 
     fun closeAiChatSheet() {
@@ -535,12 +508,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun openReceiptScannerSheet() {
-        runIfUnlockedOrShowProDialog(
-            requiredTier = AppTier.PRO_FULL,
-            featureTitle = "Offline Beleg-Scanner (Google ML Kit OCR)"
-        ) {
-            _showReceiptScannerSheet.value = true
-        }
+        _showReceiptScannerSheet.value = true
     }
 
     fun closeReceiptScannerSheet() {
@@ -794,12 +762,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun openApiKeyVaultSheet() {
-        runIfUnlockedOrShowProDialog(
-            requiredTier = FeatureGate.GEMINI_CLOUD_VISION_TIER,
-            featureTitle = FeatureGate.FEATURE_GEMINI_CLOUD_VISION
-        ) {
-            _showApiKeyVaultSheet.value = true
-        }
+        _showApiKeyVaultSheet.value = true
     }
 
     fun closeApiKeyVaultSheet() {
@@ -871,7 +834,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
         viewModelScope.launch {
             _isAiThinking.value = true
-            val reply = if (FeatureGate.isGeminiCloudVisionUnlocked() && vault.hasApiKey) {
+            val reply = if (vault.hasApiKey) {
                 GeminiApiService.askHybridCoach(
                     userQuestion = trimmed,
                     apiKey = vault.apiKey,
@@ -947,7 +910,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                 PdfBitmapConverter.bitmapToBase64Jpeg(bitmap)
             }
 
-            val reply = if (FeatureGate.isGeminiCloudVisionUnlocked() && vault.hasApiKey) {
+            val reply = if (vault.hasApiKey) {
                 GeminiApiService.askHybridCoach(
                     userQuestion = "Analysiere dieses hochgeladene Dokument (Rechnung, Beleg, Vertrag, Gehaltsabrechnung oder Kontoauszug) vollständig, fasse das Ergebnis auf Deutsch zusammen und trage alle erkannten Buchungen, Fixkosten-Verträge, Budgets oder Einstellungen direkt über den JSON-Aktionsblock ein.",
                     apiKey = vault.apiKey,
@@ -1312,7 +1275,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     suspend fun scanReceiptFromUri(context: Context, uri: Uri): Result<GeminiVisionScanResult> {
         val vault = geminiVaultState.value
-        val effectiveKey = if (FeatureGate.isGeminiCloudVisionUnlocked()) vault.apiKey else ""
+        val effectiveKey = vault.apiKey
         return GeminiApiService.analyzeDocumentVisionOrFallback(
             context = context,
             imageUri = uri,
@@ -1392,7 +1355,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     suspend fun parseVoiceCommand(spokenText: String): VoiceParseResult {
         val vault = geminiVaultState.value
-        val effectiveKey = if (FeatureGate.isGeminiCloudVisionUnlocked()) vault.apiKey else ""
+        val effectiveKey = vault.apiKey
         return GeminiApiService.parseVoiceBookings(
             spokenText = spokenText,
             apiKey = effectiveKey,
