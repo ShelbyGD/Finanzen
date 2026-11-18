@@ -95,7 +95,6 @@ import de.smartfinance.app.ui.components.CalculatorNumpadSheet
 import de.smartfinance.app.ui.components.GeminiApiKeyVaultSheet
 import de.smartfinance.app.ui.components.HelpDetailDialog
 import de.smartfinance.app.ui.components.NotificationsBottomSheet
-import de.smartfinance.app.ui.components.ProFeatureLockedDialog
 import de.smartfinance.app.ui.components.ReceiptScannerSheet
 import de.smartfinance.app.ui.components.TransactionActionBottomSheet
 import de.smartfinance.app.ui.screens.ArchiveScreen
@@ -103,7 +102,6 @@ import de.smartfinance.app.ui.screens.CockpitScreen
 import de.smartfinance.app.ui.screens.DataVaultScreen
 import de.smartfinance.app.ui.screens.HelpChangelogScreen
 import de.smartfinance.app.ui.screens.InstallmentsTrackerSheet
-import de.smartfinance.app.ui.screens.LiteProOverviewScreen
 import de.smartfinance.app.ui.screens.SavingsBoosterTabScreen
 import de.smartfinance.app.ui.screens.SettingsDemoScreen
 import de.smartfinance.app.ui.theme.SmartFinanceTheme
@@ -174,7 +172,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val isAiThinking by viewModel.isAiThinking.collectAsStateWithLifecycle()
     val selectedTransactionForAction by viewModel.selectedTransactionForAction.collectAsStateWithLifecycle()
     val activeHelpEntryModal by viewModel.activeHelpEntryModal.collectAsStateWithLifecycle()
-    val proLockedFeatureDialog by viewModel.proLockedFeatureDialog.collectAsStateWithLifecycle()
     val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
     val chatMessages by viewModel.chatMessages.collectAsStateWithLifecycle()
     val highlightChangelog by viewModel.highlightChangelogOnHelpScreen.collectAsStateWithLifecycle()
@@ -217,27 +214,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (activeTier == AppTier.PRO_FULL) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        }
-                    ) {
-                        Text(
-                            text = activeTier.badgeLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (activeTier == AppTier.PRO_FULL) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -251,7 +227,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         DrawerDestination.DATA_VAULT -> Icons.Default.Lock
                         DrawerDestination.SETTINGS_DEMO -> Icons.Default.Settings
                         DrawerDestination.HELP_CHANGELOG -> Icons.Default.Info
-                        DrawerDestination.LITE_PRO_OVERVIEW -> Icons.Default.Star
                     }
                     NavigationDrawerItem(
                         icon = {
@@ -648,12 +623,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             highlightChangelogInitially = highlightChangelog
                         )
                     }
-
-                    DrawerDestination.LITE_PRO_OVERVIEW -> {
-                        LiteProOverviewScreen(
-                            activeTier = activeTier
-                        )
-                    }
                 }
             }
         }
@@ -780,16 +749,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             onDismiss = viewModel::closeHelpCardModal,
             onOpenFullHelpScreen = {
                 viewModel.navigateTo(DrawerDestination.HELP_CHANGELOG)
-            }
-        )
-    }
-
-    proLockedFeatureDialog?.let { lockedFeatureTitle ->
-        ProFeatureLockedDialog(
-            featureTitle = lockedFeatureTitle,
-            onDismiss = viewModel::dismissProLockedDialog,
-            onNavigateToLiteProScreen = {
-                viewModel.navigateTo(DrawerDestination.LITE_PRO_OVERVIEW)
             }
         )
     }

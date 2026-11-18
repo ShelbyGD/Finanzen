@@ -470,18 +470,6 @@ private fun HeroBudgetCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = HeroTurquoiseAccent.copy(alpha = 0.18f)
-                    ) {
-                        Text(
-                            text = "PRO",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = HeroTurquoiseAccent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
                     Text(
                         text = "Statistik",
                         style = MaterialTheme.typography.labelLarge,

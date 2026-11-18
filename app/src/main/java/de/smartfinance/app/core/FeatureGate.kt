@@ -39,14 +39,11 @@ object FeatureGate {
     val GEMINI_CLOUD_VISION_TIER: AppTier = AppTier.PRO_FULL
 
     fun isGeminiCloudVisionUnlocked(activeTier: AppTier = _currentTier.value): Boolean {
-        return isUnlocked(GEMINI_CLOUD_VISION_TIER, activeTier)
+        return true
     }
 
-    fun isUnlocked(requiredTier: AppTier, activeTier: AppTier = _currentTier.value): Boolean {
-        return when (requiredTier) {
-            AppTier.LITE_FREE -> true
-            AppTier.PRO_FULL -> activeTier == AppTier.PRO_FULL
-        }
+    fun isUnlocked(requiredTier: AppTier = AppTier.PRO_FULL, activeTier: AppTier = _currentTier.value): Boolean {
+        return true
     }
 
     fun setTier(tier: AppTier) {

@@ -90,20 +90,6 @@ fun HelpDetailDialog(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (entry.requiredTier == AppTier.PRO_FULL) {
-                            MaterialTheme.colorScheme.tertiaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.secondaryContainer
-                        }
-                    ) {
-                        Text(
-                            text = if (entry.requiredTier == AppTier.PRO_FULL) "PRO-Feature" else "LITE & PRO",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
@@ -176,71 +162,13 @@ fun HelpDetailDialog(
                 onDismiss()
                 onOpenFullHelpScreen()
             }) {
-                Text("Alle 13 Hilfe-Karten")
+                Text("Zur Hilfe-Übersicht")
             }
         }
     )
 }
 
-@Composable
-fun ProFeatureLockedDialog(
-    featureTitle: String,
-    onDismiss: () -> Unit,
-    onNavigateToLiteProScreen: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "PRO-Funktion: $featureTitle",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Du befindest dich aktuell im simulierten LITE-Testmodus (AppTier.LITE_FREE).",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "In der späteren Google-Play-Store-Version ist '$featureTitle' Teil von SmartFinance PRO. Als Entwickler kannst du die PRO-Vollversion hier jederzeit mit 1 Tap wieder aktivieren:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    FeatureGate.setTier(AppTier.PRO_FULL)
-                    onDismiss()
-                }
-            ) {
-                Text("Sofort auf PRO umschalten")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(
-                onClick = {
-                    onDismiss()
-                    onNavigateToLiteProScreen()
-                }
-            ) {
-                Text("Lite vs. Pro Vergleich")
-            }
-        }
-    )
-}
+
 
 /**
  * Benachrichtigungs-Center BottomSheet (geöffnet über die Glocke oben rechts in der TopAppBar).

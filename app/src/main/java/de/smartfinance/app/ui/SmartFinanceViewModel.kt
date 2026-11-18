@@ -68,8 +68,7 @@ enum class DrawerDestination(val title: String) {
     ARCHIVE("Archiv (Zwischenspeicher)"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen"),
-    HELP_CHANGELOG("Hilfe, Features & Was ist neu?"),
-    LITE_PRO_OVERVIEW("Lite vs. Pro Übersicht")
+    HELP_CHANGELOG("Hilfe, Features & Was ist neu?")
 }
 
 enum class SortType(val label: String) {
