@@ -717,4 +717,93 @@ class SmartFinanceSelfTest {
         assertEquals("Bäcker", sortedByName[2].title)
         assertEquals("Tanken", sortedByName[3].title)
     }
+
+    /**
+     * Test F (Deutscher Offline-Kassenbon-OCR-Parser):
+     * Prüft die Endsummen-Erkennung (`ZU ZAHLEN`, `SUMME`, `EC-KARTE`), das Ignorieren von
+     * `MWST`, `ZWISCHENSUMME`, `RÜCKGELD`, `GEGEBEN`, `PFAND` & `RABATT`, die Händler-Bereinigung,
+     * die Datums-Extraktion (`dd.MM.yyyy` & `dd.MM.yy`) sowie die Kategorie-Zuordnung.
+     */
+    @Test
+    fun testF_germanReceiptOcrParser_ignoresMwstAndChangeAndMatchesCategories() {
+        val categories = listOf(
+            CategoryTabEntity(id = 1L, name = "Gehalt", iconKey = "income", colorHex = 0L, categoryType = CategoryType.INCOME),
+            CategoryTabEntity(id = 2L, name = "Lebensmittel", iconKey = "cart", colorHex = 0L, categoryType = CategoryType.VARIABLE_EXPENSE),
+            CategoryTabEntity(id = 3L, name = "Auto & Tanken", iconKey = "fuel", colorHex = 0L, categoryType = CategoryType.VARIABLE_EXPENSE),
+            CategoryTabEntity(id = 4L, name = "Drogerie & Haushalt", iconKey = "cart", colorHex = 0L, categoryType = CategoryType.VARIABLE_EXPENSE)
+        )
+
+        // Beispiel 1: REWE Supermarkt-Bon mit Kopfzeilen-Müll, Zwischensumme, Pfand, Rabatt, Gegeben (50,00 €), Rückgeld (15,15 €) und MwSt
+        val reweReceipt = """
+            Filiale 4215 - Kasse 03
+            Tel.: 0221 / 12345678
+            50667 Köln, Domstraße 12
+            UID: DE123456789
+            REWE Markt GmbH
+            Datum: 14.11.2026  Uhrzeit: 18:42
+            Bio Vollmilch            1,49 A
+            Kaffeebohnen 1kg        14,99 A
+            Mineralwasser 6x1,5L     4,50 B
+            PFAND                    1,50 B
+            LEERGUT RÜCKGABE        -3,25 B
+            ZWISCHENSUMME           36,85
+            REWE Bonus Rabatt       -2,00
+            ZU ZAHLEN EUR           34,85
+            GEGEBEN BAR             50,00
+            RÜCKGELD                15,15
+            MWST 7% Netto 18,00     1,26
+            MWST 19% Netto 13,07    2,48
+        """.trimIndent()
+
+        val reweResult = ReceiptOcrParser.parseRawReceiptText(reweReceipt, categories, testToday)
+        assertEquals(34.85, reweResult.detectedAmount, 0.001)
+        assertEquals("REWE", reweResult.detectedMerchantTitle)
+        assertEquals(LocalDate.of(2026, 11, 14), reweResult.detectedDate)
+        assertEquals(2L, reweResult.suggestedCategoryId)
+        assertEquals("Lebensmittel", reweResult.suggestedCategoryName)
+
+        // Beispiel 2: Aral Tankstellen-Bon mit 2-stelligem Jahr (dd.MM.yy), OCR-Punktbetrag (68.40) und EC-KARTE
+        val aralReceipt = """
+            Bon-Nr. 009841 / Kasse 1
+            Aral Station Berlin
+            10115 Berlin
+            Beleg vom 09.11.26 07:15
+            Super E10 38,21 L x 1,790
+            SUMME                   68.40
+            EC-KARTE EUR            68,40
+            inkl. 19,00% USt        10,92
+            Netto                   57,48
+        """.trimIndent()
+
+        val aralResult = ReceiptOcrParser.parseRawReceiptText(aralReceipt, categories, testToday)
+        assertEquals(68.40, aralResult.detectedAmount, 0.001)
+        assertEquals("Aral Tankstelle", aralResult.detectedMerchantTitle)
+        assertEquals(LocalDate.of(2026, 11, 9), aralResult.detectedDate)
+        assertEquals(3L, aralResult.suggestedCategoryId)
+        assertEquals("Auto & Tanken", aralResult.suggestedCategoryName)
+
+        // Beispiel 3: dm-drogerie markt mit Tausenderpunkt oder mehrzeiligem SUMME-Block und Ersparnis
+        val dmReceipt = """
+            Kundenbeleg
+            dm-drogerie markt GmbH + Co. KG
+            76185 Karlsruhe
+            17.11.2026
+            Waschmittel             6,95
+            Zahnpasta               2,45
+            Sonnencreme            11,50
+            Ihre Ersparnis heute   45,00
+            SUMME EUR
+            20,90
+            Kartenzahlung          20,90
+            MwSt 19%                3,34
+        """.trimIndent()
+
+        val dmResult = ReceiptOcrParser.parseRawReceiptText(dmReceipt, categories, testToday)
+        assertEquals(20.90, dmResult.detectedAmount, 0.001)
+        assertEquals("dm-drogerie markt", dmResult.detectedMerchantTitle)
+        assertEquals(LocalDate.of(2026, 11, 17), dmResult.detectedDate)
+        assertEquals(4L, dmResult.suggestedCategoryId)
+        assertEquals("Drogerie & Haushalt", dmResult.suggestedCategoryName)
+    }
 }
+
