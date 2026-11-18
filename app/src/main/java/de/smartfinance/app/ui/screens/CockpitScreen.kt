@@ -99,8 +99,6 @@ import de.smartfinance.app.ui.theme.BudgetRingOrange
 import de.smartfinance.app.ui.theme.BudgetRingRed
 import de.smartfinance.app.ui.theme.CategoryIconCatalog
 import de.smartfinance.app.ui.theme.HeroTurquoiseAccent
-import de.smartfinance.app.ui.theme.HeroVioletEnd
-import de.smartfinance.app.ui.theme.HeroVioletStart
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -474,13 +472,13 @@ private fun HeroBudgetCard(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        color = HeroTurquoiseAccent.copy(alpha = 0.18f)
                     ) {
                         Text(
                             text = "PRO",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = HeroTurquoiseAccent,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
@@ -529,7 +527,7 @@ private fun HeroBudgetCard(
             ) {
                 LinearProgressIndicator(
                     progress = { availableRatio },
-                    color = MaterialTheme.colorScheme.primary,
+                    color = HeroTurquoiseAccent,
                     trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                     strokeCap = StrokeCap.Round,
                     modifier = Modifier
@@ -561,7 +559,7 @@ private fun HeroBudgetCard(
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Einnahmen eintragen",
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = HeroTurquoiseAccent,
                                 modifier = Modifier.size(13.dp)
                             )
                         }
@@ -577,7 +575,7 @@ private fun HeroBudgetCard(
                         text = "Heute frei: ${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = HeroTurquoiseAccent
                     )
                 }
             }

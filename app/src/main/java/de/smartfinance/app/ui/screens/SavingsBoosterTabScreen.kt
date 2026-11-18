@@ -76,8 +76,6 @@ import de.smartfinance.app.ui.theme.CategoryColorRose
 import de.smartfinance.app.ui.theme.CategoryColorTurquoise
 import de.smartfinance.app.ui.theme.CategoryIconCatalog
 import de.smartfinance.app.ui.theme.HeroTurquoiseAccent
-import de.smartfinance.app.ui.theme.HeroVioletEnd
-import de.smartfinance.app.ui.theme.HeroVioletStart
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -194,7 +192,7 @@ fun SavingsBoosterTabScreen(
 
                     LinearProgressIndicator(
                         progress = { overallFraction },
-                        color = MaterialTheme.colorScheme.primary,
+                        color = HeroTurquoiseAccent,
                         trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                         strokeCap = StrokeCap.Round,
                         modifier = Modifier
@@ -218,7 +216,7 @@ fun SavingsBoosterTabScreen(
                             text = "${savingsGoals.size} ${if (savingsGoals.size == 1) "Sparziel" else "Sparziele"}",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = HeroTurquoiseAccent
                         )
                     }
                 }
@@ -231,7 +229,10 @@ fun SavingsBoosterTabScreen(
                 onClick = { showCreateDialog = true },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF10B981),
+                    contentColor = Color.White
+                )
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))

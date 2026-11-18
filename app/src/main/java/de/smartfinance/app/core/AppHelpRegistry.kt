@@ -386,6 +386,17 @@ object AppHelpRegistry {
 
     val changelogEntries: List<ChangelogEntry> = listOf(
         ChangelogEntry(
+            versionName = "1.4.0",
+            buildNumber = 22,
+            date = "18.11.2026",
+            newFeatures = listOf(
+                "Clean Material 3 Smaragdgrün-Palette: Restlose Entfernung aller alten lila Primär- und Akzentfarben aus dem globalen Farbschema zugunsten einer edlen Smaragdgrün/Teal-Palette (passend zu den grünen Gehaltseinnahmen).",
+                "Floating Action Button (FAB): Der runde Haupt-Aktionsbutton '+' erstrahlt nun in elegantem Smaragdgrün.",
+                "Fortschrittsbalken & Buttons: Sämtliche Fortschrittsbalken auf der Startseite und im Sparbooster sowie Aktions-Buttons ('+ Neues Sparziel anlegen') nutzen edles Türkis/Smaragdgrün.",
+                "Geschützte Kategorie-Vielfalt: Die individuellen bunten Kreise der Kategorien in der Buchungsliste bleiben in ihrer vollen, klaren Farbcodierung erhalten."
+            )
+        ),
+        ChangelogEntry(
             versionName = "1.3.9",
             buildNumber = 21,
             date = "18.11.2026",

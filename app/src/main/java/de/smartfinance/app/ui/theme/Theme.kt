@@ -26,8 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 
 // Clean-Banking Farbpalette (Finanzguru-Style)
-val HeroVioletStart = Color(0xFF4A25AA)
-val HeroVioletEnd = Color(0xFF311B92)
+val HeroVioletStart = Color(0xFF1E293B)
+val HeroVioletEnd = Color(0xFF0F172A)
 val HeroTurquoiseAccent = Color(0xFF00E5FF)
 val CleanTurquoise = Color(0xFF00ACC1)
 val BudgetRingGreen = Color(0xFF10B981)
@@ -45,10 +45,10 @@ val CategoryColorRose = Color(0xFFEC4899)      // Freizeit & Lifestyle
 val CategoryColorPurple = Color(0xFF8B5CF6)    // Wohnen & Warmmiete
 
 private val CleanLightColors = lightColorScheme(
-    primary = Color(0xFF4A25AA),
+    primary = Color(0xFF0F766E),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFEDE7F6),
-    onPrimaryContainer = Color(0xFF311B92),
+    primaryContainer = Color(0xFFCCFBF1),
+    onPrimaryContainer = Color(0xFF134E4A),
     secondary = Color(0xFF00ACC1),
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFE0F7FA),
@@ -67,10 +67,10 @@ private val CleanLightColors = lightColorScheme(
 )
 
 private val CleanDarkColors = darkColorScheme(
-    primary = Color(0xFFB388FF),
-    onPrimary = Color(0xFF1E0E4B),
-    primaryContainer = Color(0xFF311B92),
-    onPrimaryContainer = Color(0xFFEDE7F6),
+    primary = Color(0xFF10B981),
+    onPrimary = Color(0xFF022C22),
+    primaryContainer = Color(0xFF064E3B),
+    onPrimaryContainer = Color(0xFFA7F3D0),
     secondary = Color(0xFF00E5FF),
     onSecondary = Color(0xFF00363D),
     secondaryContainer = Color(0xFF004F58),
