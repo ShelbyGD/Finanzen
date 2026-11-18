@@ -3,24 +3,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-  
-  <!-- Hintergrund-Akzent im Expressive M3 Stil (Abgerundetes Quadrat / Squircle) -->
-  <path
-      android:fillColor="#1C1B1F"
-      android:pathData="M32,12 C48,10 60,10 76,12 C92,14 96,18 98,34 C100,50 100,58 98,74 C96,90 92,94 76,96 C60,98 48,98 32,96 C16,94 12,90 10,74 C8,58 8,50 10,34 C12,18 16,14 32,12 Z"/>
-
-  <!-- Dynamischer M3 Expressive Gradient / Finanz-Schild -->
-  <path
-      android:fillColor="#D0BCFF"
-      android:pathData="M54,22 L78,34 C78,56 68,74 54,84 C40,74 30,56 30,34 Z"/>
-
-  <!-- Innerer Kern in Smaragdgrün (Sicherheit & Geld) -->
-  <path
-      android:fillColor="#386A20"
-      android:pathData="M54,30 L70,39 C70,54 62,68 54,76 C46,68 38,54 38,39 Z"/>
-
-  <!-- Zentrales Finanz-Symbol: Minimalistisches Plus/Minus-Grid -->
-  <path
-      android:fillColor="#F2F8F8"
-      android:pathData="M50,44 H58 V52 H50 Z M46,56 H62 V60 H46 Z"/>
+  <!-- Dunkler M3 Surface Background -->
+  <path android:fillColor="#1C1B1F" android:pathData="M32,12 C48,10 60,10 76,12 C92,14 96,18 98,34 C100,50 100,58 98,74 C96,90 92,94 76,96 C60,98 48,98 32,96 C16,94 12,90 10,74 C8,58 8,50 10,34 C12,18 16,14 32,12 Z"/>
+  <!-- Elegantes Smaragd-Schild (Finanzen/Sicherheit) -->
+  <path android:fillColor="#004D40" android:pathData="M54,20 L86,34 V66 L54,90 L22,66 V34 Z"/>
+  <!-- Großer KI-Sparkle (Zentral) -->
+  <path android:fillColor="#80CBC4" android:pathData="M54,34 C54,50 40,50 40,50 C54,50 54,66 54,66 C54,50 68,50 68,50 C54,50 54,34 54,34 Z"/>
+  <!-- Kleiner KI-Sparkle (Oben Rechts) -->
+  <path android:fillColor="#E0F2F1" android:pathData="M72,28 C72,36 64,36 64,36 C72,36 72,44 72,44 C72,36 80,36 80,36 C72,36 72,28 72,28 Z"/>
 </vector>

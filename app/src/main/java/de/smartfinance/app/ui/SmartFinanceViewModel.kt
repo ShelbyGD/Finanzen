@@ -165,13 +165,13 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         listOf(
             ChatMessage(
                 senderIsUser = false,
-                text = "Willkommen im NovaFinance Hybrid KI-Coach.\n\n" +
+                text = "Willkommen im AuraFinance AI Coach.\n\n" +
                     "Frag mich zum Beispiel:\n" +
-                    "• Wie viel habe ich heute noch frei?\n" +
-                    "• Wann geht die nächste Zahlung ab?\n" +
+                    "• Wie viel Budget habe ich noch?\n" +
                     "• Reicht mein Geld bis Monatsende?\n" +
-                    "• Oder gib Check: 85 € für den Was-wäre-wenn-Kaufsimulator inkl. Arbeitsstunden-Rechner ein.\n" +
-                    "• Tipp: Über das Mikrofon-Icon kannst du auch Mehrfach-Buchungen direkt einsprechen."
+                    "• Berechne meine Arbeitsstunden (z. B. 'Check: 85 €')\n" +
+                    "• Wann erreiche ich mein Sparziel?\n" +
+                    "• Tipp: Über das Mikrofon-Icon kannst du Buchungen direkt einsprechen."
             )
         )
     )

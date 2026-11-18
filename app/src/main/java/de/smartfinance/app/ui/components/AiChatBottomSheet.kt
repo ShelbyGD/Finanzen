@@ -145,13 +145,10 @@ fun AiCoachTabScreen(
     }
 
     val quickPrompts = listOf(
-        "Check: 85 €",
-        "Wie viel habe ich heute/diesen Monat noch frei?",
-        "Wann geht die nächste Zahlung ab?",
-        "Wann geht im Monat am meisten ab?",
-        "Was gebe ich im Schnitt für Versicherungen aus?",
-        "Was gebe ich im Schnitt für Handyvertrag aus?",
+        "Wie viel Budget habe ich noch?",
         "Reicht mein Geld bis Monatsende?",
+        "Berechne meine Arbeitsstunden",
+        "Check: 85 €",
         "Wann erreiche ich mein Sparziel?",
         "Was kannst du alles?"
     )
@@ -207,7 +204,7 @@ fun AiCoachTabScreen(
                         )
                         Column {
                             Text(
-                                text = "NovaFinance Hybrid KI-Coach",
+                                text = "AuraFinance AI Coach",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface

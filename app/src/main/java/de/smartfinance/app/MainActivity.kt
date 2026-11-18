@@ -37,6 +37,13 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Savings
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
@@ -47,7 +54,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -190,51 +196,47 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.width(320.dp)
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.width(280.dp)
             ) {
-                // Header im linken Hamburger-Menü: Clean M3 Surface (kein lila Balken)
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.fillMaxWidth()
+                // Header im linken Hamburger-Menü: Einheitliche Clean M3 Surface
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Text(
+                        text = "AuraFinance AI",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "v${BuildConfig.VERSION_NAME} (Build #${BuildConfig.BUILD_NUMBER})",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (activeTier == AppTier.PRO_FULL) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        }
                     ) {
                         Text(
-                            text = "NovaFinance",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "v${BuildConfig.VERSION_NAME} (Build #${BuildConfig.BUILD_NUMBER})",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            text = activeTier.badgeLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
                             color = if (activeTier == AppTier.PRO_FULL) {
-                                MaterialTheme.colorScheme.primaryContainer
+                                MaterialTheme.colorScheme.onPrimaryContainer
                             } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            }
-                        ) {
-                            Text(
-                                text = activeTier.badgeLabel,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (activeTier == AppTier.PRO_FULL) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
                     }
                 }
 
@@ -242,7 +244,23 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 DrawerDestination.entries.forEach { destination ->
+                    val destinationIcon = when (destination) {
+                        DrawerDestination.COCKPIT -> Icons.Default.Home
+                        DrawerDestination.INSTALLMENTS -> Icons.AutoMirrored.Filled.List
+                        DrawerDestination.ARCHIVE -> Icons.Default.Archive
+                        DrawerDestination.DATA_VAULT -> Icons.Default.Lock
+                        DrawerDestination.SETTINGS_DEMO -> Icons.Default.Settings
+                        DrawerDestination.HELP_CHANGELOG -> Icons.Default.Info
+                        DrawerDestination.LITE_PRO_OVERVIEW -> Icons.Default.Star
+                    }
                     NavigationDrawerItem(
+                        icon = {
+                            Icon(
+                                imageVector = destinationIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
                         label = {
                             Text(
                                 text = destination.title,
@@ -260,13 +278,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                Text(
-                    text = "100 % Lokal • Room DB Safe-Update • v${BuildConfig.VERSION_NAME} (#${BuildConfig.BUILD_NUMBER})",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp)
-                )
             }
         }
     ) {

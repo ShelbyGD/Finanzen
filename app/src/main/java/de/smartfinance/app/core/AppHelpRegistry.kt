@@ -3,7 +3,7 @@ package de.smartfinance.app.core
 import de.smartfinance.app.BuildConfig
 
 /**
- * Zentrale Hilfe-, Feature- & Changelog-Datenbank ("Single Source of Truth") für NovaFinance.
+ * Zentrale Hilfe-, Feature- & Changelog-Datenbank ("Single Source of Truth") für AuraFinance AI.
  *
  * WICHTIGE PFLICHT-REGEL FÜR ZUKÜNFTIGE UPDATES:
  * "Jedes Mal, wenn in einem zukünftigen Update eine neue Funktion hinzugefügt oder geändert wird,
@@ -223,7 +223,7 @@ object AppHelpRegistry {
             shortSummary = "Legt jährliche oder vierteljährliche Großrechnungen (z. B. Kfz-Versicherung) virtuell auf 12 Monate um – einsehbar in den Tabs 'Verträge' und 'Analysen'.",
             stepByStepGuide = listOf(
                 "Aktiviere beim Anlegen einer Buchung oder eines Vertrags den Schalter 'Auf 12 Monate glätten (1/12-Rücklage)'.",
-                "NovaFinance zieht jeden Monat automatisch exakt 1/12 (bei Jahreszahlung) bzw. 1/3 (bei Quartalszahlung) als virtuelle Rücklage von deinem freien Budget ab.",
+                "AuraFinance AI zieht jeden Monat automatisch exakt 1/12 (bei Jahreszahlung) bzw. 1/3 (bei Quartalszahlung) als virtuelle Rücklage von deinem freien Budget ab.",
                 "In den Tabs 'Verträge' und 'Analysen' siehst du jederzeit transparent die monatlich reservierte 1/12-Rücklage."
             ),
             exampleTips = listOf(
@@ -385,6 +385,18 @@ object AppHelpRegistry {
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.4.1",
+            buildNumber = 23,
+            date = "18.11.2026",
+            newFeatures = listOf(
+                "Rebranding zu 'AuraFinance AI': Zeitgemäßer Name mit klarem Fokus auf den lokalen KI-Finanzcoach in App, Manifest und allen Menüs.",
+                "Neues M3 Expressive KI-Icon: Elegantes Smaragd-Schild mit KI-Sparkles für Sicherheit, Finanzen und Intelligenz.",
+                "Optimiertes Hamburger-Menü: Schlankere Breite (280dp), einheitlicher Clean-Surface-Hintergrund und M3 Material Icons für alle Menüpunkte.",
+                "Bereinigter Drawer-Footer: Redundanter Versions- und Safe-Update-Footer entfernt für maximalen visuellen Fokus.",
+                "Fokussierter KI-Coach Starttext: Begrüßung und Schnell-Prompts auf Kernkompetenzen (Budget, Geld bis Monatsende, Arbeitsstunden-Rechner) geschärft."
+            )
+        ),
         ChangelogEntry(
             versionName = "1.4.0",
             buildNumber = 22,
