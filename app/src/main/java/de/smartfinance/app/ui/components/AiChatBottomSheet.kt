@@ -180,14 +180,14 @@ fun AiCoachTabScreen(
             exit = shrinkVertically() + fadeOut()
         ) {
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -207,9 +207,10 @@ fun AiCoachTabScreen(
                         )
                         Column {
                             Text(
-                                text = "SmartFinance Hybrid KI-Coach",
+                                text = "NovaFinance Hybrid KI-Coach",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "100 % Rechengenauigkeit • Stundenlohn: ${String.format(Locale.GERMAN, "%.2f", hourlyWage)} €/Std.",
@@ -233,7 +234,7 @@ fun AiCoachTabScreen(
                     color = if (vaultState.hasApiKey) {
                         BudgetRingGreen.copy(alpha = 0.14f)
                     } else {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
                     },
                     modifier = Modifier
                         .fillMaxWidth()

@@ -54,8 +54,30 @@ object AppHelpRegistry {
     const val ID_GEMINI_CLOUD_HYBRID = "gemini_cloud_hybrid"
     const val ID_TIME_RANGE_SWITCHER = "time_range_switcher"
     const val ID_INSTALLMENTS_TRACKER = "installments_tracker"
+    const val ID_ARCHIVE_SWIPE = "archive_swipe_gestures"
 
     val helpEntries: List<HelpEntry> = listOf(
+        HelpEntry(
+            id = ID_ARCHIVE_SWIPE,
+            moduleNumber = 16,
+            title = "16. Gmail-Swipe-Gesten & Archiv-System (Clean M3)",
+            category = "Gesten & Datenverwaltung",
+            shortSummary = "Intuitive Wischgesten für deine Buchungen: Nach links wischen zum Löschen (mit Rückgängig-Option) und nach rechts wischen zum Archivieren. Archivierte Buchungen fließen nicht in dein Budget ein.",
+            stepByStepGuide = listOf(
+                "Wische auf der Startseite unter 'Letzte Buchungen' eine Buchung nach links (roter Hintergrund mit Mülleimer), um sie sofort zu löschen.",
+                "In der kurzen Snackbar kannst du das Löschen mit einem Tap auf 'Rückgängig' sofort rückgängig machen.",
+                "Wische eine Buchung nach rechts (blauer Hintergrund mit Archiv-Symbol), um sie in das Archiv (Zwischenspeicher) zu verschieben.",
+                "Öffne das Hamburger-Menü und tippe auf 'Archiv (Zwischenspeicher)', um alle ausgelagerten Buchungen einzusehen.",
+                "Im Archiv kannst du Buchungen mit einem Wisch nach rechts wiederherstellen oder nach links endgültig löschen."
+            ),
+            exampleTips = listOf(
+                "Clean Material 3 Design: Alle Karten (Hero-Budget, Sparbooster, KI-Coach) nutzen jetzt edle Container-Farben (surfaceVariant) ohne grelle Farbblöcke.",
+                "Hamburger-Menü im reinen Surface-Look: Der alte lila Balken ganz oben wurde entfernt – für ein ruhiges, typografisch erstklassiges Erlebnis.",
+                "Clean Edit-Sheet: Da Löschen nun per Swipe funktioniert, wurde der rote Lösch-Button aus dem Bearbeiten-Sheet entfernt."
+            ),
+            requiredTier = AppTier.LITE_FREE,
+            addedInVersion = "1.3.9"
+        ),
         HelpEntry(
             id = ID_INSTALLMENTS_TRACKER,
             moduleNumber = 15,
@@ -363,6 +385,18 @@ object AppHelpRegistry {
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.3.9",
+            buildNumber = 21,
+            date = "18.11.2026",
+            newFeatures = listOf(
+                "100 % Clean Material 3 Design: Entfernung aller grellen lila Hintergrundblöcke von der Hero-Budget-Karte, den Sparbooster-Karten und dem KI-Coach-Header zugunsten dezenter M3-Container ('surfaceVariant', 'RoundedCornerShape(24.dp)'). Im Dark Mode edel dunkelgrau/schwebend.",
+                "Clean Surface Drawer: Lila Kopfzeile im Hamburger-Menü restlos entfernt – jetzt reines 'surface' mit eleganter NovaFinance-Typografie.",
+                "Gmail-Swipe-Gesten: Schnelles Wischen nach links zum Löschen (mit Sofort-Rückgängig in der SnackBar) und Wischen nach rechts zum Archivieren.",
+                "Archiv-System im Hamburger-Menü: Neuer Menüpunkt 'Archiv (Zwischenspeicher)' für ausgelagerte Buchungen – diese fließen nicht in dein Budget ein. Wische im Archiv nach rechts zum Wiederherstellen oder nach links zum endgültigen Löschen.",
+                "Aufgeräumtes Bearbeiten-Sheet: Überflüssiger roter Lösch-Button aus dem Buchungs-Dialog entfernt – Bearbeiten ist nun wunderbar übersichtlich."
+            )
+        ),
         ChangelogEntry(
             versionName = "1.3.8",
             buildNumber = 20,

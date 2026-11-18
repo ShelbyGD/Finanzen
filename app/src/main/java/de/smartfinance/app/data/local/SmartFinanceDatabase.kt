@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstallmentEntity::class,
         InstallmentFolderEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class SmartFinanceDatabase : RoomDatabase() {
@@ -98,6 +98,15 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Verlustfreie Migration von Version 5 auf Version 6 für Archivierung von Buchungen.
+         */
+        val SAFE_MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `transactions` ADD COLUMN `isArchived` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getInstance(context: Context): SmartFinanceDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -105,7 +114,13 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
                     SmartFinanceDatabase::class.java,
                     "smartfinance_clean_user.db"
                 )
-                    .addMigrations(SAFE_MIGRATION_1_2, SAFE_MIGRATION_2_3, SAFE_MIGRATION_3_4, SAFE_MIGRATION_4_5)
+                    .addMigrations(
+                        SAFE_MIGRATION_1_2,
+                        SAFE_MIGRATION_2_3,
+                        SAFE_MIGRATION_3_4,
+                        SAFE_MIGRATION_4_5,
+                        SAFE_MIGRATION_5_6
+                    )
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                     .also { INSTANCE = it }

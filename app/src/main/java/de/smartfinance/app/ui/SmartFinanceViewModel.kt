@@ -65,6 +65,7 @@ enum class BottomNavTab(val label: String) {
 enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
     INSTALLMENTS("Ratenzahlungen & Offene Posten"),
+    ARCHIVE("Archiv (Zwischenspeicher)"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen"),
     HELP_CHANGELOG("Hilfe, Features & Was ist neu?"),
@@ -186,6 +187,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     val allTransactions: StateFlow<List<TransactionEntity>> = repository.transactionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val archivedTransactions: StateFlow<List<TransactionEntity>> = repository.archivedTransactionsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val savingsGoals: StateFlow<List<SavingsGoalEntity>> = repository.savingsGoalsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -220,13 +224,14 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         settings: UserSettingsState
     ): DashboardAnalysisSnapshot {
         val targetYm = yearMonthForPage(page)
+        val activeTxs = txs.filter { !it.isArchived }
         return SmartFinanceEngine.analyzeMonth(
             selectedYearMonth = targetYm,
             today = LocalDate.now(),
             billingStartDay = settings.billingStartDay,
             avgWindowMonths = settings.averageMonthsWindow,
             categories = cats,
-            allTransactions = txs,
+            allTransactions = activeTxs,
             savingsGoals = goals,
             installments = insts
         )
@@ -536,6 +541,35 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             withContext(Dispatchers.Main) {
                 _selectedTransactionForAction.value = null
                 _snackbarMessage.value = "Buchung '${transaction.title}' gelöscht."
+            }
+        }
+    }
+
+    fun archiveTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.setTransactionArchived(transaction.id, true)
+            withContext(Dispatchers.Main) {
+                _selectedTransactionForAction.value = null
+                _snackbarMessage.value = "Buchung '${transaction.title}' archiviert."
+            }
+        }
+    }
+
+    fun unarchiveTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.setTransactionArchived(transaction.id, false)
+            withContext(Dispatchers.Main) {
+                _selectedTransactionForAction.value = null
+                _snackbarMessage.value = "Buchung '${transaction.title}' wiederhergestellt."
+            }
+        }
+    }
+
+    fun restoreTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.addTransaction(transaction.copy(id = 0L))
+            withContext(Dispatchers.Main) {
+                _snackbarMessage.value = "Buchung '${transaction.title}' wiederhergestellt."
             }
         }
     }

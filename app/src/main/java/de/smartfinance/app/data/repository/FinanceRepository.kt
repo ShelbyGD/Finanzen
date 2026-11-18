@@ -26,6 +26,7 @@ class FinanceRepository(
 
     val categoryTabsFlow: Flow<List<CategoryTabEntity>> = dao.observeCategoryTabs()
     val transactionsFlow: Flow<List<TransactionEntity>> = dao.observeAllTransactions()
+    val archivedTransactionsFlow: Flow<List<TransactionEntity>> = dao.observeArchivedTransactions()
     val savingsGoalsFlow: Flow<List<SavingsGoalEntity>> = dao.observeSavingsGoals()
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()
     val installmentsFlow: Flow<List<InstallmentEntity>> = dao.observeInstallments()
@@ -276,6 +277,14 @@ class FinanceRepository(
 
     suspend fun addTransaction(transaction: TransactionEntity): Long {
         return dao.insertTransaction(transaction)
+    }
+
+    suspend fun updateTransaction(transaction: TransactionEntity) {
+        dao.updateTransaction(transaction)
+    }
+
+    suspend fun setTransactionArchived(id: Long, isArchived: Boolean) {
+        dao.setTransactionArchived(id, isArchived)
     }
 
     suspend fun deleteTransaction(transaction: TransactionEntity) {

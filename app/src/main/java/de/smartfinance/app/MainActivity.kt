@@ -47,14 +47,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -89,6 +92,7 @@ import de.smartfinance.app.ui.components.NotificationsBottomSheet
 import de.smartfinance.app.ui.components.ProFeatureLockedDialog
 import de.smartfinance.app.ui.components.ReceiptScannerSheet
 import de.smartfinance.app.ui.components.TransactionActionBottomSheet
+import de.smartfinance.app.ui.screens.ArchiveScreen
 import de.smartfinance.app.ui.screens.CockpitScreen
 import de.smartfinance.app.ui.screens.DataVaultScreen
 import de.smartfinance.app.ui.screens.HelpChangelogScreen
@@ -143,6 +147,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val allTransactions by viewModel.allTransactions.collectAsStateWithLifecycle()
+    val archivedTransactions by viewModel.archivedTransactions.collectAsStateWithLifecycle()
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
     val installments by viewModel.installments.collectAsStateWithLifecycle()
     val installmentFolders by viewModel.installmentFolders.collectAsStateWithLifecycle()
@@ -187,45 +192,45 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             ModalDrawerSheet(
                 modifier = Modifier.width(320.dp)
             ) {
-                // Header im linken Hamburger-Menü mit App-Name, v1.0.X (Build #Y) & PRO-Badge
+                // Header im linken Hamburger-Menü: Clean M3 Surface (kein lila Balken)
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 22.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(horizontal = 24.dp, vertical = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
                             text = "NovaFinance",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "v${BuildConfig.VERSION_NAME} (Build #${BuildConfig.BUILD_NUMBER})",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (activeTier == AppTier.PRO_FULL) {
-                                MaterialTheme.colorScheme.primary
+                                MaterialTheme.colorScheme.primaryContainer
                             } else {
-                                MaterialTheme.colorScheme.tertiary
+                                MaterialTheme.colorScheme.surfaceVariant
                             }
                         ) {
                             Text(
                                 text = activeTier.badgeLabel,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
                                 color = if (activeTier == AppTier.PRO_FULL) {
-                                    MaterialTheme.colorScheme.onPrimary
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 } else {
-                                    MaterialTheme.colorScheme.onTertiary
+                                    MaterialTheme.colorScheme.onSurfaceVariant
                                 },
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
@@ -233,6 +238,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                     }
                 }
 
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 DrawerDestination.entries.forEach { destination ->
@@ -480,6 +486,32 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     onSelectMonthPage = viewModel::setSelectedMonthPage,
                                     onSelectCategoryFilter = viewModel::selectCategoryFilter,
                                     onSelectTransaction = viewModel::openTransactionActionSheet,
+                                    onDeleteTransaction = { tx ->
+                                        viewModel.deleteTransaction(tx)
+                                        scope.launch {
+                                            val result = snackbarHostState.showSnackbar(
+                                                message = "Buchung '${tx.title}' gelöscht",
+                                                actionLabel = "Rückgängig",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                viewModel.restoreTransaction(tx)
+                                            }
+                                        }
+                                    },
+                                    onArchiveTransaction = { tx ->
+                                        viewModel.archiveTransaction(tx)
+                                        scope.launch {
+                                            val result = snackbarHostState.showSnackbar(
+                                                message = "Buchung '${tx.title}' archiviert",
+                                                actionLabel = "Rückgängig",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                viewModel.unarchiveTransaction(tx)
+                                            }
+                                        }
+                                    },
                                     onOpenAddBooking = viewModel::openCalculatorSheet,
                                     onUpdatePlannedIncome = viewModel::updatePlannedMonthlyIncome,
                                     onSaveCategory = viewModel::saveCategoryTab,
@@ -520,6 +552,36 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                 )
                             }
                         }
+                    }
+
+                    DrawerDestination.ARCHIVE -> {
+                        ArchiveScreen(
+                            archivedTransactions = archivedTransactions,
+                            categories = categories,
+                            onRestoreTransaction = { tx ->
+                                viewModel.unarchiveTransaction(tx)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Buchung '${tx.title}' wiederhergestellt",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            },
+                            onDeletePermanently = { tx ->
+                                viewModel.deleteTransaction(tx)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Buchung '${tx.title}' endgültig gelöscht",
+                                        actionLabel = "Rückgängig",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.restoreTransaction(tx)
+                                    }
+                                }
+                            },
+                            onNavigateBack = { viewModel.navigateTo(DrawerDestination.COCKPIT) }
+                        )
                     }
 
                     DrawerDestination.INSTALLMENTS -> {

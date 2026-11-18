@@ -61,6 +61,12 @@ interface SmartFinanceDao {
     @Query("UPDATE transactions SET categoryName = :name WHERE categoryId = :categoryId")
     suspend fun renameTransactionsCategory(categoryId: Long, name: String)
 
+    @Query("UPDATE transactions SET isArchived = :isArchived WHERE id = :id")
+    suspend fun setTransactionArchived(id: Long, isArchived: Boolean)
+
+    @Query("SELECT * FROM transactions WHERE isArchived = 1 ORDER BY dateEpochDay DESC, id DESC")
+    fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: Long)
 

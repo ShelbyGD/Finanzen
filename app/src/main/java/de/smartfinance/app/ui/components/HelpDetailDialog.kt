@@ -471,7 +471,7 @@ fun TransactionActionBottomSheet(
     transaction: TransactionEntity,
     categories: List<CategoryTabEntity> = emptyList(),
     onUpdateTransaction: (TransactionEntity) -> Unit,
-    onDeleteTransaction: (TransactionEntity) -> Unit,
+    onDeleteTransaction: (TransactionEntity) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -655,26 +655,6 @@ fun TransactionActionBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Speichern")
-            }
-
-            Button(
-                onClick = {
-                    onDeleteTransaction(transaction)
-                    onDismiss()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Buchung löschen", fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(16.dp))

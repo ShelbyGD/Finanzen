@@ -28,7 +28,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -42,6 +44,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -52,13 +55,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -121,6 +129,8 @@ fun CockpitScreen(
     onSelectMonthPage: (Int) -> Unit,
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
+    onDeleteTransaction: (TransactionEntity) -> Unit = {},
+    onArchiveTransaction: (TransactionEntity) -> Unit = {},
     onOpenAddBooking: () -> Unit,
     onUpdatePlannedIncome: (Double, Int?) -> Unit,
     onSaveCategory: (CategoryTabEntity) -> Unit = {},
@@ -162,6 +172,8 @@ fun CockpitScreen(
             onSelectSortType = onSelectSortType,
             onSelectCategoryFilter = onSelectCategoryFilter,
             onSelectTransaction = onSelectTransaction,
+            onDeleteTransaction = onDeleteTransaction,
+            onArchiveTransaction = onArchiveTransaction,
             onOpenAddBooking = onOpenAddBooking,
             onUpdatePlannedIncome = onUpdatePlannedIncome,
             onSaveCategory = onSaveCategory,
@@ -182,6 +194,8 @@ private fun OverviewMonthContent(
     onSelectSortType: (SortType) -> Unit = {},
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
+    onDeleteTransaction: (TransactionEntity) -> Unit = {},
+    onArchiveTransaction: (TransactionEntity) -> Unit = {},
     onOpenAddBooking: () -> Unit,
     onUpdatePlannedIncome: (Double, Int?) -> Unit,
     onSaveCategory: (CategoryTabEntity) -> Unit = {},
@@ -196,6 +210,7 @@ private fun OverviewMonthContent(
 
     val periodTransactions = remember(allTransactions, snapshot.selectedYearMonth, selectedCategoryId, sortType) {
         val filtered = allTransactions
+            .filter { !it.isArchived }
             .filter { tx ->
                 YearMonth.from(LocalDate.ofEpochDay(tx.dateEpochDay)) == snapshot.selectedYearMonth
             }
@@ -216,9 +231,9 @@ private fun OverviewMonthContent(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // 1. DIE VIOLETTE HERO-KARTE (Oben im "Übersicht"-Tab: vom Gehalt verfügbar, Einnahmen, Heute frei)
+        // 1. DIE CLEAN M3 HERO-KARTE (Oben im "Übersicht"-Tab: vom Gehalt verfügbar, Einnahmen, Heute frei)
         item {
-            VioletHeroBudgetCard(
+            HeroBudgetCard(
                 snapshot = snapshot,
                 onClickHero = onNavigateToAnalytics,
                 onClickEditIncome = { showIncomeDialog = true }
@@ -326,6 +341,8 @@ private fun OverviewMonthContent(
                 onSelectSortType = onSelectSortType,
                 onClearFilter = { onSelectCategoryFilter(null) },
                 onSelectTransaction = onSelectTransaction,
+                onDeleteTransaction = onDeleteTransaction,
+                onArchiveTransaction = onArchiveTransaction,
                 onEmptyClick = onOpenAddBooking
             )
         }
@@ -416,10 +433,10 @@ private fun IncomeEditDialog(
 }
 
 /**
- * 2. DIE VIOLETTE HERO-KARTE (Oben im "Übersicht"-Tab)
+ * 2. DIE CLEAN MATERIAL 3 HERO-KARTE (Oben im "Übersicht"-Tab)
  */
 @Composable
-private fun VioletHeroBudgetCard(
+private fun HeroBudgetCard(
     snapshot: DashboardAnalysisSnapshot,
     onClickHero: () -> Unit,
     onClickEditIncome: () -> Unit
@@ -432,107 +449,101 @@ private fun VioletHeroBudgetCard(
     }
 
     Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClickHero() }
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(HeroVioletStart, HeroVioletEnd)
-                    )
-                )
-                .padding(20.dp)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Kopfzeile der Karte
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Kopfzeile der Karte
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "PRO",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                    Text(
+                        text = "Statistik",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                val daysLabel = "${snapshot.remainingDaysInMonth} Tage bis Monatsende >"
+                Text(
+                    text = daysLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                )
+            }
+
+            // Zentrum der Karte: Riesige, fette Zahl + dynamisches Verfügbarkeits-Label
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = SmartFinanceEngine.formatEuro(snapshot.remainingFreeBudgetMonth),
+                    fontSize = 32.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "vom Gehalt verfügbar",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+
+            // Fortschrittsbalken & Tagessatz
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LinearProgressIndicator(
+                    progress = { availableRatio },
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    strokeCap = StrokeCap.Round,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                )
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = HeroTurquoiseAccent.copy(alpha = 0.22f)
-                        ) {
-                            Text(
-                                text = "PRO",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = HeroTurquoiseAccent,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                        Text(
-                            text = "Statistik",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.92f)
-                        )
-                    }
-
-                    val daysLabel = "${snapshot.remainingDaysInMonth} Tage bis Monatsende >"
-                    Text(
-                        text = daysLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
-                }
-
-                // Zentrum der Karte: Riesige, fette Zahl + dynamisches Verfügbarkeits-Label
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = SmartFinanceEngine.formatEuro(snapshot.remainingFreeBudgetMonth),
-                        fontSize = 32.sp,
-                        lineHeight = 36.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "vom Gehalt verfügbar",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
-
-                // Fortschrittsbalken & Tagessatz
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    LinearProgressIndicator(
-                        progress = { availableRatio },
-                        color = HeroTurquoiseAccent,
-                        trackColor = Color.White.copy(alpha = 0.20f),
-                        strokeCap = StrokeCap.Round,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(7.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
+                    Column {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -545,12 +556,12 @@ private fun VioletHeroBudgetCard(
                                 text = "Einnahmen: +${SmartFinanceEngine.formatEuro(effectiveIncome)}",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.White.copy(alpha = 0.90f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Einnahmen eintragen",
-                                tint = HeroTurquoiseAccent,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(13.dp)
                             )
                         }
@@ -558,17 +569,16 @@ private fun VioletHeroBudgetCard(
                             text = "Ausgaben: -${SmartFinanceEngine.formatEuro(snapshot.additionalExpensesTotal)}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.90f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 4.dp)
                         )
-                        }
-                        Text(
-                            text = "Heute frei: ${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = HeroTurquoiseAccent
-                        )
                     }
+                    Text(
+                        text = "Heute frei: ${SmartFinanceEngine.formatEuro(snapshot.dynamicDailyBudgetToday)} / Tag",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -1327,6 +1337,8 @@ private fun RecentBookingsGroupedSection(
     onSelectSortType: (SortType) -> Unit = {},
     onClearFilter: () -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
+    onDeleteTransaction: (TransactionEntity) -> Unit = {},
+    onArchiveTransaction: (TransactionEntity) -> Unit = {},
     onEmptyClick: () -> Unit
 ) {
     Column(
@@ -1410,10 +1422,12 @@ private fun RecentBookingsGroupedSection(
         }
 
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
         ) {
             if (transactions.isEmpty()) {
                 Row(
@@ -1440,92 +1454,22 @@ private fun RecentBookingsGroupedSection(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     val visibleTransactions = transactions.take(25)
                     visibleTransactions.forEachIndexed { index, tx ->
-                        val cat = categoryById[tx.categoryId]
-                        val iconKey = tx.resolveIconKey(cat?.iconKey)
-                        val isIncome = tx.transactionType == TransactionType.INCOME
-                        val dateStr = LocalDate.ofEpochDay(tx.dateEpochDay)
-                            .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
-
-                        val accentColor = CategoryIconCatalog.accentColorFor(
-                            iconKey = iconKey,
-                            titleOrCategory = "${tx.title} ${tx.categoryName}"
-                        )
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectTransaction(tx) }
-                                .padding(horizontal = 16.dp, vertical = 13.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                if (showIcons) {
-                                    val circleBg = if (isIncome) Color(0xFF00E676).copy(alpha = 0.20f) else accentColor.copy(alpha = 0.15f)
-                                    val iconTint = if (isIncome) Color(0xFF00E676) else accentColor
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = circleBg,
-                                        modifier = Modifier.size(40.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = CategoryIconCatalog.iconForKey(iconKey),
-                                                contentDescription = tx.title,
-                                                tint = iconTint,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                }
-
-                                Column {
-                                    Text(
-                                        text = tx.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    val subLabel = buildString {
-                                        append(dateStr)
-                                        append(" • ")
-                                        append(tx.categoryName)
-                                        if (tx.smoothOver12Months) append(" • 1/12")
-                                    }
-                                    Text(
-                                        text = subLabel,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            val prefix = if (isIncome) "+" else "-"
-                            val amountColor = if (isIncome) {
-                                Color(0xFF00E676)
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            }
-                            Text(
-                                text = "$prefix${SmartFinanceEngine.formatEuro(kotlin.math.abs(tx.amount))}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = amountColor
+                        key(tx.id) {
+                            SwipeableTransactionItem(
+                                tx = tx,
+                                category = categoryById[tx.categoryId],
+                                showIcons = showIcons,
+                                onSelectTransaction = onSelectTransaction,
+                                onDeleteTransaction = onDeleteTransaction,
+                                onArchiveTransaction = onArchiveTransaction
                             )
                         }
 
                         if (index < visibleTransactions.lastIndex) {
                             HorizontalDivider(
                                 thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                                modifier = Modifier.padding(start = 68.dp, end = 16.dp)
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(start = if (showIcons) 68.dp else 16.dp, end = 16.dp)
                             )
                         }
                     }
@@ -1533,6 +1477,161 @@ private fun RecentBookingsGroupedSection(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableTransactionItem(
+    tx: TransactionEntity,
+    category: CategoryTabEntity?,
+    showIcons: Boolean,
+    onSelectTransaction: (TransactionEntity) -> Unit,
+    onDeleteTransaction: (TransactionEntity) -> Unit,
+    onArchiveTransaction: (TransactionEntity) -> Unit
+) {
+    val currentOnDelete by rememberUpdatedState(onDeleteTransaction)
+    val currentOnArchive by rememberUpdatedState(onArchiveTransaction)
+
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            when (dismissValue) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    currentOnArchive(tx)
+                    true
+                }
+                SwipeToDismissBoxValue.EndToStart -> {
+                    currentOnDelete(tx)
+                    true
+                }
+                SwipeToDismissBoxValue.Settled -> false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val color = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Color(0xFF1976D2) // Blau für Archivieren
+                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error // Rot für Löschen
+                SwipeToDismissBoxValue.Settled -> Color.Transparent
+            }
+            val alignment = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                SwipeToDismissBoxValue.Settled -> Alignment.Center
+            }
+            val icon = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> Icons.Default.Archive
+                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
+                SwipeToDismissBoxValue.Settled -> null
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(color)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                }
+            }
+        },
+        content = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val iconKey = tx.resolveIconKey(category?.iconKey)
+                val isIncome = tx.transactionType == TransactionType.INCOME
+                val dateStr = LocalDate.ofEpochDay(tx.dateEpochDay)
+                    .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+
+                val accentColor = CategoryIconCatalog.accentColorFor(
+                    iconKey = iconKey,
+                    titleOrCategory = "${tx.title} ${tx.categoryName}"
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelectTransaction(tx) }
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (showIcons) {
+                            val circleBg = if (isIncome) Color(0xFF00E676).copy(alpha = 0.20f) else accentColor.copy(alpha = 0.15f)
+                            val iconTint = if (isIncome) Color(0xFF00E676) else accentColor
+                            Surface(
+                                shape = CircleShape,
+                                color = circleBg,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = CategoryIconCatalog.iconForKey(iconKey),
+                                        contentDescription = tx.title,
+                                        tint = iconTint,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+
+                        Column {
+                            Text(
+                                text = tx.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            val subLabel = buildString {
+                                append(dateStr)
+                                append(" • ")
+                                append(tx.categoryName)
+                                if (tx.smoothOver12Months) append(" • 1/12")
+                            }
+                            Text(
+                                text = subLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    val prefix = if (isIncome) "+" else "-"
+                    val amountColor = if (isIncome) {
+                        Color(0xFF00E676)
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                    Text(
+                        text = "$prefix${SmartFinanceEngine.formatEuro(kotlin.math.abs(tx.amount))}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = amountColor
+                    )
+                }
+            }
+        }
+    )
 }
 
 /**

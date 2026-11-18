@@ -137,94 +137,89 @@ fun SavingsBoosterTabScreen(
         // 1. Summen-Kopfzeile ganz oben (Hero-Card)
         item {
             Card(
-                shape = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(HeroVioletStart, HeroVioletEnd)
-                            )
-                        )
-                        .padding(20.dp)
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Savings,
-                                    contentDescription = null,
-                                    tint = HeroTurquoiseAccent
-                                )
-                                Text(
-                                    text = "Sparbooster • Gesamtübersicht",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                            IconButton(onClick = { onOpenHelpId("savings_tracker") }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.HelpOutline,
-                                    contentDescription = "Hilfe zum Sparbooster",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = SmartFinanceEngine.formatEuro(totalSavedSum),
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
+                            Icon(
+                                imageVector = Icons.Outlined.Savings,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Gesamtersparnis von ${SmartFinanceEngine.formatEuro(totalTargetSum)} (${(overallFraction * 100).roundToInt()} %)",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
-                        }
-
-                        LinearProgressIndicator(
-                            progress = { overallFraction },
-                            color = HeroTurquoiseAccent,
-                            trackColor = Color.White.copy(alpha = 0.22f),
-                            strokeCap = StrokeCap.Round,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(9.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Monatliche Sparrate gesamt: ${SmartFinanceEngine.formatEuro(totalMonthlyRateSum)} / Monat",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
-                            Text(
-                                text = "${savingsGoals.size} ${if (savingsGoals.size == 1) "Sparziel" else "Sparziele"}",
-                                style = MaterialTheme.typography.labelMedium,
+                                text = "Sparbooster • Gesamtübersicht",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = HeroTurquoiseAccent
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
+                        IconButton(onClick = { onOpenHelpId("savings_tracker") }) {
+                            Icon(
+                                imageVector = Icons.Outlined.HelpOutline,
+                                contentDescription = "Hilfe zum Sparbooster",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = SmartFinanceEngine.formatEuro(totalSavedSum),
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Gesamtersparnis von ${SmartFinanceEngine.formatEuro(totalTargetSum)} (${(overallFraction * 100).roundToInt()} %)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    LinearProgressIndicator(
+                        progress = { overallFraction },
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                        strokeCap = StrokeCap.Round,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(9.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Monatliche Sparrate gesamt: ${SmartFinanceEngine.formatEuro(totalMonthlyRateSum)} / Monat",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${savingsGoals.size} ${if (savingsGoals.size == 1) "Sparziel" else "Sparziele"}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
@@ -250,9 +245,9 @@ fun SavingsBoosterTabScreen(
                 val cardAccent = Color(goal.colorHex)
 
                 Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
