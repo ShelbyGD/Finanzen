@@ -805,5 +805,72 @@ class SmartFinanceSelfTest {
         assertEquals(4L, dmResult.suggestedCategoryId)
         assertEquals("Drogerie & Haushalt", dmResult.suggestedCategoryName)
     }
+
+    /**
+     * Test G (Deutscher PDF-Rechnungs-OCR-Parser & Mehrseitige PDF-Seitenauswahl):
+     * Prüft die Erkennung typischer deutscher PDF-Rechnungsbegriffe (`RECHNUNGSBETRAG`,
+     * `FÄLLIGER BETRAG`, `ZU ZAHLENDER BETRAG`, `BRUTTOBETRAG`, `ABBUCHUNGSBETRAG`)
+     * unter Ignorierung von `Zwischensumme`, `Nettobetrag`, `Rabatt` und `MwSt`/`USt`
+     * sowie die Seitenauswahl für mehrseitige PDF-Rechnungen.
+     */
+    @Test
+    fun testG_germanPdfInvoiceOcrParser_extractsRechnungsbetragAndIgnoresNettoAndMwst() {
+        val categories = listOf(
+            CategoryTabEntity(id = 1L, name = "Gehalt", iconKey = "income", colorHex = 0L, categoryType = CategoryType.INCOME),
+            CategoryTabEntity(id = 2L, name = "Lebensmittel", iconKey = "cart", colorHex = 0L, categoryType = CategoryType.VARIABLE_EXPENSE),
+            CategoryTabEntity(id = 3L, name = "Wohnen & Energie", iconKey = "home", colorHex = 0L, categoryType = CategoryType.FIXED_EXPENSE),
+            CategoryTabEntity(id = 4L, name = "Shopping & Technik", iconKey = "cart", colorHex = 0L, categoryType = CategoryType.VARIABLE_EXPENSE)
+        )
+
+        // Beispiel 1: Mehrseitige deutsche PDF-Rechnung (Seite 1 mit Briefkopf + letzte Seite mit Netto, MwSt und Rechnungsbetrag)
+        val pdfInvoiceText = """
+            Seite 1
+            Rechnung
+            Rechnungs-Nr.: INV-2026-88412
+            Kundennummer: 994120
+            Rechnungsdatum: 12.11.2026
+            HORNBACH Baumarkt AG
+            76879 Bornheim
+            Pos. 1  Akkuschrauber Set         120,00
+            Pos. 2  Schrauben & Dübel          30,00
+            Zwischensumme Netto               150,00
+            Treue-Rabatt 10%                  -15,00
+            Nettobetrag                       135,00
+            zzgl. 19,00 % MwSt.                25,65
+            Rechnungsbetrag                   160,65
+            Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.
+        """.trimIndent()
+
+        val invoiceResult = ReceiptOcrParser.parseRawReceiptText(pdfInvoiceText, categories, testToday)
+        assertEquals(160.65, invoiceResult.detectedAmount, 0.001)
+        assertEquals("HORNBACH", invoiceResult.detectedMerchantTitle)
+        assertEquals(LocalDate.of(2026, 11, 12), invoiceResult.detectedDate)
+        assertEquals(3L, invoiceResult.suggestedCategoryId)
+        assertEquals("Wohnen & Energie", invoiceResult.suggestedCategoryName)
+
+        // Beispiel 2: PDF-Rechnung mit "Zu zahlender Betrag (inkl. 19% MwSt.)" und Tausendertrennzeichen (1.249,50)
+        val multiPageTechInvoice = """
+            Amazon EU S.a.r.l.
+            Rechnungsnummer: DE-2026-5519
+            Ausstellungsdatum: 15.11.2026
+            Notebook Pro 14 Zoll             1.050,00
+            Nettobetrag                      1.050,00
+            Umsatzsteuer 19%                   199,50
+            Zu zahlender Betrag (inkl. MwSt) 1.249,50
+        """.trimIndent()
+
+        val techResult = ReceiptOcrParser.parseRawReceiptText(multiPageTechInvoice, categories, testToday)
+        assertEquals(1249.50, techResult.detectedAmount, 0.001)
+        assertEquals("Amazon", techResult.detectedMerchantTitle)
+        assertEquals(LocalDate.of(2026, 11, 15), techResult.detectedDate)
+        assertEquals(4L, techResult.suggestedCategoryId)
+        assertEquals("Shopping & Technik", techResult.suggestedCategoryName)
+
+        // Prüfe repräsentative Seitenauswahl für mehrseitige PDFs (Seite 1 + letzte Seite, max. 3 Seiten)
+        assertEquals(listOf(0), de.smartfinance.app.domain.PdfBitmapConverter.selectRepresentativePageIndices(1))
+        assertEquals(listOf(0, 1), de.smartfinance.app.domain.PdfBitmapConverter.selectRepresentativePageIndices(2))
+        assertEquals(listOf(0, 1, 4), de.smartfinance.app.domain.PdfBitmapConverter.selectRepresentativePageIndices(5))
+    }
 }
+
 

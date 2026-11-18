@@ -8,6 +8,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
 import kotlinx.coroutines.tasks.await
+import java.io.IOException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -23,12 +24,16 @@ data class OcrReceiptResult(
 )
 
 /**
- * Offline Beleg-Scanner (Google ML Kit OCR on-device), gezielt optimiert für deutsche Kassenbons:
- * 1. Priorisierte Endsummen-Logik (ZU ZAHLEN, GESAMT, SUMME, ENDPREIS, EC-KARTE, KARTENZAHLUNG, BAR, BETRAG EUR)
- *    unter strikter Ausfilterung von MWST, UST, NETTO, ZWISCHENSUMME, RÜCKGELD, GEGEBEN, PFAND, RABATT, ERSPARNIS.
- * 2. Saubere Händler-Erkennung für deutsche Handelsketten & Ausfilterung von Kassenbon-Kopfzeilen-Müll.
- * 3. Deutsche Datums-Extraktion (dd.MM.yyyy & dd.MM.yy).
- * 4. Automatischer Kategorie-Abgleich gegen die vorhandenen category_tabs.
+ * Offline Beleg- & Rechnungs-Scanner (Google ML Kit OCR on-device), gezielt optimiert für deutsche
+ * Kassenbons und mehrseitige PDF-Rechnungen:
+ * 1. Priorisierte Endsummen-Logik für Bons (`ZU ZAHLEN`, `GESAMT`, `SUMME`, `ENDPREIS`, `EC-KARTE`,
+ *    `KARTENZAHLUNG`, `BAR`, `BETRAG EUR`) sowie PDF-Rechnungen (`RECHNUNGSBETRAG`, `GESAMTBETRAG`,
+ *    `BRUTTOBETRAG`, `ZAHLUNGSBETRAG`, `ABBUCHUNGSBETRAG`, `FÄLLIGER BETRAG`, `ZU ZAHLENDER BETRAG`,
+ *    `ENDSUMME`) unter strikter Ausfilterung von `MWST`, `UST`, `NETTO`, `ZWISCHENSUMME`, `RÜCKGELD`,
+ *    `GEGEBEN`, `PFAND`, `RABATT`, `ERSPARNIS`.
+ * 2. Saubere Händler- & Rechnungssteller-Erkennung sowie Ausfilterung von Kopfzeilen-Müll.
+ * 3. Deutsche Datums-Extraktion (`dd.MM.yyyy` & `dd.MM.yy`).
+ * 4. Automatischer Kategorie-Abgleich gegen die vorhandenen `category_tabs`.
  */
 object ReceiptOcrParser {
 
@@ -37,6 +42,13 @@ object ReceiptOcrParser {
     private val dateRegex = Regex("""\b(0?[1-9]|[12]\d|3[01])\.(0?[1-9]|1[0-2])\.(\d{4}|\d{2})\b""")
 
     private val priorityTotalKeywords = listOf(
+        "rechnungsbetrag",
+        "zu zahlender betrag",
+        "fälliger betrag",
+        "faelliger betrag",
+        "zahlungsbetrag",
+        "abbuchungsbetrag",
+        "bruttobetrag",
         "zu zahlen",
         "gesamtbetrag",
         "gesamtsumme",
@@ -58,9 +70,25 @@ object ReceiptOcrParser {
         "bar"
     )
 
-    private val ignoredAmountKeywords = listOf(
-        "mwst",
-        "ust",
+    // Explizite Brutto-/Rechnungs-Endsummen-Schlüsselwörter, die in deutschen Rechnungen häufig
+    // den Zusatz "(inkl. 19% MwSt.)" oder "(Brutto)" in derselben Zeile tragen.
+    private val explicitGrossInvoiceKeywords = listOf(
+        "rechnungsbetrag",
+        "zu zahlender betrag",
+        "fälliger betrag",
+        "faelliger betrag",
+        "zahlungsbetrag",
+        "abbuchungsbetrag",
+        "bruttobetrag",
+        "gesamtbetrag",
+        "gesamtsumme",
+        "endsumme",
+        "endpreis",
+        "zu zahlen"
+    )
+
+    // Harte Ausschluss-Schlüsselwörter (werden selbst dann ignoriert, wenn ein allgemeines Wort wie "Summe" vorkommt)
+    private val strictExcludedAmountKeywords = listOf(
         "netto",
         "zwischensumme",
         "rückgeld",
@@ -73,12 +101,21 @@ object ReceiptOcrParser {
         "vorteil",
         "coupon",
         "gutschein",
-        "steuer",
         "brutto=netto",
-        "inkl.",
         "davon",
         "änderung",
-        "wechselgeld"
+        "wechselgeld",
+        "zzgl"
+    )
+
+    // Steuer-Schlüsselwörter, die reine MwSt-/USt-Zeilen markieren (z. B. "MwSt 19% 19,00" oder "inkl. 19% USt 10,92")
+    private val taxLineKeywords = listOf(
+        "mwst",
+        "ust",
+        "mehrwertsteuer",
+        "umsatzsteuer",
+        "steuer",
+        "inkl."
     )
 
     private val headerNoiseKeywords = listOf(
@@ -94,6 +131,12 @@ object ReceiptOcrParser {
         "bonnr",
         "beleg-nr",
         "belegnr",
+        "rechnungs-nr",
+        "rechnungsnr",
+        "rechnungsnummer",
+        "kunden-nr",
+        "kundennr",
+        "kundennummer",
         "transaktion",
         "tse",
         "seriennr",
@@ -101,6 +144,9 @@ object ReceiptOcrParser {
         "bediener",
         "verkäufer",
         "datum",
+        "rechnungsdatum",
+        "leistungsdatum",
+        "lieferdatum",
         "uhrzeit",
         "tel.",
         "tel:",
@@ -108,12 +154,16 @@ object ReceiptOcrParser {
         "fax",
         "www.",
         "http",
+        "iban",
+        "bic",
         "kundenbeleg",
         "kassenbon",
         "quittung",
         "rechnung",
         "vielen dank",
-        "herzlich willkommen"
+        "herzlich willkommen",
+        "seite 1",
+        "seite 2"
     )
 
     private val postalAddressRegex = Regex("""\b\d{5}\s+[A-Za-zÄÖÜäöüß]{2,}""")
@@ -163,16 +213,67 @@ object ReceiptOcrParser {
         KnownMerchant(listOf("metzgerei", "fleischerei"), "Metzgerei", "GROCERY")
     )
 
+    /**
+     * Analysiert sowohl Bild-URIs (Kamera/Galerie) als auch ein- oder mehrseitige PDF-Rechnungen
+     * zu 100 % lokal auf dem Gerät über Google ML Kit TextRecognition.
+     * Bei mehrseitigen PDFs werden über PdfBitmapConverter Seite 1 und die letzte Seite
+     * (max. 2–3 Seiten) gerendert und deren erkannter Text zusammengeführt.
+     */
     suspend fun recognizeFromImageUri(
         context: Context,
         imageUri: Uri,
         categories: List<CategoryTabEntity>
     ): Result<OcrReceiptResult> {
-        return runCatching {
-            val image = InputImage.fromFilePath(context, imageUri)
+        return try {
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            val visionText = recognizer.process(image).await()
-            parseRawReceiptText(visionText.text, categories)
+
+            if (PdfBitmapConverter.isPdfUri(context, imageUri)) {
+                val pagesResult = PdfBitmapConverter.renderPdfPagesForOcr(context, imageUri)
+                val bitmaps = pagesResult.getOrElse { err ->
+                    return Result.failure(err)
+                }
+
+                val combinedTextBuilder = StringBuilder()
+                for (bitmap in bitmaps) {
+                    try {
+                        val inputImage = InputImage.fromBitmap(bitmap, 0)
+                        val visionText = recognizer.process(inputImage).await()
+                        if (visionText.text.isNotBlank()) {
+                            if (combinedTextBuilder.isNotEmpty()) {
+                                combinedTextBuilder.append("\n")
+                            }
+                            combinedTextBuilder.append(visionText.text)
+                        }
+                    } finally {
+                        if (!bitmap.isRecycled) {
+                            bitmap.recycle()
+                        }
+                    }
+                }
+
+                val combinedText = combinedTextBuilder.toString()
+                Result.success(parseRawReceiptText(combinedText, categories))
+            } else {
+                val image = InputImage.fromFilePath(context, imageUri)
+                val visionText = recognizer.process(image).await()
+                Result.success(parseRawReceiptText(visionText.text, categories))
+            }
+        } catch (secEx: SecurityException) {
+            Result.failure(
+                SecurityException(
+                    "Das Dokument ist passwortgeschützt oder der Zugriff wurde verweigert.",
+                    secEx
+                )
+            )
+        } catch (ioEx: IOException) {
+            Result.failure(
+                IOException(
+                    "Das Dokument konnte nicht geladen oder gelesen werden (beschädigte Datei).",
+                    ioEx
+                )
+            )
+        } catch (ex: Exception) {
+            Result.failure(ex)
         }
     }
 
@@ -183,7 +284,7 @@ object ReceiptOcrParser {
     ): OcrReceiptResult {
         val lines = rawText.lines().map { it.trim() }.filter { it.isNotEmpty() }
 
-        // 1. Priorisierte Endsummen-Extraktion
+        // 1. Priorisierte Endsummen-Extraktion (Kassenbon & PDF-Rechnung)
         val finalAmount = extractTotalAmount(lines)
 
         // 2. Datums-Extraktion (dd.MM.yyyy oder dd.MM.yy)
@@ -215,7 +316,7 @@ object ReceiptOcrParser {
 
             if (isIgnoredAmountLine(lower)) continue
 
-            // Prüfe auf Endbetrags-Schlüsselwörter
+            // Prüfe auf Endbetrags-Schlüsselwörter (Kassenbon & PDF-Rechnung)
             val matchedKeywordIndex = priorityTotalKeywords.indexOfFirst { kw ->
                 if (kw == "bar") {
                     Regex("""\bbar\b""").containsMatchIn(lower)
@@ -250,7 +351,7 @@ object ReceiptOcrParser {
             return bestKeywordAmount
         }
 
-        // Fallback 1: Plausibelster Endbetrag im unteren Drittel des Bons (ohne ignorierte Zeilen)
+        // Fallback 1: Plausibelster Endbetrag im unteren Drittel des Bons/Dokuments (ohne ignorierte Zeilen)
         val bottomThirdStart = (lines.size * 2) / 3
         var bottomThirdMax = 0.0
         for (i in bottomThirdStart until lines.size) {
@@ -265,7 +366,7 @@ object ReceiptOcrParser {
             return bottomThirdMax
         }
 
-        // Fallback 2: Gesamter Bon (ohne ignorierte Zeilen)
+        // Fallback 2: Gesamter Beleg (ohne ignorierte Zeilen)
         var overallMax = 0.0
         for (line in lines) {
             val lower = line.lowercase(Locale.GERMAN)
@@ -278,7 +379,18 @@ object ReceiptOcrParser {
     }
 
     private fun isIgnoredAmountLine(lowerLine: String): Boolean {
-        return ignoredAmountKeywords.any { kw -> lowerLine.contains(kw) }
+        // 1. Netto, Zwischensumme, Rückgeld, Gegeben, Pfand, Rabatt, Ersparnis immer ausschließen
+        if (strictExcludedAmountKeywords.any { kw -> lowerLine.contains(kw) }) {
+            return true
+        }
+        // 2. Falls die Zeile ein explizites Brutto-Rechnungs-Endsummen-Schlüsselwort enthält
+        //    (z. B. "Rechnungsbetrag (inkl. 19% MwSt.) 119,00 €"), darf sie wegen "inkl." / "mwst" nicht verworfen werden.
+        val hasExplicitGrossInvoiceKeyword = explicitGrossInvoiceKeywords.any { kw -> lowerLine.contains(kw) }
+        if (hasExplicitGrossInvoiceKeyword) {
+            return false
+        }
+        // 3. Reine MwSt-/USt-/Steuer-Zeilen ausschließen
+        return taxLineKeywords.any { kw -> lowerLine.contains(kw) }
     }
 
     private fun parseAmountsFromLine(line: String): List<Double> {

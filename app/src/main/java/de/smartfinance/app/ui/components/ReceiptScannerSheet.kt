@@ -2,17 +2,20 @@ package de.smartfinance.app.ui.components
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,8 +61,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -68,19 +74,23 @@ import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
 import de.smartfinance.app.domain.ContractScanProposal
 import de.smartfinance.app.domain.GeminiVisionScanResult
+import de.smartfinance.app.domain.PdfBitmapConverter
 import de.smartfinance.app.domain.ReceiptOcrParser
 import de.smartfinance.app.domain.ReceiptSplitItem
 import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.ui.theme.BudgetRingGreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.LocalDate
 import java.util.Locale
 
 /**
- * Clean Material 3 Beleg-Scanner ("AuraFinance AI"):
+ * Clean Material 3 Beleg- & Rechnungs-Scanner ("AuraFinance AI"):
+ * - Drei kompakte M3-Aktionsbuttons: Kamera, Galerie, Dokument (PDF).
  * - Unterstützt 100 % lokalen Offline-OCR-Scan (Google ML Kit) für deutsche Kassenbons
- *   sowie optional Google Gemini Vision (falls ein BYOK API-Key hinterlegt ist).
+ *   und mehrseitige PDF-Rechnungen sowie optional Google Gemini Vision (BYOK).
  * - Bietet nach dem Scan eine direkte Prüf- und Korrekturmaske für Titel/Händler, Betrag,
  *   Datum und Kategorie-Chips vor dem finalen Speichern in der Room-Datenbank.
  */
@@ -115,6 +125,9 @@ fun ReceiptScannerSheet(
 
     var isScanning by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedDocumentName by remember { mutableStateOf<String?>(null) }
+    var selectedIsPdf by remember { mutableStateOf(false) }
+    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     var scannedResult by remember { mutableStateOf<GeminiVisionScanResult?>(null) }
     var editableTitle by remember { mutableStateOf("") }
@@ -132,6 +145,34 @@ fun ReceiptScannerSheet(
             ?: selectableCategories.firstOrNull()
     }
 
+    fun launchAnalysisForUri(uri: Uri, fallbackName: String? = null) {
+        scope.launch {
+            isScanning = true
+            errorMessage = null
+            val (docName, isPdf, thumb) = withContext(Dispatchers.IO) {
+                val resolvedName = PdfBitmapConverter.resolveDisplayName(context, uri)
+                    .takeIf { it.isNotBlank() && it != "Dokument" }
+                    ?: fallbackName
+                    ?: "Beleg-Dokument"
+                val pdfFlag = PdfBitmapConverter.isPdfUri(context, uri)
+                val preview = PdfBitmapConverter.convertUriToBitmap(context, uri, maxDimension = 320)
+                Triple(resolvedName, pdfFlag, preview)
+            }
+            selectedDocumentName = docName
+            selectedIsPdf = isPdf
+            previewBitmap = thumb
+
+            onScanUri(uri)
+                .onSuccess { applyResult(it) }
+                .onFailure { err ->
+                    val detail = err.localizedMessage?.takeIf { it.isNotBlank() }
+                        ?: "Das ausgewählte Dokument konnte nicht verarbeitet werden."
+                    errorMessage = detail
+                }
+            isScanning = false
+        }
+    }
+
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
     val takePictureLauncher = rememberLauncherForActivityResult(
@@ -139,14 +180,7 @@ fun ReceiptScannerSheet(
     ) { success ->
         val uri = tempCameraUri
         if (success && uri != null) {
-            scope.launch {
-                isScanning = true
-                errorMessage = null
-                onScanUri(uri)
-                    .onSuccess { applyResult(it) }
-                    .onFailure { errorMessage = "Beleg-Scan fehlgeschlagen: ${it.localizedMessage}" }
-                isScanning = false
-            }
+            launchAnalysisForUri(uri, fallbackName = "Kamera-Belegfoto.jpg")
         }
     }
 
@@ -160,7 +194,7 @@ fun ReceiptScannerSheet(
             tempCameraUri = uri
             takePictureLauncher.launch(uri)
         } else {
-            errorMessage = "Kamera-Berechtigung wurde abgelehnt. Bitte nutze alternativ die Foto-Galerie."
+            errorMessage = "Kamera-Berechtigung wurde abgelehnt. Bitte nutze alternativ Galerie oder Dokument (PDF)."
         }
     }
 
@@ -168,14 +202,15 @@ fun ReceiptScannerSheet(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            scope.launch {
-                isScanning = true
-                errorMessage = null
-                onScanUri(uri)
-                    .onSuccess { applyResult(it) }
-                    .onFailure { errorMessage = "Beleg-Scan fehlgeschlagen: ${it.localizedMessage}" }
-                isScanning = false
-            }
+            launchAnalysisForUri(uri, fallbackName = "Galerie-Bild")
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            launchAnalysisForUri(uri, fallbackName = "Rechnung.pdf")
         }
     }
 
@@ -206,13 +241,13 @@ fun ReceiptScannerSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Kassenbon- & Beleg-Scanner",
+                        text = "Kassenbon- & Rechnungs-Scanner",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Fotografiere einen Beleg oder wähle ein Bild aus der Galerie",
+                        text = "Kamera-Foto, Galerie-Bild oder PDF-Rechnung direkt auslesen",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -248,10 +283,10 @@ fun ReceiptScannerSheet(
                 )
             }
 
-            // Kamera- & Galerie-Auswahl
+            // 3 klar strukturierte, kompakte M3-Aktionsbuttons: Kamera, Galerie, Dokument (PDF)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
                     onClick = {
@@ -273,12 +308,19 @@ fun ReceiptScannerSheet(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Kamera", fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Kamera",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
                 FilledTonalButton(
@@ -287,43 +329,118 @@ fun ReceiptScannerSheet(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Galerie", fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Galerie",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                FilledTonalButton(
+                    onClick = {
+                        openDocumentLauncher.launch(arrayOf("application/pdf", "image/*"))
+                    },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.weight(1.15f)
+                ) {
+                    Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Dokument (PDF)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 
-            if (isScanning) {
+            // Vorschau des ausgewählten Dokuments / Dateiname + Lade-Indikator während der Analyse
+            if (selectedDocumentName != null || isScanning) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 14.dp, horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(vertical = 10.dp, horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = if (vaultState.hasApiKey) {
-                                "Analysiere Beleg per Gemini Vision..."
-                            } else {
-                                "Analysiere Kassenbon lokal (100 % Offline-OCR)..."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        val bmp = previewBitmap
+                        if (bmp != null && !bmp.isRecycled) {
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "Dokument-Vorschau",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            selectedDocumentName?.let { name ->
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Text(
+                                text = when {
+                                    isScanning && vaultState.hasApiKey ->
+                                        if (selectedIsPdf) "Analysiere PDF-Rechnung per Gemini Vision..."
+                                        else "Analysiere Beleg per Gemini Vision..."
+                                    isScanning ->
+                                        if (selectedIsPdf) "Analysiere PDF-Rechnung lokal (Offline-OCR)..."
+                                        else "Analysiere Kassenbon lokal (100 % Offline-OCR)..."
+                                    selectedIsPdf -> "PDF-Dokument geladen • Bereit zur Prüfung"
+                                    else -> "Belegbild geladen • Bereit zur Prüfung"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (isScanning) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }

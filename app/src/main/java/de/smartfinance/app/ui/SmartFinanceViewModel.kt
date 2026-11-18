@@ -894,6 +894,28 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
         viewModelScope.launch {
             _isAiThinking.value = true
+            val isPdf = withContext(Dispatchers.IO) {
+                PdfBitmapConverter.isPdfUri(context, uri)
+            }
+            if (isPdf) {
+                val pdfCheck = withContext(Dispatchers.IO) {
+                    PdfBitmapConverter.renderPdfPagesForOcr(context, uri, maxDimension = 1200, maxPages = 1)
+                }
+                if (pdfCheck.isFailure) {
+                    _isAiThinking.value = false
+                    val errText = pdfCheck.exceptionOrNull()?.localizedMessage
+                        ?: "Das PDF-Dokument konnte nicht geladen oder gerendert werden."
+                    _chatMessages.value = _chatMessages.value + ChatMessage(
+                        senderIsUser = false,
+                        text = errText
+                    )
+                    return@launch
+                }
+                pdfCheck.getOrNull()?.forEach { bmp ->
+                    if (!bmp.isRecycled) bmp.recycle()
+                }
+            }
+
             val bitmap = withContext(Dispatchers.IO) {
                 PdfBitmapConverter.convertUriToBitmap(context, uri, maxDimension = 1200)
             }
@@ -941,18 +963,20 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                         )
                     } else emptyList()
                     de.smartfinance.app.domain.HybridCoachReply(
-                        text = "Lokale Beleg-Erkennung (Google ML Kit):\n" +
-                            "• Händler: ${ocr.detectedMerchantTitle}\n" +
+                        text = "Lokale Beleg- & Rechnungs-Erkennung (Google ML Kit):\n" +
+                            "• Händler / Rechnungssteller: ${ocr.detectedMerchantTitle}\n" +
                             "• Betrag: ${SmartFinanceEngine.formatEuro(ocr.detectedAmount)}\n" +
                             "• Kategorie: ${ocr.suggestedCategoryName}\n\n" +
-                            "[Tipp: Hinterlege deinen kostenlosen Gemini API-Key für KI-Gehaltsabrechnungen, Vertrags-Scans & PDF-Analyse]",
+                            "[Tipp: Hinterlege deinen kostenlosen Gemini API-Key für KI-Gehaltsabrechnungen, Vertrags-Scans & Cloud-Vision-Analyse]",
                         usedCloudGemini = false,
                         modelUsed = "Lokales ML Kit OCR",
                         actions = localAction
                     )
                 } else {
+                    val errReason = ocrResult.exceptionOrNull()?.localizedMessage
+                        ?: "Das Dokument konnte lokal nicht gelesen werden."
                     de.smartfinance.app.domain.HybridCoachReply(
-                        text = "Das Dokument konnte lokal nicht gelesen werden. Bitte hinterlege einen Gemini API-Key für Cloud-Vision-Analyse.",
+                        text = errReason,
                         usedCloudGemini = false,
                         modelUsed = "Lokales OCR"
                     )

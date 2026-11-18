@@ -590,7 +590,7 @@ object GeminiApiService {
     }
 
     /**
-     * 3. Multimodaler Vision-Scanner (Kassenbon-Splitting & Vertragsbrief-Analyse) + ML-Kit-Fallback.
+     * 3. Multimodaler Vision-Scanner (Kassenbon-Splitting, PDF-Rechnungen & Vertragsbrief-Analyse) + ML-Kit-Fallback.
      */
     suspend fun analyzeDocumentVisionOrFallback(
         context: Context,
@@ -600,24 +600,46 @@ object GeminiApiService {
         categories: List<CategoryTabEntity>,
         onAutoSwitchModel: ((String) -> Unit)? = null
     ): Result<GeminiVisionScanResult> = withContext(Dispatchers.IO) {
+        val isPdf = PdfBitmapConverter.isPdfUri(context, imageUri)
+
+        // Falls es ein PDF ist, vorab prüfen, ob es sich öffnen/rendern lässt (fängt Passwortschutz / Beschädigung sofort ab)
+        val pdfPagesResult = if (isPdf) {
+            PdfBitmapConverter.renderPdfPagesForOcr(context, imageUri, maxDimension = 1024)
+        } else null
+
+        if (pdfPagesResult != null && pdfPagesResult.isFailure) {
+            return@withContext Result.failure(
+                pdfPagesResult.exceptionOrNull()
+                    ?: Exception("Das PDF-Dokument konnte nicht gelesen werden.")
+            )
+        }
+
         val cleanKey = apiKey.trim()
         if (cleanKey.isNotEmpty()) {
-            val base64Jpeg = compressImageToMax1024JpegBase64(context, imageUri)
-            if (base64Jpeg != null) {
+            val base64Jpegs: List<String> = if (isPdf) {
+                val bitmaps = pdfPagesResult?.getOrNull().orEmpty()
+                bitmaps.mapNotNull { bmp ->
+                    runCatching { PdfBitmapConverter.bitmapToBase64Jpeg(bmp, quality = 82) }.getOrNull()
+                }
+            } else {
+                listOfNotNull(compressImageToMax1024JpegBase64(context, imageUri))
+            }
+
+            if (base64Jpegs.isNotEmpty()) {
                 val categoryNames = categories.map { it.name }.joinToString(", ")
                 val visionPrompt = """
-                    Analysiere dieses Bild (Kassenbon oder Versicherungs-/Vertragsbrief) und gib AUSSCHLIESSLICH ein valides JSON-Objekt ohne Markdown-Codeblöcke zurück.
+                    Analysiere dieses Dokument (Kassenbon, PDF-Rechnung oder Versicherungs-/Vertragsbrief) und gib AUSSCHLIESSLICH ein valides JSON-Objekt ohne Markdown-Codeblöcke zurück.
                     Verfügbare Kategorien in der App: [$categoryNames].
                     
                     JSON-Schema:
                     {
                       "documentType": "RECEIPT" oder "CONTRACT",
-                      "merchantOrContractTitle": "Händlername oder Vertragsname",
+                      "merchantOrContractTitle": "Händlername, Rechnungssteller oder Vertragsname",
                       "dateIso": "YYYY-MM-DD",
                       "totalAmount": 0.00,
                       "depositDeducted": 0.00,
                       "suggestedCategoryName": "Name einer passenden Kategorie",
-                      "summaryText": "Kurze deutsche Zusammenfassung (bei Kassenbon inkl. abgezogenem Pfand, bei Vertragsbrief inkl. Preiserhöhung/Kündigungsfrist)",
+                      "summaryText": "Kurze deutsche Zusammenfassung (bei Kassenbon/Rechnung inkl. Endbetrag, bei Vertragsbrief inkl. Preiserhöhung/Kündigungsfrist)",
                       "splitItems": [
                         { "title": "Lebensmittel-Anteil", "amount": 0.00, "categoryName": "Lebensmittel" },
                         { "title": "Freizeit/Haushalt-Anteil", "amount": 0.00, "categoryName": "Freizeit" }
@@ -633,21 +655,23 @@ object GeminiApiService {
                     }
                     
                     Wichtige Regeln:
-                    - Bei einem Kassenbon (RECEIPT): Ziehe Pfand/Leergut sauber ab, trage den Zahlbetrag in totalAmount ein und schlage bei gemischten Einkäufen in splitItems 2 bis 3 sinnvolle Teil-Buchungen vor, deren Summe totalAmount ergibt.
+                    - Bei einem Kassenbon oder einer Rechnung (RECEIPT): Ziehe Pfand/Leergut sauber ab, trage den Brutto-Zahlbetrag/Rechnungsbetrag in totalAmount ein und schlage bei gemischten Einkäufen in splitItems 2 bis 3 sinnvolle Teil-Buchungen vor, deren Summe totalAmount ergibt.
                     - Bei einem Versicherungs- oder Vertragsbrief (CONTRACT): Setze documentType auf "CONTRACT" und befülle contractDetails vollständig inkl. Abbuchungstag (1..31).
                 """.trimIndent()
 
                 val partsArray = JSONArray().apply {
                     put(JSONObject().put("text", visionPrompt))
-                    put(
-                        JSONObject().put(
-                            "inline_data",
-                            JSONObject().apply {
-                                put("mime_type", "image/jpeg")
-                                put("data", base64Jpeg)
-                            }
+                    for (b64 in base64Jpegs) {
+                        put(
+                            JSONObject().put(
+                                "inline_data",
+                                JSONObject().apply {
+                                    put("mime_type", "image/jpeg")
+                                    put("data", b64)
+                                }
+                            )
                         )
-                    )
+                    }
                 }
 
                 val payload = JSONObject().apply {
@@ -679,13 +703,20 @@ object GeminiApiService {
                 if (response.httpCode in 200..299 && !response.extractedText.isNullOrBlank()) {
                     val parsedVision = parseVisionJsonResponse(response.extractedText, categories)
                     if (parsedVision != null) {
+                        pdfPagesResult?.getOrNull()?.forEach { bmp ->
+                            if (!bmp.isRecycled) bmp.recycle()
+                        }
                         return@withContext Result.success(parsedVision)
                     }
                 }
             }
         }
 
-        // Nahtloser lokaler Fallback auf Google ML Kit Text Recognition
+        pdfPagesResult?.getOrNull()?.forEach { bmp ->
+            if (!bmp.isRecycled) bmp.recycle()
+        }
+
+        // Nahtloser lokaler Fallback auf Google ML Kit Text Recognition (inkl. mehrseitiger PDF-Verarbeitung)
         val mlKitResult = ReceiptOcrParser.recognizeFromImageUri(context, imageUri, categories)
         return@withContext mlKitResult.map { ocr ->
             GeminiVisionScanResult(
