@@ -173,6 +173,7 @@ data class FinanceNoteEntity(
     val content: String = "",
     val categoryName: String = "Allgemein",
     val effectiveDateEpochDay: Long,
+    val validUntilEpochDay: Long? = null,
     val oldAmount: Double? = null,
     val newAmount: Double? = null,
     val createdAtEpochDay: Long

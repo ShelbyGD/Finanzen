@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,8 +26,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,6 +38,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -81,12 +83,50 @@ import java.util.Locale
 import kotlin.math.abs
 
 private const val FILTER_ALL = "Alle"
+private val GERMAN_DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+private enum class ActiveDatePickerTarget {
+    START_DATE,
+    END_DATE
+}
+
+internal fun formatNoteDateRange(effectiveDateEpochDay: Long, validUntilEpochDay: Long?): String {
+    val startText = LocalDate.ofEpochDay(effectiveDateEpochDay).format(GERMAN_DATE_FORMATTER)
+    val endText = validUntilEpochDay?.let { LocalDate.ofEpochDay(it).format(GERMAN_DATE_FORMATTER) } ?: "-"
+    return "$startText – $endText"
+}
+
+internal fun filterFinanceNotes(
+    notes: List<FinanceNoteEntity>,
+    selectedCategory: String,
+    searchQuery: String
+): List<FinanceNoteEntity> {
+    val trimmedQuery = searchQuery.trim()
+    return notes.filter { note ->
+        val matchesCategory = selectedCategory == FILTER_ALL ||
+            note.categoryName.equals(selectedCategory, ignoreCase = true)
+        if (!matchesCategory) return@filter false
+
+        if (trimmedQuery.isEmpty()) return@filter true
+
+        val startFormatted = LocalDate.ofEpochDay(note.effectiveDateEpochDay).format(GERMAN_DATE_FORMATTER)
+        val endFormatted = note.validUntilEpochDay?.let {
+            LocalDate.ofEpochDay(it).format(GERMAN_DATE_FORMATTER)
+        } ?: ""
+
+        note.title.contains(trimmedQuery, ignoreCase = true) ||
+            note.content.contains(trimmedQuery, ignoreCase = true) ||
+            note.categoryName.contains(trimmedQuery, ignoreCase = true) ||
+            startFormatted.contains(trimmedQuery, ignoreCase = true) ||
+            (endFormatted.isNotEmpty() && endFormatted.contains(trimmedQuery, ignoreCase = true))
+    }
+}
 
 /**
  * Clean Material 3 Finanz-Logbuch ("Notizen & Änderungen"):
- * - Hält wichtige finanzielle Änderungen ab einem Stichtag fest (z. B. Mieterhöhung Alt -> Neu)
- *   sowie freie persönliche Finanz-Notizen.
- * - Unterstützt Kategorie-Filterleiste, Tap zum Bearbeiten und Gmail-Style Swipe-nach-links zum Löschen.
+ * - Hält wichtige finanzielle Änderungen mit Zeitraum (Gültig ab – Gültig bis / "-") sowie
+ *   optionalem Betrags-Vergleich (Alt -> Neu) und freien Notizen fest.
+ * - Bietet Live-Suche, Kategorie-Filterleiste, Tap zum Bearbeiten und Gmail-Style Swipe-nach-links zum Löschen.
  */
 @Composable
 fun NotesScreen(
@@ -95,6 +135,7 @@ fun NotesScreen(
     onSaveNote: (FinanceNoteEntity) -> Unit,
     onDeleteNote: (FinanceNoteEntity) -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(FILTER_ALL) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<FinanceNoteEntity?>(null) }
@@ -113,13 +154,15 @@ fun NotesScreen(
         }
     }
 
-    val filteredNotes = remember(notes, selectedFilter) {
-        if (selectedFilter == FILTER_ALL) {
-            notes
-        } else {
-            notes.filter { it.categoryName.equals(selectedFilter, ignoreCase = true) }
-        }
+    val filteredNotes = remember(notes, selectedFilter, searchQuery) {
+        filterFinanceNotes(
+            notes = notes,
+            selectedCategory = selectedFilter,
+            searchQuery = searchQuery
+        )
     }
+
+    val hasActiveFilterOrSearch = selectedFilter != FILTER_ALL || searchQuery.isNotBlank()
 
     Column(
         modifier = Modifier
@@ -127,7 +170,7 @@ fun NotesScreen(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Header mit Anzahl & "+ Neue Notiz"-Button
+        // Header mit Zähler & "+ Neue Notiz"-Button
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -140,8 +183,17 @@ fun NotesScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
+                val countLabel = if (hasActiveFilterOrSearch) {
+                    if (filteredNotes.size == 1) {
+                        "1 von ${notes.size} Einträgen"
+                    } else {
+                        "${filteredNotes.size} von ${notes.size} Einträgen"
+                    }
+                } else {
+                    if (notes.size == 1) "1 Eintrag" else "${notes.size} Einträge"
+                }
                 Text(
-                    text = if (notes.size == 1) "1 Eintrag gespeichert" else "${notes.size} Einträge gespeichert",
+                    text = countLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -170,7 +222,35 @@ fun NotesScreen(
             }
         }
 
-        // Horizontale Filter-Leiste (Top)
+        // Clean M3 Live-Suchleiste (über der Kategorie-Filterleiste)
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Notizen durchsuchen...") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Suchen",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Suche leeren",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else null,
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Horizontale Kategorie-Filter-Leiste
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -204,7 +284,7 @@ fun NotesScreen(
             }
         }
 
-        // Liste der Notizen oder Clean-Slate-Leerzustand
+        // Liste der Notizen oder Leerzustand (Clean Slate / Keine Suchtreffer)
         if (filteredNotes.isEmpty()) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -214,32 +294,47 @@ fun NotesScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 36.dp),
+                        .padding(horizontal = 24.dp, vertical = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.EditNote,
+                        imageVector = if (hasActiveFilterOrSearch) Icons.Default.Search else Icons.Default.EditNote,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
                         modifier = Modifier.size(44.dp)
                     )
                     Text(
-                        text = if (notes.isEmpty()) {
-                            "Noch keine Notizen vorhanden"
+                        text = if (hasActiveFilterOrSearch && notes.isNotEmpty()) {
+                            "Keine passenden Notizen gefunden"
                         } else {
-                            "Keine Einträge in \"$selectedFilter\""
+                            "Noch keine Notizen vorhanden"
                         },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Halte hier Mieterhöhungen, neue Stromabschläge, Vertragsänderungen mit Stichtag oder freie Notizen fest.",
+                        text = if (hasActiveFilterOrSearch && notes.isNotEmpty()) {
+                            "Passe deinen Suchbegriff oder den gewählten Kategorie-Filter an."
+                        } else {
+                            "Halte hier Mieterhöhungen, neue Stromabschläge, Vertragsänderungen mit Zeitraum oder freie Notizen fest."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp
                     )
+                    if (hasActiveFilterOrSearch && notes.isNotEmpty()) {
+                        FilledTonalButton(
+                            onClick = {
+                                searchQuery = ""
+                                selectedFilter = FILTER_ALL
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Filter zurücksetzen", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         } else {
@@ -357,9 +452,8 @@ private fun FinanceNoteCardContent(
     note: FinanceNoteEntity,
     onClick: () -> Unit
 ) {
-    val formattedDate = remember(note.effectiveDateEpochDay) {
-        LocalDate.ofEpochDay(note.effectiveDateEpochDay)
-            .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+    val formattedRange = remember(note.effectiveDateEpochDay, note.validUntilEpochDay) {
+        formatNoteDateRange(note.effectiveDateEpochDay, note.validUntilEpochDay)
     }
 
     Card(
@@ -379,7 +473,7 @@ private fun FinanceNoteCardContent(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Kopfzeile: Titel + Kategorie-Chip links, "Ab TT.MM.JJJJ" rechts
+            // Kopfzeile: Titel + Kategorie-Chip links, Zeitraum ("TT.MM.JJJJ – -" bzw. "TT.MM.JJJJ – TT.MM.JJJJ") rechts
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -423,7 +517,7 @@ private fun FinanceNoteCardContent(
                     color = MaterialTheme.colorScheme.surface
                 ) {
                     Text(
-                        text = "Ab $formattedDate",
+                        text = formattedRange,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -507,12 +601,20 @@ fun NoteEditDialog(
     onConfirm: (FinanceNoteEntity) -> Unit
 ) {
     val today = remember { LocalDate.now() }
-    val initialDate = remember(initialNote) {
+    val initialStartDate = remember(initialNote) {
         initialNote?.let { LocalDate.ofEpochDay(it.effectiveDateEpochDay) } ?: today
+    }
+    val initialEndDate = remember(initialNote) {
+        initialNote?.validUntilEpochDay?.let { LocalDate.ofEpochDay(it) }
     }
 
     var title by remember(initialNote) { mutableStateOf(initialNote?.title ?: "") }
-    var dateText by remember(initialNote) { mutableStateOf(ReceiptOcrParser.formatGermanDate(initialDate)) }
+    var startDateText by remember(initialNote) {
+        mutableStateOf(ReceiptOcrParser.formatGermanDate(initialStartDate))
+    }
+    var endDateText by remember(initialNote) {
+        mutableStateOf(initialEndDate?.let { ReceiptOcrParser.formatGermanDate(it) } ?: "")
+    }
     var selectedCategoryName by remember(initialNote) {
         mutableStateOf(initialNote?.categoryName?.ifBlank { "Allgemein" } ?: "Allgemein")
     }
@@ -527,7 +629,7 @@ fun NoteEditDialog(
         )
     }
     var content by remember(initialNote) { mutableStateOf(initialNote?.content ?: "") }
-    var showDatePicker by remember { mutableStateOf(false) }
+    var activeDatePicker by remember { mutableStateOf<ActiveDatePickerTarget?>(null) }
 
     val selectableCategoryNames = remember(categories, selectedCategoryName) {
         val base = listOf("Allgemein") + categories.map { it.name.trim() }.filter { it.isNotEmpty() }
@@ -537,7 +639,12 @@ fun NoteEditDialog(
 
     val parsedOldAmount = parseOptionalEuroAmount(oldAmountText)
     val parsedNewAmount = parseOptionalEuroAmount(newAmountText)
-    val parsedDate = ReceiptOcrParser.parseGermanDateOrNull(dateText)
+    val parsedStartDate = ReceiptOcrParser.parseGermanDateOrNull(startDateText)
+    val parsedEndDate = if (endDateText.isBlank()) null else ReceiptOcrParser.parseGermanDateOrNull(endDateText)
+
+    val isStartDateInvalid = parsedStartDate == null
+    val isEndDateFormatInvalid = endDateText.isNotBlank() && parsedEndDate == null
+    val isEndBeforeStart = parsedStartDate != null && parsedEndDate != null && parsedEndDate.isBefore(parsedStartDate)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -567,26 +674,75 @@ fun NoteEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 2. Gültig ab (Datum, editierbar TT.MM.JJJJ + DatePicker)
-                OutlinedTextField(
-                    value = dateText,
-                    onValueChange = { dateText = it },
-                    label = { Text("Gültig ab (TT.MM.JJJJ)") },
-                    placeholder = { Text(ReceiptOcrParser.formatGermanDate(today)) },
-                    singleLine = true,
-                    isError = dateText.isNotBlank() && parsedDate == null,
-                    trailingIcon = {
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(
-                                imageVector = Icons.Default.CalendarMonth,
-                                contentDescription = "Datum auswählen",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // 2. Zeitraum: Gültig ab (Pflichtfeld) & Gültig bis (optional)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = startDateText,
+                        onValueChange = { startDateText = it },
+                        label = { Text("Gültig ab (TT.MM.JJJJ) *") },
+                        placeholder = { Text(ReceiptOcrParser.formatGermanDate(today)) },
+                        singleLine = true,
+                        isError = isStartDateInvalid,
+                        trailingIcon = {
+                            IconButton(onClick = { activeDatePicker = ActiveDatePickerTarget.START_DATE }) {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = "Startdatum auswählen",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = endDateText,
+                        onValueChange = { endDateText = it },
+                        label = { Text("Gültig bis (optional)") },
+                        placeholder = { Text("-") },
+                        singleLine = true,
+                        isError = isEndDateFormatInvalid || isEndBeforeStart,
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (endDateText.isNotEmpty()) {
+                                    IconButton(onClick = { endDateText = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Enddatum leeren",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { activeDatePicker = ActiveDatePickerTarget.END_DATE }) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarMonth,
+                                        contentDescription = "Enddatum auswählen",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (isEndBeforeStart) {
+                        Text(
+                            text = "\"Gültig bis\" darf nicht vor \"Gültig ab\" liegen.",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = BudgetRingRed
+                        )
+                    } else if (isEndDateFormatInvalid) {
+                        Text(
+                            text = "Bitte gültiges Datum im Format TT.MM.JJJJ eingeben oder leer lassen.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = BudgetRingRed
+                        )
+                    }
+                }
 
                 // 3. Kategorie-Auswahl (Chips)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -703,20 +859,24 @@ fun NoteEditDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val effectiveDate = parsedDate ?: initialDate
+                    val effectiveDate = parsedStartDate ?: return@Button
                     val noteEntity = FinanceNoteEntity(
                         id = initialNote?.id ?: 0L,
                         title = title.trim(),
                         content = content.trim(),
                         categoryName = selectedCategoryName.trim().ifBlank { "Allgemein" },
                         effectiveDateEpochDay = effectiveDate.toEpochDay(),
+                        validUntilEpochDay = parsedEndDate?.toEpochDay(),
                         oldAmount = parsedOldAmount,
                         newAmount = parsedNewAmount,
                         createdAtEpochDay = initialNote?.createdAtEpochDay ?: today.toEpochDay()
                     )
                     onConfirm(noteEntity)
                 },
-                enabled = title.trim().isNotEmpty() && (dateText.isBlank() || parsedDate != null),
+                enabled = title.trim().isNotEmpty() &&
+                    !isStartDateInvalid &&
+                    !isEndDateFormatInvalid &&
+                    !isEndBeforeStart,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -733,15 +893,19 @@ fun NoteEditDialog(
         }
     )
 
-    if (showDatePicker) {
-        val currentMillis = (parsedDate ?: initialDate)
+    activeDatePicker?.let { target ->
+        val seedDate = when (target) {
+            ActiveDatePickerTarget.START_DATE -> parsedStartDate ?: initialStartDate
+            ActiveDatePickerTarget.END_DATE -> parsedEndDate ?: parsedStartDate ?: today
+        }
+        val currentMillis = seedDate
             .atStartOfDay(ZoneOffset.UTC)
             .toInstant()
             .toEpochMilli()
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = currentMillis)
 
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
+            onDismissRequest = { activeDatePicker = null },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -749,16 +913,20 @@ fun NoteEditDialog(
                             val picked = Instant.ofEpochMilli(millis)
                                 .atZone(ZoneOffset.UTC)
                                 .toLocalDate()
-                            dateText = ReceiptOcrParser.formatGermanDate(picked)
+                            val formatted = ReceiptOcrParser.formatGermanDate(picked)
+                            when (target) {
+                                ActiveDatePickerTarget.START_DATE -> startDateText = formatted
+                                ActiveDatePickerTarget.END_DATE -> endDateText = formatted
+                            }
                         }
-                        showDatePicker = false
+                        activeDatePicker = null
                     }
                 ) {
                     Text("Übernehmen", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
+                TextButton(onClick = { activeDatePicker = null }) {
                     Text("Abbrechen")
                 }
             }

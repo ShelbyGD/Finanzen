@@ -871,6 +871,67 @@ class SmartFinanceSelfTest {
         assertEquals(listOf(0, 1), de.smartfinance.app.domain.PdfBitmapConverter.selectRepresentativePageIndices(2))
         assertEquals(listOf(0, 1, 4), de.smartfinance.app.domain.PdfBitmapConverter.selectRepresentativePageIndices(5))
     }
+
+    /**
+     * Test H (Notizen & Änderungen – Zeitraum Von-Bis & kombinierte Live-Suche):
+     * Prüft die Formatierung mit offenem Ende ("01.01.2026 – -") und gesetztem Enddatum
+     * ("01.01.2026 – 31.10.2026") sowie die kombinierte Filterung nach Kategorie + Suchbegriff
+     * über Titel, Inhalt, Kategorie und formatierte Datumsangaben.
+     */
+    @Test
+    fun testH_financeNotes_dateRangeFormattingAndLiveSearchFilter() {
+        val startJan = LocalDate.of(2026, 1, 1).toEpochDay()
+        val endOct = LocalDate.of(2026, 10, 31).toEpochDay()
+        val startNov = LocalDate.of(2026, 11, 1).toEpochDay()
+
+        assertEquals(
+            "01.01.2026 – -",
+            de.smartfinance.app.ui.screens.formatNoteDateRange(startJan, null)
+        )
+        assertEquals(
+            "01.01.2026 – 31.10.2026",
+            de.smartfinance.app.ui.screens.formatNoteDateRange(startJan, endOct)
+        )
+
+        val note1 = de.smartfinance.app.data.local.FinanceNoteEntity(
+            id = 1L,
+            title = "Mieterhöhung Wohnung",
+            content = "Staffelmiete angepasst laut Schreiben",
+            categoryName = "Fixkosten",
+            effectiveDateEpochDay = startJan,
+            validUntilEpochDay = endOct,
+            oldAmount = 550.0,
+            newAmount = 600.0,
+            createdAtEpochDay = startJan
+        )
+        val note2 = de.smartfinance.app.data.local.FinanceNoteEntity(
+            id = 2L,
+            title = "Stromabschlag gesenkt",
+            content = "Neuer Ökostrom-Tarif ohne Bindung",
+            categoryName = "Energie",
+            effectiveDateEpochDay = startNov,
+            validUntilEpochDay = null,
+            oldAmount = 95.0,
+            newAmount = 78.0,
+            createdAtEpochDay = startNov
+        )
+        val allNotes = listOf(note1, note2)
+
+        // Suche nach Enddatum ("31.10.2026") findet nur note1
+        val byEndDate = de.smartfinance.app.ui.screens.filterFinanceNotes(allNotes, "Alle", "31.10.2026")
+        assertEquals(1, byEndDate.size)
+        assertEquals(1L, byEndDate.first().id)
+
+        // Kombinierte Filterung: Kategorie "Energie" + Inhalt "Ökostrom" findet nur note2
+        val byCatAndContent = de.smartfinance.app.ui.screens.filterFinanceNotes(allNotes, "Energie", "ökostrom")
+        assertEquals(1, byCatAndContent.size)
+        assertEquals(2L, byCatAndContent.first().id)
+
+        // Nicht passende Kombination liefert leere Liste
+        val noMatch = de.smartfinance.app.ui.screens.filterFinanceNotes(allNotes, "Fixkosten", "Ökostrom")
+        assertTrue(noMatch.isEmpty())
+    }
 }
+
 
 

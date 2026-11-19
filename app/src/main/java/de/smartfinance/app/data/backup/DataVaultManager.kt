@@ -144,6 +144,7 @@ class DataVaultManager(
                     put("content", n.content)
                     put("categoryName", n.categoryName)
                     put("effectiveDateEpochDay", n.effectiveDateEpochDay)
+                    if (n.validUntilEpochDay != null) put("validUntilEpochDay", n.validUntilEpochDay)
                     if (n.oldAmount != null) put("oldAmount", n.oldAmount)
                     if (n.newAmount != null) put("newAmount", n.newAmount)
                     put("createdAtEpochDay", n.createdAtEpochDay)
@@ -258,7 +259,7 @@ class DataVaultManager(
                 )
             }
 
-            // Abwärtskompatibel: ältere Backups ohne "financeNotes" liefern eine leere Liste
+            // Abwärtskompatibel: ältere Backups ohne "financeNotes" oder "validUntilEpochDay" liefern sichere Defaults
             val notesArray = root.optJSONArray("financeNotes") ?: JSONArray()
             val parsedNotes = mutableListOf<FinanceNoteEntity>()
             val todayEpoch = LocalDate.now().toEpochDay()
@@ -271,6 +272,11 @@ class DataVaultManager(
                         content = obj.optString("content", ""),
                         categoryName = obj.optString("categoryName", "Allgemein"),
                         effectiveDateEpochDay = obj.optLong("effectiveDateEpochDay", todayEpoch),
+                        validUntilEpochDay = if (obj.has("validUntilEpochDay") && !obj.isNull("validUntilEpochDay")) {
+                            obj.getLong("validUntilEpochDay")
+                        } else {
+                            null
+                        },
                         oldAmount = if (obj.has("oldAmount") && !obj.isNull("oldAmount")) obj.getDouble("oldAmount") else null,
                         newAmount = if (obj.has("newAmount") && !obj.isNull("newAmount")) obj.getDouble("newAmount") else null,
                         createdAtEpochDay = obj.optLong("createdAtEpochDay", todayEpoch)
