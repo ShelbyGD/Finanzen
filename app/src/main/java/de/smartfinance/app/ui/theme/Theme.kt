@@ -63,6 +63,7 @@ private val CleanLightColors = lightColorScheme(
     onSurface = Color(0xFF111827),
     surfaceVariant = Color(0xFFE5E9F2),
     onSurfaceVariant = Color(0xFF64748B),
+    surfaceContainerHigh = Color(0xFFEAEFF5),
     error = Color(0xFFEF4444)
 )
 
@@ -85,6 +86,7 @@ private val CleanDarkColors = darkColorScheme(
     onSurface = Color(0xFFF8FAFC),
     surfaceVariant = Color(0xFF1E293B),
     onSurfaceVariant = Color(0xFF94A3B8),
+    surfaceContainerHigh = Color(0xFF1E293B),
     error = Color(0xFFF87171)
 )
 

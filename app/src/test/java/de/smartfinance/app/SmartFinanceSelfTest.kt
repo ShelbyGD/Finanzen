@@ -931,7 +931,55 @@ class SmartFinanceSelfTest {
         val noMatch = de.smartfinance.app.ui.screens.filterFinanceNotes(allNotes, "Fixkosten", "Ökostrom")
         assertTrue(noMatch.isEmpty())
     }
+
+    /**
+     * Test App-Sperre: Standard-Werte (Clean Slate: deaktiviert, 30 Sek. Timeout)
+     * sowie exakte Timeout-Auswertung nach Hintergrund-Wechsel (0s, 30s, 60s).
+     */
+    @Test
+    fun testAppLock_defaultsAndBackgroundTimeoutCalculation() {
+        val defaults = de.smartfinance.app.core.UserSettingsState()
+        assertEquals(false, defaults.isAppLockEnabled)
+        assertEquals(30, defaults.appLockTimeoutSeconds)
+
+        // Ohne vorherigen Hintergrund-Zeitstempel niemals neu sperren
+        assertEquals(
+            false,
+            de.smartfinance.app.ui.components.shouldRelockAfterBackground(null, 100_000L, 0)
+        )
+
+        // Sofort (0 Sek.): sperrt direkt bei Rückkehr
+        assertEquals(
+            true,
+            de.smartfinance.app.ui.components.shouldRelockAfterBackground(10_000L, 10_000L, 0)
+        )
+        assertEquals(
+            true,
+            de.smartfinance.app.ui.components.shouldRelockAfterBackground(10_000L, 10_500L, 0)
+        )
+
+        // 30 Sek. Standard: unter 30s (z. B. Kamera/PDF-Picker) bleibt entsperrt, ab 30s wird gesperrt
+        assertEquals(
+            false,
+            de.smartfinance.app.ui.components.shouldRelockAfterBackground(10_000L, 39_999L, 30)
+        )
+        assertEquals(
+            true,
+            de.smartfinance.app.ui.components.shouldRelockAfterBackground(10_000L, 40_000L, 30)
+        )
+
+        // 1 Min. (60 Sek.): unter 60s entsperrt, ab 60s gesperrt
+        assertEquals(
+            false,
+            de.smartfinance.app.ui.components.shouldRelockAfterBackground(10_000L, 69_999L, 60)
+        )
+        assertEquals(
+            true,
+            de.smartfinance.app.ui.components.shouldRelockAfterBackground(10_000L, 70_000L, 60)
+        )
+    }
 }
+
 
 
 

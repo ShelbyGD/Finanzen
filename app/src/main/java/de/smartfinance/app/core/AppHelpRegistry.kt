@@ -103,10 +103,37 @@ object AppHelpRegistry {
                 "Die Summen-Karte ganz oben zeigt dir jederzeit deine Gesamtersparnis und monatliche Sparrate über alle Ziele hinweg."
             ),
             addedInVersion = "1.2.0"
+        ),
+        HelpEntry(
+            id = "app_lock",
+            moduleNumber = 4,
+            title = "4. Native App-Sperre (Biometrie, PIN & Muster)",
+            category = "Sicherheit & Datenschutz",
+            shortSummary = "Schütze deine Finanzdaten optional beim Start und nach dem Hintergrund-Wechsel über Fingerabdruck, Gesichtserkennung, PIN oder Muster.",
+            stepByStepGuide = listOf(
+                "Öffne im Hamburger-Menü die 'Einstellungen'.",
+                "Aktiviere den Schalter 'App-Sperre (Biometrie, PIN & Muster)'.",
+                "Wähle darunter die gewünschte Sperr-Verzögerung: 'Sofort', '30 Sek.' (Standard) oder '1 Min.'."
+            ),
+            exampleTips = listOf(
+                "Mit 30 Sek. Verzögerung bleibt die App entsperrt, wenn du kurz die Kamera oder den PDF-Picker für den Beleg-Scanner öffnest.",
+                "Die App-Sperre nutzt die native Android-Displaysperre – es wird kein separates Passwort gespeichert."
+            ),
+            addedInVersion = "1.2.1"
         )
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.2.1 (Native App-Sperre Update)",
+            buildNumber = 25,
+            date = "19.11.2026",
+            newFeatures = listOf(
+                "Optionale native App-Sperre via Android BiometricPrompt (Fingerabdruck, Gesichtserkennung, PIN & Muster).",
+                "Konfigurierbare Sperr-Verzögerung in den Einstellungen: Sofort, 30 Sek. (Standard) oder 1 Min.",
+                "Clean Material 3 Sperr-Overlay in Smaragdgrün/Teal mit automatischem Entsperr-Start."
+            )
+        ),
         ChangelogEntry(
             versionName = "1.2.0 (AuraFinance AI & Clean M3 Update)",
             buildNumber = 24,

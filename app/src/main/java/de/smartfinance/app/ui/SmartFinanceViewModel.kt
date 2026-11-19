@@ -3,8 +3,11 @@ package de.smartfinance.app.ui
 import android.app.Application
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import de.smartfinance.app.ui.components.canAuthenticateWithAppLock
+import de.smartfinance.app.ui.components.shouldRelockAfterBackground
 import de.smartfinance.app.core.ApiKeyManager
 import de.smartfinance.app.core.AppHelpRegistry
 import de.smartfinance.app.core.AppPreferences
@@ -194,6 +197,19 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     val settingsState: StateFlow<UserSettingsState> = preferences.settingsState
     val geminiVaultState: StateFlow<GeminiVaultState> = apiKeyManager.vaultState
+
+    val isAppLockEnabled: StateFlow<Boolean> = preferences.settingsState
+        .map { it.isAppLockEnabled }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferences.settingsState.value.isAppLockEnabled)
+
+    val appLockTimeoutSeconds: StateFlow<Int> = preferences.settingsState
+        .map { it.appLockTimeoutSeconds }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferences.settingsState.value.appLockTimeoutSeconds)
+
+    private val _isAppUnlocked = MutableStateFlow(!preferences.settingsState.value.isAppLockEnabled)
+    val isAppUnlocked: StateFlow<Boolean> = _isAppUnlocked.asStateFlow()
+
+    private var lastBackgroundElapsedMs: Long? = null
 
     val categories: StateFlow<List<CategoryTabEntity>> = repository.categoryTabsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -1458,6 +1474,54 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         preferences.toggleShowBookingCategoryIcons()
         val next = preferences.settingsState.value.showBookingCategoryIcons
         _snackbarMessage.value = if (next) "Kategorie-Icons in Buchungsliste eingeblendet." else "Kategorie-Icons ausgeblendet."
+    }
+
+    fun setAppLockEnabled(enabled: Boolean) {
+        if (enabled) {
+            val context = getApplication<Application>()
+            if (!canAuthenticateWithAppLock(context)) {
+                _snackbarMessage.value = "Bitte richte zuerst eine Displaysperre (Biometrie, PIN oder Muster) in den Android-Einstellungen ein."
+                return
+            }
+            preferences.setAppLockEnabled(true)
+            _snackbarMessage.value = "App-Sperre aktiviert."
+        } else {
+            preferences.setAppLockEnabled(false)
+            _isAppUnlocked.value = true
+            lastBackgroundElapsedMs = null
+            _snackbarMessage.value = "App-Sperre deaktiviert."
+        }
+    }
+
+    fun setAppLockTimeoutSeconds(seconds: Int) {
+        preferences.setAppLockTimeoutSeconds(seconds)
+        val label = when (seconds) {
+            0 -> "Sofort"
+            60 -> "1 Min."
+            else -> "30 Sek."
+        }
+        _snackbarMessage.value = "Sperr-Verzögerung auf $label eingestellt."
+    }
+
+    fun onAppMovedToBackground(elapsedRealtimeMs: Long = SystemClock.elapsedRealtime()) {
+        if (isAppLockEnabled.value && _isAppUnlocked.value) {
+            lastBackgroundElapsedMs = elapsedRealtimeMs
+        }
+    }
+
+    fun onAppReturnedToForeground(elapsedRealtimeMs: Long = SystemClock.elapsedRealtime()) {
+        val backgroundTs = lastBackgroundElapsedMs
+        lastBackgroundElapsedMs = null
+        if (isAppLockEnabled.value && _isAppUnlocked.value) {
+            if (shouldRelockAfterBackground(backgroundTs, elapsedRealtimeMs, appLockTimeoutSeconds.value)) {
+                _isAppUnlocked.value = false
+            }
+        }
+    }
+
+    fun unlockApp() {
+        lastBackgroundElapsedMs = null
+        _isAppUnlocked.value = true
     }
 
     fun saveNote(note: FinanceNoteEntity) {

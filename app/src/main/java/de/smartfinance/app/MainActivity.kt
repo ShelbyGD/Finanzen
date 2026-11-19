@@ -2,10 +2,11 @@ package de.smartfinance.app
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import android.os.SystemClock
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -91,6 +92,7 @@ import de.smartfinance.app.ui.DrawerDestination
 import de.smartfinance.app.ui.SmartFinanceViewModel
 import de.smartfinance.app.ui.components.AiChatBottomSheet
 import de.smartfinance.app.ui.components.AiCoachTabScreen
+import de.smartfinance.app.ui.components.AppLockOverlay
 import de.smartfinance.app.ui.components.CalculatorNumpadSheet
 import de.smartfinance.app.ui.components.GeminiApiKeyVaultSheet
 import de.smartfinance.app.ui.components.HelpDetailDialog
@@ -116,7 +118,7 @@ import kotlinx.coroutines.launch
  * "Jedes Mal, wenn in einem zukünftigen Update eine neue Funktion hinzugefügt oder geändert wird,
  * MUSS zwingend gleichzeitig ein neuer `HelpEntry` sowie ein neuer `ChangelogEntry` in `AppHelpRegistry.kt` ergänzt werden!"
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val viewModel: SmartFinanceViewModel by viewModels()
 
@@ -127,9 +129,27 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
+            val isAppLockEnabled by viewModel.isAppLockEnabled.collectAsStateWithLifecycle()
+            val isAppUnlocked by viewModel.isAppUnlocked.collectAsStateWithLifecycle()
             SmartFinanceTheme(darkTheme = settingsState.isDarkMode) {
-                SmartFinanceRootApp(viewModel = viewModel)
+                if (isAppLockEnabled && !isAppUnlocked) {
+                    AppLockOverlay(onUnlocked = viewModel::unlockApp)
+                } else {
+                    SmartFinanceRootApp(viewModel = viewModel)
+                }
             }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel.onAppReturnedToForeground(SystemClock.elapsedRealtime())
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) {
+            viewModel.onAppMovedToBackground(SystemClock.elapsedRealtime())
         }
     }
 
@@ -652,6 +672,8 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             settingsState = settingsState,
                             vaultState = geminiVaultState,
                             onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
+                            onToggleAppLock = viewModel::setAppLockEnabled,
+                            onSelectAppLockTimeout = viewModel::setAppLockTimeoutSeconds,
                             onToggleShowBookingCategoryIcons = viewModel::setShowBookingCategoryIcons,
                             onResetAllData = viewModel::resetAllData
                         )
