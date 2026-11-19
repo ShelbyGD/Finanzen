@@ -23,9 +23,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SavingsGoalEntity::class,
         QuickTemplateEntity::class,
         InstallmentEntity::class,
-        InstallmentFolderEntity::class
+        InstallmentFolderEntity::class,
+        FinanceNoteEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class SmartFinanceDatabase : RoomDatabase() {
@@ -107,6 +108,28 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Verlustfreie Migration von Version 6 auf Version 7 für Notizen & Änderungen (finance_notes).
+         */
+        val SAFE_MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `finance_notes` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `content` TEXT NOT NULL,
+                        `categoryName` TEXT NOT NULL,
+                        `effectiveDateEpochDay` INTEGER NOT NULL,
+                        `oldAmount` REAL,
+                        `newAmount` REAL,
+                        `createdAtEpochDay` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): SmartFinanceDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -119,7 +142,8 @@ abstract class SmartFinanceDatabase : RoomDatabase() {
                         SAFE_MIGRATION_2_3,
                         SAFE_MIGRATION_3_4,
                         SAFE_MIGRATION_4_5,
-                        SAFE_MIGRATION_5_6
+                        SAFE_MIGRATION_5_6,
+                        SAFE_MIGRATION_6_7
                     )
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()

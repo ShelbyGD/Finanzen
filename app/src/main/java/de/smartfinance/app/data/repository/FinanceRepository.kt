@@ -3,6 +3,7 @@ package de.smartfinance.app.data.repository
 import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
+import de.smartfinance.app.data.local.FinanceNoteEntity
 import de.smartfinance.app.data.local.InstallmentEntity
 import de.smartfinance.app.data.local.InstallmentFolderEntity
 import de.smartfinance.app.data.local.QuickTemplateEntity
@@ -30,6 +31,7 @@ class FinanceRepository(
     val savingsGoalsFlow: Flow<List<SavingsGoalEntity>> = dao.observeSavingsGoals()
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()
     val installmentsFlow: Flow<List<InstallmentEntity>> = dao.observeInstallments()
+    val financeNotesFlow: Flow<List<FinanceNoteEntity>> = dao.observeAllNotes()
 
     fun observeYearlyExpenses(year: Int): Flow<List<TransactionEntity>> {
         val startEpochDay = LocalDate.of(year, 1, 1).toEpochDay()
@@ -277,6 +279,7 @@ class FinanceRepository(
         dao.deleteAllSavingsGoals()
         dao.deleteAllInstallments()
         dao.deleteAllInstallmentFolders()
+        dao.deleteAllNotes()
         dao.deleteAllCategoryTabs()
         seedCleanCategories()
     }
@@ -454,5 +457,16 @@ class FinanceRepository(
         } else {
             dao.renameInstallmentFolderInItems(folder.name, "Sonstiges")
         }
+    }
+
+    suspend fun saveNote(note: FinanceNoteEntity): Long {
+        return dao.upsertNote(note)
+    }
+
+    suspend fun deleteNote(note: FinanceNoteEntity) {
+        if (note.id > 0L) {
+            dao.deleteNoteById(note.id)
+        }
+        dao.deleteNote(note)
     }
 }

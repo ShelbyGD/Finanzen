@@ -160,3 +160,21 @@ data class InstallmentEntity(
     val folderName: String = "Sonstiges",
     val paidMonthsCsv: String = ""
 )
+
+/**
+ * Finanz-Logbuch für wichtige Änderungen ab einem Stichtag (z. B. Mieterhöhungen,
+ * Vertragsanpassungen mit Alt->Neu-Betrag) sowie freie persönliche Finanz-Notizen.
+ */
+@Entity(tableName = "finance_notes")
+data class FinanceNoteEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val title: String,
+    val content: String = "",
+    val categoryName: String = "Allgemein",
+    val effectiveDateEpochDay: Long,
+    val oldAmount: Double? = null,
+    val newAmount: Double? = null,
+    val createdAtEpochDay: Long
+)
+

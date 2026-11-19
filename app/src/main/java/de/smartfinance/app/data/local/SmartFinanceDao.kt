@@ -176,4 +176,26 @@ interface SmartFinanceDao {
 
     @Query("DELETE FROM installments WHERE folderName = :folderName")
     suspend fun deleteInstallmentsByFolderName(folderName: String)
+
+    // --- NOTIZEN & ÄNDERUNGEN (FINANZ-LOGBUCH) ---
+    @Query("SELECT * FROM finance_notes ORDER BY effectiveDateEpochDay DESC, id DESC")
+    fun observeAllNotes(): Flow<List<FinanceNoteEntity>>
+
+    @Query("SELECT * FROM finance_notes ORDER BY effectiveDateEpochDay DESC, id DESC")
+    suspend fun getAllNotesOnce(): List<FinanceNoteEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertNote(note: FinanceNoteEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNotes(notes: List<FinanceNoteEntity>)
+
+    @Delete
+    suspend fun deleteNote(note: FinanceNoteEntity)
+
+    @Query("DELETE FROM finance_notes WHERE id = :id")
+    suspend fun deleteNoteById(id: Long)
+
+    @Query("DELETE FROM finance_notes")
+    suspend fun deleteAllNotes()
 }

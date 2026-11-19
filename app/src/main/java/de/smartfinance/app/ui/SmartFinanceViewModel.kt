@@ -15,6 +15,7 @@ import de.smartfinance.app.data.backup.DataVaultManager
 import de.smartfinance.app.data.local.BillingInterval
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.CategoryType
+import de.smartfinance.app.data.local.FinanceNoteEntity
 import de.smartfinance.app.data.local.InstallmentEntity
 import de.smartfinance.app.data.local.InstallmentFolderEntity
 import de.smartfinance.app.data.local.QuickTemplateEntity
@@ -67,6 +68,7 @@ enum class DrawerDestination(val title: String) {
     COCKPIT("Übersicht & Cockpit"),
     YEARLY_OVERVIEW("Jahres-Rückblick"),
     INSTALLMENTS("Ratenzahlungen & Offene Posten"),
+    NOTES("Notizen & Änderungen"),
     ARCHIVE("Archiv (Zwischenspeicher)"),
     DATA_VAULT("Daten-Tresor (Backup & Import)"),
     SETTINGS_DEMO("Einstellungen"),
@@ -212,6 +214,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val installmentFolders: StateFlow<List<InstallmentFolderEntity>> = repository.installmentFoldersFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val financeNotes: StateFlow<List<FinanceNoteEntity>> = repository.financeNotesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val germanMonthNames = listOf(
@@ -1453,6 +1458,18 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         preferences.toggleShowBookingCategoryIcons()
         val next = preferences.settingsState.value.showBookingCategoryIcons
         _snackbarMessage.value = if (next) "Kategorie-Icons in Buchungsliste eingeblendet." else "Kategorie-Icons ausgeblendet."
+    }
+
+    fun saveNote(note: FinanceNoteEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveNote(note)
+        }
+    }
+
+    fun deleteNote(note: FinanceNoteEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteNote(note)
+        }
     }
 
     fun resetAllData() {

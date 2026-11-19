@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -101,6 +102,7 @@ import de.smartfinance.app.ui.screens.CockpitScreen
 import de.smartfinance.app.ui.screens.DataVaultScreen
 import de.smartfinance.app.ui.screens.HelpChangelogScreen
 import de.smartfinance.app.ui.screens.InstallmentsTrackerSheet
+import de.smartfinance.app.ui.screens.NotesScreen
 import de.smartfinance.app.ui.screens.SavingsBoosterTabScreen
 import de.smartfinance.app.ui.screens.SettingsDemoScreen
 import de.smartfinance.app.ui.screens.YearlyOverviewScreen
@@ -155,6 +157,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
     val installments by viewModel.installments.collectAsStateWithLifecycle()
     val installmentFolders by viewModel.installmentFolders.collectAsStateWithLifecycle()
+    val financeNotes by viewModel.financeNotes.collectAsStateWithLifecycle()
     val quickTemplates by viewModel.quickTemplates.collectAsStateWithLifecycle()
     val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
     val geminiVaultState by viewModel.geminiVaultState.collectAsStateWithLifecycle()
@@ -223,6 +226,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         DrawerDestination.COCKPIT -> Icons.Default.Home
                         DrawerDestination.YEARLY_OVERVIEW -> Icons.Default.DateRange
                         DrawerDestination.INSTALLMENTS -> Icons.AutoMirrored.Filled.List
+                        DrawerDestination.NOTES -> Icons.Default.EditNote
                         DrawerDestination.ARCHIVE -> Icons.Default.Archive
                         DrawerDestination.DATA_VAULT -> Icons.Default.Lock
                         DrawerDestination.SETTINGS_DEMO -> Icons.Default.Settings
@@ -609,6 +613,27 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             onRenameFolder = viewModel::renameInstallmentFolder,
                             onDeleteFolder = viewModel::deleteInstallmentFolder,
                             onNavigateBack = { viewModel.navigateTo(DrawerDestination.COCKPIT) }
+                        )
+                    }
+
+                    DrawerDestination.NOTES -> {
+                        NotesScreen(
+                            notes = financeNotes,
+                            categories = categories,
+                            onSaveNote = viewModel::saveNote,
+                            onDeleteNote = { note ->
+                                viewModel.deleteNote(note)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Notiz '${note.title}' gelöscht",
+                                        actionLabel = "Rückgängig",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.saveNote(note)
+                                    }
+                                }
+                            }
                         )
                     }
 
