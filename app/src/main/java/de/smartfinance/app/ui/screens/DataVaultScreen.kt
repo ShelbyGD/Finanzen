@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
  * Daten-Tresor Screen (1-Tap JSON-Backup/Restore & Bank-CSV-Import) über das
@@ -46,10 +47,19 @@ import java.time.LocalDate
 fun DataVaultScreen(
     transactionsCount: Int,
     categoriesCount: Int,
+    lastBackupEpochDay: Long = 0L,
     onExportBackupUri: (Uri) -> Unit,
     onImportBackupUri: (Uri) -> Unit,
     onImportBankCsvUri: (Uri) -> Unit
 ) {
+    val lastBackupStatusText = if (lastBackupEpochDay > 0L) {
+        val formatted = LocalDate.ofEpochDay(lastBackupEpochDay)
+            .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+        "Letztes Backup: $formatted"
+    } else {
+        "Noch kein Backup erstellt"
+    }
+
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -103,6 +113,12 @@ fun DataVaultScreen(
                         text = "Deine Finanzdaten verlassen niemals unverschlüsselt dein Gerät. Aktuell gespeichert: $transactionsCount Buchungen in $categoriesCount Kategorien.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = lastBackupStatusText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                     )
                 }
             }

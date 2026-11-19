@@ -120,10 +120,37 @@ object AppHelpRegistry {
                 "Die App-Sperre nutzt die native Android-Displaysperre – es wird kein separates Passwort gespeichert."
             ),
             addedInVersion = "1.2.1"
+        ),
+        HelpEntry(
+            id = "global_search_backup_reminder",
+            moduleNumber = 5,
+            title = "5. Globale Buchungssuche & 30-Tage-Backup-Erinnerung",
+            category = "Übersicht & Datensicherheit",
+            shortSummary = "Durchsuche alle nicht-archivierten Buchungen über sämtliche Monate & Jahre hinweg und lass dich nach 30 Tagen dezent an ein lokales Backup erinnern.",
+            stepByStepGuide = listOf(
+                "Tippe in der Übersicht neben 'Letzte Buchungen' auf das Lupen-Icon, um alle Buchungen über alle Monate zu durchsuchen.",
+                "Filtere live nach Titel, Kategorie, Notiz, Datum (TT.MM.JJJJ) oder Betrag sowie nach Alle, Ausgaben oder Einnahmen.",
+                "Tippe auf einen Treffer, um die Buchung sofort zu bearbeiten.",
+                "Die 30-Tage-Backup-Erinnerung erscheint dezent auf der Übersicht, sobald seit dem letzten Backup 30 Tage vergangen sind, und lässt sich in den Einstellungen steuern."
+            ),
+            exampleTips = listOf(
+                "Fresh-Install-sicher: Bei leerer App oder nach einem Reset auf 0,00 € wird keine Backup-Erinnerung angezeigt."
+            ),
+            addedInVersion = "1.2.2"
         )
     )
 
     val changelogEntries: List<ChangelogEntry> = listOf(
+        ChangelogEntry(
+            versionName = "1.2.2 (Globale Suche & Backup-Erinnerung)",
+            buildNumber = 26,
+            date = "19.11.2026",
+            newFeatures = listOf(
+                "Globale Buchungssuche über alle Monate & Jahre direkt aus 'Letzte Buchungen' inkl. Live-Filter (Alle/Ausgaben/Einnahmen), Trefferzahl und Netto-Summe.",
+                "Clean-Slate-sichere 30-Tage-Backup-Erinnerung auf der Übersicht mit 7-Tage-Snooze ('Später') und direktem Sprung in den Daten-Tresor.",
+                "Statusanzeige 'Letztes Backup' im Daten-Tresor sowie ein eigener Ein-/Ausschalter in den Einstellungen."
+            )
+        ),
         ChangelogEntry(
             versionName = "1.2.1 (Native App-Sperre Update)",
             buildNumber = 25,

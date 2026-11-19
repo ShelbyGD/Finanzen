@@ -6,7 +6,10 @@ import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import de.smartfinance.app.ui.components.GlobalSearchTypeFilter
+import de.smartfinance.app.ui.components.GlobalSearchUiState
 import de.smartfinance.app.ui.components.canAuthenticateWithAppLock
+import de.smartfinance.app.ui.components.filterGlobalSearchTransactions
 import de.smartfinance.app.ui.components.shouldRelockAfterBackground
 import de.smartfinance.app.core.ApiKeyManager
 import de.smartfinance.app.core.AppHelpRegistry
@@ -217,6 +220,9 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     val allTransactions: StateFlow<List<TransactionEntity>> = repository.transactionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val activeTransactions: StateFlow<List<TransactionEntity>> = repository.activeTransactionsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val archivedTransactions: StateFlow<List<TransactionEntity>> = repository.archivedTransactionsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -234,6 +240,57 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     val financeNotes: StateFlow<List<FinanceNoteEntity>> = repository.financeNotesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _showGlobalSearchSheet = MutableStateFlow(false)
+    val showGlobalSearchSheet: StateFlow<Boolean> = _showGlobalSearchSheet.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchTypeFilter = MutableStateFlow(GlobalSearchTypeFilter.ALL)
+    val searchTypeFilter: StateFlow<GlobalSearchTypeFilter> = _searchTypeFilter.asStateFlow()
+
+    val globalSearchState: StateFlow<GlobalSearchUiState> = combine(
+        activeTransactions,
+        _searchQuery,
+        _searchTypeFilter
+    ) { txs, query, filter ->
+        filterGlobalSearchTransactions(txs, query, filter)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GlobalSearchUiState())
+
+    val showBackupReminder: StateFlow<Boolean> = combine(
+        settingsState,
+        allTransactions,
+        installments,
+        savingsGoals,
+        financeNotes
+    ) { settings, txs, insts, goals, notes ->
+        val hasAnyData = txs.isNotEmpty() || insts.isNotEmpty() || goals.isNotEmpty() || notes.isNotEmpty()
+        shouldShowBackupReminder(
+            isReminderEnabled = settings.isBackupReminderEnabled,
+            hasAnyData = hasAnyData,
+            todayEpochDay = LocalDate.now().toEpochDay(),
+            lastBackupEpochDay = settings.lastBackupEpochDay,
+            firstDataSeenEpochDay = settings.firstDataSeenEpochDay,
+            snoozeUntilEpochDay = settings.backupReminderSnoozeUntilEpochDay
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun openGlobalSearchSheet() {
+        _showGlobalSearchSheet.value = true
+    }
+
+    fun closeGlobalSearchSheet() {
+        _showGlobalSearchSheet.value = false
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun setSearchTypeFilter(filter: GlobalSearchTypeFilter) {
+        _searchTypeFilter.value = filter
+    }
 
     private val germanMonthNames = listOf(
         "Januar", "Februar", "März", "April", "Mai", "Juni",
@@ -326,6 +383,20 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
             repository.healInvalidInstallments()
             repository.ensureInitializedAndSyncRecurring()
             repository.cleanupDuplicateInstallments()
+        }
+        viewModelScope.launch {
+            combine(
+                repository.transactionsFlow,
+                repository.installmentsFlow,
+                repository.savingsGoalsFlow,
+                repository.financeNotesFlow
+            ) { txs, insts, goals, notes ->
+                txs.isNotEmpty() || insts.isNotEmpty() || goals.isNotEmpty() || notes.isNotEmpty()
+            }.collect { hasAnyData ->
+                if (hasAnyData && preferences.settingsState.value.firstDataSeenEpochDay == 0L) {
+                    preferences.recordFirstDataSeenIfUnset(LocalDate.now().toEpochDay())
+                }
+            }
         }
     }
 
@@ -1536,9 +1607,25 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    fun setBackupReminderEnabled(enabled: Boolean) {
+        preferences.setBackupReminderEnabled(enabled)
+        _snackbarMessage.value = if (enabled) {
+            "Backup-Erinnerung (alle 30 Tage) aktiviert."
+        } else {
+            "Backup-Erinnerung deaktiviert."
+        }
+    }
+
+    fun snoozeBackupReminder() {
+        val untilEpochDay = LocalDate.now().toEpochDay() + 7L
+        preferences.setBackupReminderSnoozeUntilEpochDay(untilEpochDay)
+        _snackbarMessage.value = "Backup-Erinnerung für 7 Tage pausiert."
+    }
+
     fun resetAllData() {
         viewModelScope.launch(Dispatchers.IO) {
             repository.resetAllData()
+            preferences.resetFirstDataSeen()
             withContext(Dispatchers.Main) {
                 _selectedMonthPage.value = baseMonthIndex
                 _snackbarMessage.value = "Alle Daten auf 0,00 € zurückgesetzt."
@@ -1554,6 +1641,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
                     out.write(json.toByteArray(Charsets.UTF_8))
                 }
             }.onSuccess {
+                preferences.setLastBackupEpochDay(LocalDate.now().toEpochDay())
                 withContext(Dispatchers.Main) {
                     _snackbarMessage.value = "1-Tap JSON-Komplett-Backup erfolgreich gespeichert."
                 }
@@ -1626,6 +1714,28 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         const val ACTION_QUICK_EXPENSE = "de.smartfinance.app.ACTION_QUICK_EXPENSE"
         const val ACTION_SCAN_RECEIPT = "de.smartfinance.app.ACTION_SCAN_RECEIPT"
         const val ACTION_AI_CHAT = "de.smartfinance.app.ACTION_AI_CHAT"
+        const val BACKUP_REMINDER_INTERVAL_DAYS = 30L
+
+        /**
+         * Reine, unit-testbare Auslöse-Logik für die 30-Tage-Backup-Erinnerung (Clean-Slate-sicher).
+         */
+        fun shouldShowBackupReminder(
+            isReminderEnabled: Boolean,
+            hasAnyData: Boolean,
+            todayEpochDay: Long,
+            lastBackupEpochDay: Long,
+            firstDataSeenEpochDay: Long,
+            snoozeUntilEpochDay: Long
+        ): Boolean {
+            if (!isReminderEnabled) return false
+            if (!hasAnyData) return false
+            if (todayEpochDay < snoozeUntilEpochDay) return false
+            return if (lastBackupEpochDay > 0L) {
+                (todayEpochDay - lastBackupEpochDay) >= BACKUP_REMINDER_INTERVAL_DAYS
+            } else {
+                firstDataSeenEpochDay > 0L && (todayEpochDay - firstDataSeenEpochDay) >= BACKUP_REMINDER_INTERVAL_DAYS
+            }
+        }
 
         fun sortTransactions(
             transactions: List<TransactionEntity>,

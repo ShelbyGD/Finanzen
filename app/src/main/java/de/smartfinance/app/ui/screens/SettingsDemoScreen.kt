@@ -57,6 +57,7 @@ fun SettingsDemoScreen(
     onOpenApiKeyVault: () -> Unit,
     onToggleAppLock: (Boolean) -> Unit = {},
     onSelectAppLockTimeout: (Int) -> Unit = {},
+    onToggleBackupReminder: (Boolean) -> Unit = {},
     onToggleShowBookingCategoryIcons: (Boolean) -> Unit = {},
     onResetAllData: () -> Unit
 ) {
@@ -119,7 +120,15 @@ fun SettingsDemoScreen(
             )
         }
 
-        // 3. Runde Kategorie-Icons in Buchungsliste anzeigen
+        // 3. Backup-Erinnerung (alle 30 Tage)
+        item {
+            BackupReminderSettingsCard(
+                isEnabled = settingsState.isBackupReminderEnabled,
+                onToggleEnabled = onToggleBackupReminder
+            )
+        }
+
+        // 4. Runde Kategorie-Icons in Buchungsliste anzeigen
         item {
             BookingIconsToggleCard(
                 showIcons = settingsState.showBookingCategoryIcons,
@@ -310,4 +319,49 @@ private fun AppLockSettingsCard(
         }
     }
 }
+
+@Composable
+private fun BackupReminderSettingsCard(
+    isEnabled: Boolean,
+    onToggleEnabled: (Boolean) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Backup-Erinnerung (alle 30 Tage)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Erinnert dich dezent auf der Übersicht an ein lokales JSON-Backup, sobald 30 Tage seit der letzten Sicherung vergangen sind.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = onToggleEnabled
+            )
+        }
+    }
+}
+
 

@@ -95,6 +95,7 @@ import de.smartfinance.app.ui.components.AiCoachTabScreen
 import de.smartfinance.app.ui.components.AppLockOverlay
 import de.smartfinance.app.ui.components.CalculatorNumpadSheet
 import de.smartfinance.app.ui.components.GeminiApiKeyVaultSheet
+import de.smartfinance.app.ui.components.GlobalSearchSheet
 import de.smartfinance.app.ui.components.HelpDetailDialog
 import de.smartfinance.app.ui.components.NotificationsBottomSheet
 import de.smartfinance.app.ui.components.ReceiptScannerSheet
@@ -189,6 +190,9 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val showReceiptScannerSheet by viewModel.showReceiptScannerSheet.collectAsStateWithLifecycle()
     val showNotificationsSheet by viewModel.showNotificationsSheet.collectAsStateWithLifecycle()
     val showApiKeyVaultSheet by viewModel.showApiKeyVaultSheet.collectAsStateWithLifecycle()
+    val showGlobalSearchSheet by viewModel.showGlobalSearchSheet.collectAsStateWithLifecycle()
+    val globalSearchState by viewModel.globalSearchState.collectAsStateWithLifecycle()
+    val showBackupReminder by viewModel.showBackupReminder.collectAsStateWithLifecycle()
     val isTestingGeminiConnection by viewModel.isTestingGeminiConnection.collectAsStateWithLifecycle()
     val isLoadingGeminiModels by viewModel.isLoadingGeminiModels.collectAsStateWithLifecycle()
     val isAiThinking by viewModel.isAiThinking.collectAsStateWithLifecycle()
@@ -510,7 +514,13 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                                     selectedCategoryId = selectedCategoryId,
                                     settingsState = settingsState,
                                     sortType = transactionSortType,
+                                    showBackupReminder = showBackupReminder,
                                     onSelectSortType = viewModel::setTransactionSortType,
+                                    onOpenGlobalSearch = viewModel::openGlobalSearchSheet,
+                                    onOpenDataVaultForBackup = {
+                                        viewModel.navigateTo(DrawerDestination.DATA_VAULT)
+                                    },
+                                    onSnoozeBackupReminder = viewModel::snoozeBackupReminder,
                                     onSelectMonthPage = viewModel::setSelectedMonthPage,
                                     onSelectCategoryFilter = viewModel::selectCategoryFilter,
                                     onSelectTransaction = viewModel::openTransactionActionSheet,
@@ -661,6 +671,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         DataVaultScreen(
                             transactionsCount = allTransactions.size,
                             categoriesCount = categories.size,
+                            lastBackupEpochDay = settingsState.lastBackupEpochDay,
                             onExportBackupUri = { uri -> viewModel.exportBackupToUri(context, uri) },
                             onImportBackupUri = { uri -> viewModel.importBackupFromUri(context, uri) },
                             onImportBankCsvUri = { uri -> viewModel.importBankCsvFromUri(context, uri) }
@@ -674,6 +685,7 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                             onOpenApiKeyVault = viewModel::openApiKeyVaultSheet,
                             onToggleAppLock = viewModel::setAppLockEnabled,
                             onSelectAppLockTimeout = viewModel::setAppLockTimeoutSeconds,
+                            onToggleBackupReminder = viewModel::setBackupReminderEnabled,
                             onToggleShowBookingCategoryIcons = viewModel::setShowBookingCategoryIcons,
                             onResetAllData = viewModel::resetAllData
                         )
@@ -787,6 +799,19 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                 viewModel.selectBottomTab(BottomNavTab.OVERVIEW)
             },
             onDismiss = viewModel::closeNotificationsSheet
+        )
+    }
+
+    if (showGlobalSearchSheet) {
+        GlobalSearchSheet(
+            state = globalSearchState,
+            onQueryChange = viewModel::setSearchQuery,
+            onTypeFilterChange = viewModel::setSearchTypeFilter,
+            onSelectTransaction = { tx ->
+                viewModel.closeGlobalSearchSheet()
+                viewModel.openTransactionActionSheet(tx)
+            },
+            onDismiss = viewModel::closeGlobalSearchSheet
         )
     }
 

@@ -27,6 +27,7 @@ class FinanceRepository(
 
     val categoryTabsFlow: Flow<List<CategoryTabEntity>> = dao.observeCategoryTabs()
     val transactionsFlow: Flow<List<TransactionEntity>> = dao.observeAllTransactions()
+    val activeTransactionsFlow: Flow<List<TransactionEntity>> = dao.observeActiveTransactions()
     val archivedTransactionsFlow: Flow<List<TransactionEntity>> = dao.observeArchivedTransactions()
     val savingsGoalsFlow: Flow<List<SavingsGoalEntity>> = dao.observeSavingsGoals()
     val quickTemplatesFlow: Flow<List<QuickTemplateEntity>> = dao.observeQuickTemplates()

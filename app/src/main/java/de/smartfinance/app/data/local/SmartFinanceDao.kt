@@ -40,6 +40,9 @@ interface SmartFinanceDao {
     @Query("SELECT * FROM transactions ORDER BY dateEpochDay DESC, id DESC")
     fun observeAllTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE isArchived = 0 ORDER BY dateEpochDay DESC, id DESC")
+    fun observeActiveTransactions(): Flow<List<TransactionEntity>>
+
     @Query("SELECT * FROM transactions ORDER BY dateEpochDay DESC, id DESC")
     suspend fun getAllTransactionsOnce(): List<TransactionEntity>
 

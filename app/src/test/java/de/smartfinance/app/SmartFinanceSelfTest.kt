@@ -978,7 +978,207 @@ class SmartFinanceSelfTest {
             de.smartfinance.app.ui.components.shouldRelockAfterBackground(10_000L, 70_000L, 60)
         )
     }
+
+    /**
+     * Test 30-Tage-Backup-Erinnerung (Clean-Slate-sicher):
+     * - Fresh-Install (keine Daten oder Tag 1) = aus
+     * - Nach 30 Tagen ohne Backup = an
+     * - Nach Snooze (7 Tage) = aus
+     * - Nach Backup = aus (erst 30 Tage später wieder an)
+     * - Deaktiviert in Einstellungen = aus
+     */
+    @Test
+    fun testBackupReminder_30DayCleanSlateAndSnoozeLogic() {
+        val day0 = LocalDate.of(2026, 10, 1).toEpochDay()
+        val day29 = day0 + 29L
+        val day30 = day0 + 30L
+        val day36 = day30 + 6L
+        val day37 = day30 + 7L
+
+        // 1. Fresh-Install ohne Daten -> AUS
+        assertEquals(
+            false,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = true,
+                hasAnyData = false,
+                todayEpochDay = day30,
+                lastBackupEpochDay = 0L,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = 0L
+            )
+        )
+
+        // 2. Fresh-Install mit Daten am Tag 1 (oder Tag 29) -> AUS
+        assertEquals(
+            false,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = true,
+                hasAnyData = true,
+                todayEpochDay = day29,
+                lastBackupEpochDay = 0L,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = 0L
+            )
+        )
+
+        // 3. Nach genau 30 Tagen ohne Backup -> AN
+        assertEquals(
+            true,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = true,
+                hasAnyData = true,
+                todayEpochDay = day30,
+                lastBackupEpochDay = 0L,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = 0L
+            )
+        )
+
+        // 4. Nach Snooze (+7 Tage) -> während Snooze AUS, ab Ablauf wieder AN
+        assertEquals(
+            false,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = true,
+                hasAnyData = true,
+                todayEpochDay = day36,
+                lastBackupEpochDay = 0L,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = day37
+            )
+        )
+        assertEquals(
+            true,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = true,
+                hasAnyData = true,
+                todayEpochDay = day37,
+                lastBackupEpochDay = 0L,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = day37
+            )
+        )
+
+        // 5. Nach erfolgreichem Backup -> sofort AUS, nach 30 Tagen wieder AN
+        assertEquals(
+            false,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = true,
+                hasAnyData = true,
+                todayEpochDay = day30,
+                lastBackupEpochDay = day30,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = 0L
+            )
+        )
+        assertEquals(
+            true,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = true,
+                hasAnyData = true,
+                todayEpochDay = day30 + 30L,
+                lastBackupEpochDay = day30,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = 0L
+            )
+        )
+
+        // 6. In Einstellungen deaktiviert -> immer AUS
+        assertEquals(
+            false,
+            SmartFinanceViewModel.shouldShowBackupReminder(
+                isReminderEnabled = false,
+                hasAnyData = true,
+                todayEpochDay = day30 + 60L,
+                lastBackupEpochDay = 0L,
+                firstDataSeenEpochDay = day0,
+                snoozeUntilEpochDay = 0L
+            )
+        )
+    }
+
+    /**
+     * Test Globale Buchungssuche über alle Monate:
+     * Prüft Case-Insensitive-Suche nach Titel, Kategorie, Notiz, Datum (TT.MM.JJJJ) und Betrag ("31,01" / "550")
+     * sowie Typ-Filter (Alle / Ausgaben / Einnahmen) und exakte Netto-Summe.
+     */
+    @Test
+    fun testGlobalSearch_filtersAcrossMonthsAndCalculatesNetSum() {
+        val janDate = LocalDate.of(2026, 1, 15).toEpochDay()
+        val novDate = LocalDate.of(2026, 11, 3).toEpochDay()
+        val txs = listOf(
+            TransactionEntity(
+                id = 1L,
+                title = "Monatsgehalt",
+                amount = 2500.0,
+                transactionType = TransactionType.INCOME,
+                categoryId = 1L,
+                categoryName = "Gehalt",
+                dateEpochDay = novDate,
+                note = "Arbeitgeber GmbH"
+            ),
+            TransactionEntity(
+                id = 2L,
+                title = "Warmmiete",
+                amount = 550.0,
+                transactionType = TransactionType.EXPENSE,
+                categoryId = 2L,
+                categoryName = "Wohnen",
+                dateEpochDay = janDate,
+                note = "Dauerauftrag"
+            ),
+            TransactionEntity(
+                id = 3L,
+                title = "REWE Einkauf",
+                amount = 31.01,
+                transactionType = TransactionType.EXPENSE,
+                categoryId = 3L,
+                categoryName = "Lebensmittel",
+                dateEpochDay = novDate,
+                note = "Wocheneinkauf"
+            ),
+            TransactionEntity(
+                id = 4L,
+                title = "Archivierter Posten",
+                amount = 99.0,
+                transactionType = TransactionType.EXPENSE,
+                categoryId = 3L,
+                categoryName = "Lebensmittel",
+                dateEpochDay = novDate,
+                isArchived = true
+            )
+        )
+
+        // Alle aktiven (ohne archivierte): 3 Treffer, Netto = 2500 - 550 - 31.01 = 1918.99
+        val allState = de.smartfinance.app.ui.components.filterGlobalSearchTransactions(
+            txs, "", de.smartfinance.app.ui.components.GlobalSearchTypeFilter.ALL
+        )
+        assertEquals(3, allState.matchCount)
+        assertEquals(1918.99, allState.netSum, 0.001)
+
+        // Suche nach Betrag "31,01" findet REWE Einkauf
+        val byGermanAmount = de.smartfinance.app.ui.components.filterGlobalSearchTransactions(
+            txs, "31,01", de.smartfinance.app.ui.components.GlobalSearchTypeFilter.ALL
+        )
+        assertEquals(1, byGermanAmount.matchCount)
+        assertEquals("REWE Einkauf", byGermanAmount.results.first().title)
+        assertEquals(-31.01, byGermanAmount.netSum, 0.001)
+
+        // Suche nach Datum "15.01.2026" findet Warmmiete aus anderem Monat
+        val byDate = de.smartfinance.app.ui.components.filterGlobalSearchTransactions(
+            txs, "15.01.2026", de.smartfinance.app.ui.components.GlobalSearchTypeFilter.EXPENSE
+        )
+        assertEquals(1, byDate.matchCount)
+        assertEquals("Warmmiete", byDate.results.first().title)
+
+        // Typ-Filter INCOME findet nur Gehalt
+        val incomeOnly = de.smartfinance.app.ui.components.filterGlobalSearchTransactions(
+            txs, "arbeitgeber", de.smartfinance.app.ui.components.GlobalSearchTypeFilter.INCOME
+        )
+        assertEquals(1, incomeOnly.matchCount)
+        assertEquals(2500.0, incomeOnly.netSum, 0.001)
+    }
 }
+
 
 
 

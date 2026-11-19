@@ -29,11 +29,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.outlined.TrendingUp
@@ -120,7 +122,11 @@ fun CockpitScreen(
     selectedCategoryId: Long?,
     settingsState: UserSettingsState,
     sortType: SortType = SortType.DATE,
+    showBackupReminder: Boolean = false,
     onSelectSortType: (SortType) -> Unit = {},
+    onOpenGlobalSearch: () -> Unit = {},
+    onOpenDataVaultForBackup: () -> Unit = {},
+    onSnoozeBackupReminder: () -> Unit = {},
     onSelectMonthPage: (Int) -> Unit,
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
@@ -162,7 +168,11 @@ fun CockpitScreen(
             selectedCategoryId = selectedCategoryId,
             settingsState = settingsState,
             sortType = sortType,
+            showBackupReminder = showBackupReminder,
             onSelectSortType = onSelectSortType,
+            onOpenGlobalSearch = onOpenGlobalSearch,
+            onOpenDataVaultForBackup = onOpenDataVaultForBackup,
+            onSnoozeBackupReminder = onSnoozeBackupReminder,
             onSelectCategoryFilter = onSelectCategoryFilter,
             onSelectTransaction = onSelectTransaction,
             onDeleteTransaction = onDeleteTransaction,
@@ -182,7 +192,11 @@ private fun OverviewMonthContent(
     selectedCategoryId: Long?,
     settingsState: UserSettingsState,
     sortType: SortType = SortType.DATE,
+    showBackupReminder: Boolean = false,
     onSelectSortType: (SortType) -> Unit = {},
+    onOpenGlobalSearch: () -> Unit = {},
+    onOpenDataVaultForBackup: () -> Unit = {},
+    onSnoozeBackupReminder: () -> Unit = {},
     onSelectCategoryFilter: (Long?) -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onDeleteTransaction: (TransactionEntity) -> Unit = {},
@@ -319,6 +333,17 @@ private fun OverviewMonthContent(
             }
         }
 
+        // Optionale dezente 30-Tage-Backup-Erinnerung (Clean-Slate-sicher)
+        if (showBackupReminder) {
+            item {
+                BackupReminderCard(
+                    lastBackupEpochDay = settingsState.lastBackupEpochDay,
+                    onBackupNow = onOpenDataVaultForBackup,
+                    onSnooze = onSnoozeBackupReminder
+                )
+            }
+        }
+
         // 2. GRUPPIERTER LISTEN-CONTAINER: "Letzte Buchungen" (viel Platz für alle Einträge)
         item {
             RecentBookingsGroupedSection(
@@ -328,6 +353,7 @@ private fun OverviewMonthContent(
                 showIcons = settingsState.showBookingCategoryIcons,
                 sortType = sortType,
                 onSelectSortType = onSelectSortType,
+                onOpenGlobalSearch = onOpenGlobalSearch,
                 onClearFilter = { onSelectCategoryFilter(null) },
                 onSelectTransaction = onSelectTransaction,
                 onDeleteTransaction = onDeleteTransaction,
@@ -1305,6 +1331,81 @@ private fun UpcomingDebitsGroupedSection(
  * - Tap auf eine Zeile öffnet das Bearbeiten/Löschen-BottomSheet
  */
 @Composable
+private fun BackupReminderCard(
+    lastBackupEpochDay: Long,
+    onBackupNow: () -> Unit,
+    onSnooze: () -> Unit
+) {
+    val subtitleText = if (lastBackupEpochDay > 0L) {
+        val daysAgo = (LocalDate.now().toEpochDay() - lastBackupEpochDay).coerceAtLeast(1L)
+        "Letztes Backup vor $daysAgo Tagen"
+    } else {
+        "Noch kein lokales Backup erstellt"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Backup,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Datensicherung empfohlen",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = subtitleText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onSnooze) {
+                    Text("Später")
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Button(
+                    onClick = onBackupNow,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Jetzt sichern",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RecentBookingsGroupedSection(
     transactions: List<TransactionEntity>,
     categoryById: Map<Long, CategoryTabEntity>,
@@ -1312,6 +1413,7 @@ private fun RecentBookingsGroupedSection(
     showIcons: Boolean = true,
     sortType: SortType = SortType.DATE,
     onSelectSortType: (SortType) -> Unit = {},
+    onOpenGlobalSearch: () -> Unit = {},
     onClearFilter: () -> Unit,
     onSelectTransaction: (TransactionEntity) -> Unit,
     onDeleteTransaction: (TransactionEntity) -> Unit = {},
@@ -1341,7 +1443,7 @@ private fun RecentBookingsGroupedSection(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 if (selectedCategoryName != null) {
                     Text(
@@ -1356,6 +1458,18 @@ private fun RecentBookingsGroupedSection(
                         text = "${transactions.size} Einträge",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(
+                    onClick = onOpenGlobalSearch,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Alle Buchungen durchsuchen",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 

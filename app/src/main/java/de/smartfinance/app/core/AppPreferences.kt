@@ -16,7 +16,11 @@ data class UserSettingsState(
     val isDarkMode: Boolean = false,
     val showBookingCategoryIcons: Boolean = true,
     val isAppLockEnabled: Boolean = false,
-    val appLockTimeoutSeconds: Int = 30
+    val appLockTimeoutSeconds: Int = 30,
+    val isBackupReminderEnabled: Boolean = true,
+    val lastBackupEpochDay: Long = 0L,
+    val firstDataSeenEpochDay: Long = 0L,
+    val backupReminderSnoozeUntilEpochDay: Long = 0L
 )
 
 /**
@@ -41,6 +45,10 @@ class AppPreferences(context: Context) {
         val appLockEnabled = prefs.getBoolean(KEY_APP_LOCK_ENABLED, false)
         val rawTimeout = prefs.getInt(KEY_APP_LOCK_TIMEOUT_SECONDS, 30)
         val appLockTimeout = if (rawTimeout in VALID_APP_LOCK_TIMEOUTS) rawTimeout else 30
+        val backupReminderEnabled = prefs.getBoolean(KEY_BACKUP_REMINDER_ENABLED, true)
+        val lastBackupDay = prefs.getLong(KEY_LAST_BACKUP_EPOCH_DAY, 0L)
+        val firstDataSeenDay = prefs.getLong(KEY_FIRST_DATA_SEEN_EPOCH_DAY, 0L)
+        val snoozeUntilDay = prefs.getLong(KEY_BACKUP_REMINDER_SNOOZE_UNTIL_EPOCH_DAY, 0L)
         val currentVersion = BuildConfig.VERSION_CODE
 
         val shouldShowUpdateBanner = lastSeenVersion < currentVersion
@@ -54,7 +62,11 @@ class AppPreferences(context: Context) {
             isDarkMode = isDark,
             showBookingCategoryIcons = showIcons,
             isAppLockEnabled = appLockEnabled,
-            appLockTimeoutSeconds = appLockTimeout
+            appLockTimeoutSeconds = appLockTimeout,
+            isBackupReminderEnabled = backupReminderEnabled,
+            lastBackupEpochDay = lastBackupDay,
+            firstDataSeenEpochDay = firstDataSeenDay,
+            backupReminderSnoozeUntilEpochDay = snoozeUntilDay
         )
     }
 
@@ -103,6 +115,44 @@ class AppPreferences(context: Context) {
         _settingsState.value = _settingsState.value.copy(appLockTimeoutSeconds = validSeconds)
     }
 
+    fun setBackupReminderEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BACKUP_REMINDER_ENABLED, enabled).apply()
+        _settingsState.value = _settingsState.value.copy(isBackupReminderEnabled = enabled)
+    }
+
+    fun setLastBackupEpochDay(epochDay: Long) {
+        prefs.edit()
+            .putLong(KEY_LAST_BACKUP_EPOCH_DAY, epochDay)
+            .putLong(KEY_BACKUP_REMINDER_SNOOZE_UNTIL_EPOCH_DAY, 0L)
+            .apply()
+        _settingsState.value = _settingsState.value.copy(
+            lastBackupEpochDay = epochDay,
+            backupReminderSnoozeUntilEpochDay = 0L
+        )
+    }
+
+    fun recordFirstDataSeenIfUnset(epochDay: Long) {
+        if (_settingsState.value.firstDataSeenEpochDay > 0L) return
+        prefs.edit().putLong(KEY_FIRST_DATA_SEEN_EPOCH_DAY, epochDay).apply()
+        _settingsState.value = _settingsState.value.copy(firstDataSeenEpochDay = epochDay)
+    }
+
+    fun resetFirstDataSeen() {
+        prefs.edit()
+            .putLong(KEY_FIRST_DATA_SEEN_EPOCH_DAY, 0L)
+            .putLong(KEY_BACKUP_REMINDER_SNOOZE_UNTIL_EPOCH_DAY, 0L)
+            .apply()
+        _settingsState.value = _settingsState.value.copy(
+            firstDataSeenEpochDay = 0L,
+            backupReminderSnoozeUntilEpochDay = 0L
+        )
+    }
+
+    fun setBackupReminderSnoozeUntilEpochDay(untilEpochDay: Long) {
+        prefs.edit().putLong(KEY_BACKUP_REMINDER_SNOOZE_UNTIL_EPOCH_DAY, untilEpochDay).apply()
+        _settingsState.value = _settingsState.value.copy(backupReminderSnoozeUntilEpochDay = untilEpochDay)
+    }
+
     fun dismissUpdateBanner() {
         val currentVersion = BuildConfig.VERSION_CODE
         prefs.edit().putInt(KEY_LAST_SEEN_VERSION_CODE, currentVersion).apply()
@@ -135,6 +185,10 @@ class AppPreferences(context: Context) {
         private const val KEY_SHOW_BOOKING_CATEGORY_ICONS = "show_booking_category_icons"
         private const val KEY_APP_LOCK_ENABLED = "app_lock_enabled"
         private const val KEY_APP_LOCK_TIMEOUT_SECONDS = "app_lock_timeout_seconds"
+        private const val KEY_BACKUP_REMINDER_ENABLED = "backup_reminder_enabled"
+        private const val KEY_LAST_BACKUP_EPOCH_DAY = "last_backup_epoch_day"
+        private const val KEY_FIRST_DATA_SEEN_EPOCH_DAY = "first_data_seen_epoch_day"
+        private const val KEY_BACKUP_REMINDER_SNOOZE_UNTIL_EPOCH_DAY = "backup_reminder_snooze_until_epoch_day"
         val VALID_APP_LOCK_TIMEOUTS = listOf(0, 30, 60)
     }
 }
