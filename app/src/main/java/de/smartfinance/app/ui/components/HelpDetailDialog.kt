@@ -17,22 +17,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,19 +36,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import de.smartfinance.app.BuildConfig
 import de.smartfinance.app.core.HelpEntry
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.TransactionEntity
 import de.smartfinance.app.data.local.TransactionType
 import de.smartfinance.app.ui.theme.CategoryIconCatalog
-import androidx.compose.material3.FilterChip
-import de.smartfinance.app.domain.ContractExpiryAlert
-import de.smartfinance.app.domain.RadarAnomalyAlert
-import de.smartfinance.app.domain.SmartFinanceEngine
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -164,227 +149,6 @@ fun HelpDetailDialog(
             }
         }
     )
-}
-
-
-
-/**
- * Benachrichtigungs-Center BottomSheet (geöffnet über die Glocke oben rechts in der TopAppBar).
- * Zeigt als obersten Eintrag die Update-Info ("Update auf v1.0.X erfolgreich") sowie alle
- * Vertrags-Wecker (30-Tage-Vorwarnung) und Schleichende-Kosten-Radar-Warnungen.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NotificationsBottomSheet(
-    contractAlerts: List<ContractExpiryAlert>,
-    radarAlerts: List<RadarAnomalyAlert>,
-    showUpdateNotification: Boolean,
-    onOpenUpdateChangelog: () -> Unit,
-    onDismissUpdateNotification: () -> Unit,
-    onSelectCategory: (Long) -> Unit,
-    onOpenContractsTab: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Benachrichtigungen & Wächter-Hinweise",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Oberster Eintrag in der Glocke: Update-Info ("Update auf v1.0.X erfolgreich")
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF10B981).copy(alpha = 0.14f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onDismiss()
-                        onOpenUpdateChangelog()
-                    }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "Update auf v${BuildConfig.VERSION_NAME} (Build #${BuildConfig.BUILD_NUMBER}) erfolgreich",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Tippe hier für alle Neuerungen im Update-Changelog >",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    if (showUpdateNotification) {
-                        TextButton(onClick = onDismissUpdateNotification) {
-                            Text("OK", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
-            if (contractAlerts.isEmpty() && radarAlerts.isEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF10B981)
-                        )
-                        Text(
-                            text = "Alles im grünen Bereich. Aktuell liegen keine Vertrags- oder Budgetwarnungen vor.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-
-            if (contractAlerts.isNotEmpty()) {
-                Text(
-                    text = "Vertrags-Wecker (30-Tage-Vorwarnung)",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column {
-                        contractAlerts.forEachIndexed { idx, alert ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onDismiss()
-                                        onOpenContractsTab()
-                                    }
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.NotificationsActive,
-                                    contentDescription = null,
-                                    tint = Color(0xFFF59E0B),
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "${alert.categoryName} läuft in ${alert.daysRemaining} Tagen aus",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Stichtag: ${alert.expiryDateFormatted} • Tippe zum Prüfen im Tab 'Verträge'",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            if (idx < contractAlerts.lastIndex) {
-                                HorizontalDivider(thickness = 0.5.dp)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (radarAlerts.isNotEmpty()) {
-                Text(
-                    text = "Schleichende-Kosten-Radar & Budget-Warner",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column {
-                        radarAlerts.forEachIndexed { idx, alert ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onDismiss()
-                                        onSelectCategory(alert.categoryId)
-                                    }
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.WarningAmber,
-                                    contentDescription = null,
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = alert.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = alert.detail,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            if (idx < radarAlerts.lastIndex) {
-                                HorizontalDivider(thickness = 0.5.dp)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
 }
 
 /**

@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Archive
@@ -46,8 +45,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -97,7 +94,6 @@ import de.smartfinance.app.ui.components.CalculatorNumpadSheet
 import de.smartfinance.app.ui.components.GeminiApiKeyVaultSheet
 import de.smartfinance.app.ui.components.GlobalSearchSheet
 import de.smartfinance.app.ui.components.HelpDetailDialog
-import de.smartfinance.app.ui.components.NotificationsBottomSheet
 import de.smartfinance.app.ui.components.ReceiptScannerSheet
 import de.smartfinance.app.ui.components.TransactionActionBottomSheet
 import de.smartfinance.app.ui.screens.ArchiveScreen
@@ -188,7 +184,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
     val showCalculatorSheet by viewModel.showCalculatorSheet.collectAsStateWithLifecycle()
     val showAiChatSheet by viewModel.showAiChatSheet.collectAsStateWithLifecycle()
     val showReceiptScannerSheet by viewModel.showReceiptScannerSheet.collectAsStateWithLifecycle()
-    val showNotificationsSheet by viewModel.showNotificationsSheet.collectAsStateWithLifecycle()
     val showApiKeyVaultSheet by viewModel.showApiKeyVaultSheet.collectAsStateWithLifecycle()
     val showGlobalSearchSheet by viewModel.showGlobalSearchSheet.collectAsStateWithLifecycle()
     val globalSearchState by viewModel.globalSearchState.collectAsStateWithLifecycle()
@@ -210,9 +205,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
         }
     }
 
-    val totalAlertsCount = currentSnapshot.contractAlerts.size +
-        currentSnapshot.radarAlerts.size +
-        (if (settingsState.showUpdateBanner) 1 else 0)
     val isCurrentPeriod = selectedMonthPage == viewModel.baseMonthIndex
 
     ModalNavigationDrawer(
@@ -391,33 +383,12 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
                         }
                     },
                     actions = {
-                        // 1. Beleg-Scanner-Kamera (Icons.Outlined.CameraAlt)
+                        // Beleg-Scanner-Kamera (Icons.Outlined.CameraAlt)
                         IconButton(onClick = viewModel::openReceiptScannerSheet) {
                             Icon(
                                 imageVector = Icons.Outlined.CameraAlt,
                                 contentDescription = "Beleg-Scanner öffnen"
                             )
-                        }
-
-                        // 2. Benachrichtigungs-Glocke (Icons.Outlined.Notifications mit Badge-Zähler)
-                        IconButton(onClick = viewModel::openNotificationsSheet) {
-                            BadgedBox(
-                                badge = {
-                                    if (totalAlertsCount > 0) {
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.error,
-                                            contentColor = MaterialTheme.colorScheme.onError
-                                        ) {
-                                            Text(text = totalAlertsCount.toString())
-                                        }
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Notifications,
-                                    contentDescription = "Benachrichtigungen, Update-Info & Vertrags-Wecker"
-                                )
-                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -779,26 +750,6 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             onFetchAvailableModels = viewModel::fetchAvailableGeminiModels,
             onTestConnection = viewModel::testGeminiConnection,
             onDismiss = viewModel::closeApiKeyVaultSheet
-        )
-    }
-
-    if (showNotificationsSheet) {
-        NotificationsBottomSheet(
-            contractAlerts = currentSnapshot.contractAlerts,
-            radarAlerts = currentSnapshot.radarAlerts,
-            showUpdateNotification = settingsState.showUpdateBanner,
-            onOpenUpdateChangelog = viewModel::openUpdateChangelogFromBanner,
-            onDismissUpdateNotification = viewModel::dismissUpdateBanner,
-            onSelectCategory = { catId ->
-                viewModel.closeNotificationsSheet()
-                viewModel.selectCategoryFilter(catId)
-                viewModel.selectBottomTab(BottomNavTab.OVERVIEW)
-            },
-            onOpenContractsTab = {
-                viewModel.closeNotificationsSheet()
-                viewModel.selectBottomTab(BottomNavTab.OVERVIEW)
-            },
-            onDismiss = viewModel::closeNotificationsSheet
         )
     }
 

@@ -148,9 +148,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
     private val _showReceiptScannerSheet = MutableStateFlow(false)
     val showReceiptScannerSheet: StateFlow<Boolean> = _showReceiptScannerSheet.asStateFlow()
 
-    private val _showNotificationsSheet = MutableStateFlow(false)
-    val showNotificationsSheet: StateFlow<Boolean> = _showNotificationsSheet.asStateFlow()
-
     private val _showApiKeyVaultSheet = MutableStateFlow(false)
     val showApiKeyVaultSheet: StateFlow<Boolean> = _showApiKeyVaultSheet.asStateFlow()
 
@@ -559,14 +556,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
         _selectedCategoryId.value = categoryId
     }
 
-    fun openNotificationsSheet() {
-        _showNotificationsSheet.value = true
-    }
-
-    fun closeNotificationsSheet() {
-        _showNotificationsSheet.value = false
-    }
-
     fun openTransactionActionSheet(transaction: TransactionEntity) {
         _selectedTransactionForAction.value = transaction
     }
@@ -609,15 +598,6 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     fun clearSnackbar() {
         _snackbarMessage.value = null
-    }
-
-    fun dismissUpdateBanner() {
-        preferences.dismissUpdateBanner()
-    }
-
-    fun openUpdateChangelogFromBanner() {
-        preferences.dismissUpdateBanner()
-        navigateTo(DrawerDestination.HELP_CHANGELOG, highlightChangelog = true)
     }
 
     private var lastBookingTime = 0L
