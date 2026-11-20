@@ -1481,21 +1481,49 @@ object SmartFinanceEngine {
         return String.format(Locale.GERMAN, "%,.0f €", amount)
     }
 
-    fun parseEuroAmount(raw: String): Double? {
-        if (raw.isBlank()) return null
-        val cleaned = raw.replace("€", "")
+    /**
+     * Zentrale, robuste Parsing-Funktion für deutsche und internationale Betragsangaben:
+     * unterstützt u. a. "136,91", "136.91", "1.234,56", "1.250", "550", "45.33 €" sowie Leerzeichen.
+     */
+    fun parseGermanAmount(input: String): Double? {
+        if (input.isBlank()) return null
+        val cleaned = input
+            .replace("€", "")
             .replace("EUR", "", ignoreCase = true)
+            .replace("\u00A0", "")
             .replace(" ", "")
             .trim()
-        val normalized = if (cleaned.contains(".") && cleaned.contains(",")) {
-            if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
-                cleaned.replace(".", "").replace(",", ".")
-            } else {
-                cleaned.replace(",", "")
+        if (cleaned.isEmpty()) return null
+
+        val normalized = when {
+            cleaned.contains(".") && cleaned.contains(",") -> {
+                if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
+                    // Deutsches Format: 1.234,56 -> 1234.56
+                    cleaned.replace(".", "").replace(",", ".")
+                } else {
+                    // Englisches Format: 1,234.56 -> 1234.56
+                    cleaned.replace(",", "")
+                }
             }
-        } else {
-            cleaned.replace(",", ".")
+            cleaned.contains(",") -> {
+                cleaned.replace(",", ".")
+            }
+            cleaned.contains(".") -> {
+                val parts = cleaned.split(".")
+                val head = parts.first().removePrefix("-").removePrefix("+")
+                val isGermanThousandsOnly = parts.size >= 2 &&
+                    head.length in 1..3 && head.all(Char::isDigit) &&
+                    parts.drop(1).all { it.length == 3 && it.all(Char::isDigit) }
+                if (isGermanThousandsOnly) {
+                    cleaned.replace(".", "")
+                } else {
+                    cleaned
+                }
+            }
+            else -> cleaned
         }
         return normalized.toDoubleOrNull()
     }
+
+    fun parseEuroAmount(raw: String): Double? = parseGermanAmount(raw)
 }

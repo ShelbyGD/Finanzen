@@ -157,7 +157,7 @@ fun CockpitScreen(
         state = pagerState,
         modifier = Modifier.fillMaxSize()
     ) { page ->
-        val snapshot = remember(page, categories, allTransactions, settingsState) {
+        val snapshot = remember(page, snapshotForPage, categories, allTransactions, settingsState) {
             snapshotForPage(page)
         }
 
@@ -431,7 +431,7 @@ private fun IncomeEditDialog(
                 onClick = {
                     if (isSubmitting) return@Button
                     isSubmitting = true
-                    val amt = amountText.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                    val amt = SmartFinanceEngine.parseGermanAmount(amountText)?.coerceAtLeast(0.0) ?: 0.0
                     val day = payDayText.toIntOrNull()?.coerceIn(1, 31)
                     onSave(amt, if (amt > 0.0) (day ?: 1) else null)
                 }

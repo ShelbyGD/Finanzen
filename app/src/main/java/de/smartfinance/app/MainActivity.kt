@@ -684,12 +684,16 @@ fun SmartFinanceRootApp(viewModel: SmartFinanceViewModel) {
             onSaveCategory = viewModel::saveCategoryTab,
             onDeleteCategory = viewModel::deleteCategoryTab,
             onConfirmBooking = { title, amount, txType, category, dueDay, isFixed, interval, smooth12 ->
+                val targetYm = viewModel.yearMonthForPage(selectedMonthPage)
+                val safeDay = dueDay.coerceIn(1, targetYm.lengthOfMonth())
+                val bookingDate = targetYm.atDay(safeDay)
                 viewModel.addBooking(
                     title = title,
                     amount = amount,
                     transactionType = txType,
                     category = category,
-                    dueDayOfMonth = dueDay,
+                    date = bookingDate,
+                    dueDayOfMonth = safeDay,
                     isFixedRecurring = isFixed,
                     billingInterval = interval,
                     smoothOver12Months = smooth12

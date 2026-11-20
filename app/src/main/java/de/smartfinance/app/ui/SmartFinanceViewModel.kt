@@ -671,7 +671,7 @@ class SmartFinanceViewModel(application: Application) : AndroidViewModel(applica
 
     fun updateExistingTransaction(updated: TransactionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
-            dao.updateTransaction(updated)
+            repository.updateTransaction(updated)
             withContext(Dispatchers.Main) {
                 _selectedTransactionForAction.value = null
                 _snackbarMessage.value = "Buchung '${updated.title}' aktualisiert."

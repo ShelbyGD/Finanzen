@@ -844,14 +844,16 @@ private fun applyNumpadKey(current: String, key: String): String {
 
 private fun evaluateCalculatorExpression(expr: String): Double {
     if (expr.isBlank()) return 0.0
-    val normalized = expr.replace(",", ".").replace(" ", "")
+    val cleaned = expr.replace("€", "").replace(" ", "").trim()
+    if (cleaned.isEmpty()) return 0.0
+
     var total = 0.0
     var currentSign = 1.0
     val sb = StringBuilder()
 
-    for (ch in normalized) {
+    for (ch in cleaned) {
         if (ch == '+' || ch == '-') {
-            val part = sb.toString().toDoubleOrNull() ?: 0.0
+            val part = SmartFinanceEngine.parseGermanAmount(sb.toString()) ?: 0.0
             total += currentSign * part
             sb.clear()
             currentSign = if (ch == '+') 1.0 else -1.0
@@ -860,7 +862,7 @@ private fun evaluateCalculatorExpression(expr: String): Double {
         }
     }
     if (sb.isNotEmpty()) {
-        val part = sb.toString().toDoubleOrNull() ?: 0.0
+        val part = SmartFinanceEngine.parseGermanAmount(sb.toString()) ?: 0.0
         total += currentSign * part
     }
     return total.coerceAtLeast(0.0)

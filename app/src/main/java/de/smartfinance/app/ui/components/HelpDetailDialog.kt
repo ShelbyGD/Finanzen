@@ -17,13 +17,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,6 +46,7 @@ import de.smartfinance.app.core.HelpEntry
 import de.smartfinance.app.data.local.CategoryTabEntity
 import de.smartfinance.app.data.local.TransactionEntity
 import de.smartfinance.app.data.local.TransactionType
+import de.smartfinance.app.domain.SmartFinanceEngine
 import de.smartfinance.app.ui.theme.CategoryIconCatalog
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -165,23 +170,30 @@ fun TransactionActionBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var titleText by remember(transaction) { mutableStateOf(transaction.title) }
-    var amountText by remember(transaction) {
-        mutableStateOf(String.format(Locale.GERMAN, "%.2f", transaction.amount))
+    var titleText by remember(transaction.id, transaction.title) { mutableStateOf(transaction.title) }
+    var amountText by remember(transaction.id, transaction.amount) {
+        mutableStateOf(String.format(Locale.GERMAN, "%.2f", kotlin.math.abs(transaction.amount)))
     }
-    var isIncomeSel by remember(transaction) { mutableStateOf(transaction.isIncome) }
-    var catSel by remember(transaction) { mutableStateOf(categories.firstOrNull { it.id == transaction.categoryId }) }
-    var dayText by remember(transaction) {
+    var isIncomeSel by remember(transaction.id, transaction.transactionType) {
+        mutableStateOf(transaction.isIncome)
+    }
+    var catSel by remember(transaction.id, transaction.categoryId, categories) {
+        mutableStateOf(categories.firstOrNull { it.id == transaction.categoryId })
+    }
+    var dayText by remember(transaction.id, transaction.dateEpochDay) {
         mutableStateOf(LocalDate.ofEpochDay(transaction.dateEpochDay).dayOfMonth.toString())
     }
-    var selectedIconKey by remember(transaction, catSel) {
+    var selectedIconKey by remember(transaction.id, catSel) {
         mutableStateOf(
             transaction.customIconKey ?: catSel?.iconKey ?: if (transaction.isIncome) "income" else "cart"
         )
     }
-    val dateFormatted = remember(transaction) {
+    val dateFormatted = remember(transaction.id, transaction.dateEpochDay) {
         LocalDate.ofEpochDay(transaction.dateEpochDay)
             .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+    }
+    val parsedAmountPreview = remember(amountText) {
+        SmartFinanceEngine.parseGermanAmount(amountText)?.let { kotlin.math.abs(it) }
     }
 
     ModalBottomSheet(
@@ -322,8 +334,9 @@ fun TransactionActionBottomSheet(
             Spacer(modifier = Modifier.height(4.dp))
 
             Button(
+                enabled = (parsedAmountPreview ?: 0.0) > 0.0,
                 onClick = {
-                    val parsedAmount = amountText.replace(",", ".").toDoubleOrNull() ?: transaction.amount
+                    val parsedAmount = parsedAmountPreview ?: return@Button
                     val oldDate = LocalDate.ofEpochDay(transaction.dateEpochDay)
                     val day = (dayText.toIntOrNull() ?: oldDate.dayOfMonth)
                         .coerceIn(1, oldDate.lengthOfMonth())
@@ -331,13 +344,15 @@ fun TransactionActionBottomSheet(
                         transaction
                             .withCustomIcon(selectedIconKey)
                             .copy(
-                                title = titleText.ifBlank { transaction.title },
+                                id = transaction.id,
+                                title = titleText.trim().ifBlank { transaction.title },
                                 amount = parsedAmount.coerceAtLeast(0.01),
                                 transactionType = if (isIncomeSel) TransactionType.INCOME else TransactionType.EXPENSE,
                                 categoryId = catSel?.id ?: transaction.categoryId,
                                 categoryName = catSel?.name ?: transaction.categoryName,
                                 dateEpochDay = oldDate.withDayOfMonth(day).toEpochDay(),
-                                dueDayOfMonth = day
+                                dueDayOfMonth = day,
+                                autoGeneratedKey = null
                             )
                     )
                     onDismiss()
@@ -345,6 +360,25 @@ fun TransactionActionBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Speichern")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    onDeleteTransaction(transaction)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Buchung dauerhaft löschen")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
